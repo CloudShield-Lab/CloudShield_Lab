@@ -6,8 +6,10 @@ on:
       - feat/pdf-guide
       - dev
     paths:
-      - 'guide/**/*.md'
-      - 'guide/images/**'
+      - 'guide/secure.md'
+      - 'guide/vul.md'
+      - 'guide/images/secure/**'
+      - 'guide/images/vul/**'
       - '.github/workflows/build-guide-pdf.yml'
   workflow_dispatch:
 
@@ -34,10 +36,15 @@ jobs:
         working-directory: guide
         run: |
           mkdir -p pdf
-          shopt -s nullglob
+          rm -f pdf/*.pdf
 
-          for md_file in *.md; do
-            base_name="${md_file%.md}"
+          for guide_name in secure vul; do
+            md_file="${guide_name}.md"
+
+            if [ ! -f "$md_file" ]; then
+              echo "Missing guide source: $md_file"
+              exit 1
+            fi
 
             pandoc "$md_file" \
               --from markdown \
@@ -45,21 +52,23 @@ jobs:
               --pdf-engine=xelatex \
               -V geometry:margin=1in \
               -V CJKmainfont="Noto Sans CJK KR" \
-              -o "pdf/${base_name}.pdf"
+              -o "pdf/${guide_name}.pdf"
           done
 
       - name: Upload generated PDFs
         uses: actions/upload-artifact@v4
         with:
           name: guide-pdf
-          path: guide/pdf/*.pdf
+          path: |
+            guide/pdf/secure.pdf
+            guide/pdf/vul.pdf
           if-no-files-found: error
 
-      - name: Commit generated PDF
+      - name: Commit generated PDFs
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
-          git add guide/pdf/*.pdf
+          git add -A guide/pdf
 
           if git diff --cached --quiet; then
             echo "No PDF changes to commit."
