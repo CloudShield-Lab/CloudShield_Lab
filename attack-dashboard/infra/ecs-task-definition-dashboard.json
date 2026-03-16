@@ -3,7 +3,7 @@
   "networkMode": "awsvpc",
   "requiresCompatibilities": ["FARGATE"],
   "cpu": "512",
-  "memory": "1024",
+  "memory": "2048",
   "executionRoleArn": "arn:aws:iam::833453046706:role/cloudshield-dashboard-execution-role",
   "taskRoleArn": "arn:aws:iam::833453046706:role/cloudshield-dashboard-task-role",
   "containerDefinitions": [
@@ -57,9 +57,9 @@
       "healthCheck": {
         "command": ["CMD-SHELL", "wget -qO- http://localhost:3000/api/config || exit 1"],
         "interval": 30,
-        "timeout": 5,
-        "retries": 3,
-        "startPeriod": 60
+        "timeout": 10,
+        "retries": 5,
+        "startPeriod": 120
       }
     }
   ]

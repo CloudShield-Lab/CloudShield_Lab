@@ -92,3 +92,4 @@ jobs:
           service: ${{ secrets.DASHBOARD_ECS_SERVICE }}
           cluster: ${{ secrets.DASHBOARD_ECS_CLUSTER }}
           wait-for-service-stability: true
+          health-check-grace-period-seconds: 120
