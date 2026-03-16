@@ -1,7 +1,10 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
+  output: 'export',
+  trailingSlash: true,
   // All API calls go through the backend — no server-side API routes needed in MVP
+  // Note: headers() is ignored in static export — apply via CloudFront Response Headers Policy
   async headers() {
     return [
       {

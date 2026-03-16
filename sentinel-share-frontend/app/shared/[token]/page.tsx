@@ -1,13 +1,14 @@
 'use client';
 
 import { useState } from 'react';
+import { useParams } from 'next/navigation';
 import { api } from '@/lib/api';
 
-interface PageProps {
-  params: { token: string };
-}
+// Static export: token is unknown at build time — resolved client-side via useParams()
+export function generateStaticParams() { return []; }
 
-export default function SharedFilePage({ params }: PageProps) {
+export default function SharedFilePage() {
+  const params = useParams<{ token: string }>();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [downloaded, setDownloaded] = useState(false);
