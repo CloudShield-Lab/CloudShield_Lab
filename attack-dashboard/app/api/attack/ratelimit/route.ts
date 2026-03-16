@@ -41,7 +41,7 @@ async function floodRequest(baseUrl: string, attempt: number) {
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
-  const count = Math.min(parseInt(url.searchParams.get('count') || '100'), 120);
+  const count = Math.min(parseInt(url.searchParams.get('count') || '200'), 250);
 
   const encoder = new TextEncoder();
   const { readable, writable } = new TransformStream();
@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
         await send({ type: 'result', env: 'vulnerable', ...vulnResult });
         await send({ type: 'result', env: 'aws', ...awsResult });
 
-        await sleep(500);
+        await sleep(200);
       }
 
       await send({ type: 'complete' });

@@ -44,10 +44,10 @@ export default function DashboardPage() {
       <AttackCard
         index={3}
         title="API 플러드 (Rate Limit 우회 시도)"
-        description="짧은 시간에 100회 API 요청을 보내 서비스 가용성을 저하시키려 합니다."
+        description="짧은 시간에 200회 API 요청을 빠르게 보내 서비스 가용성을 저하시키려 합니다."
         endpoint="ratelimit"
-        totalRequests={100}
-        attackParams="count=100"
+        totalRequests={200}
+        attackParams="count=200"
         vulnNote="앱 코드에 rate limit이 없어 초당 수백 개의 요청이 서버에 그대로 도달합니다. 서버 자원이 소모되어 정상 사용자 서비스도 영향을 받을 수 있습니다."
         awsNote="동일한 앱 코드가 실행 중이지만, AWS WAF가 IP별 요청 수를 실시간 추적해 임계값 초과 시 차단합니다. AWS Shield로 DDoS도 자동 방어됩니다."
       />
