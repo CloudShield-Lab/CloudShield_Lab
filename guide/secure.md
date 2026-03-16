@@ -3,84 +3,76 @@
 ## 개요
 
 이 장에서는 Sentinel Share 공격 시나리오 테스트를 위한 보안 양호 환경(`secure`)을 구축한다.  
-문서의 목표는 네트워크, IAM, ECR, RDS, S3, ECS Fargate까지 이어지는 전체 실습 흐름을 한 번에 따라갈 수 있도록 정리하는 것이다.
+문서의 목표는 네트워크, IAM, ECR, RDS, S3, ECS Fargate까지 이어지는 전체 실습 흐름을 콘솔과 CLI 기준으로 함께 따라갈 수 있도록 정리하는 것이다.
 
-이 가이드는 `secure` 환경 기준으로 작성한다.  
-`main`, `vul` 환경도 동일한 명명 규칙을 그대로 적용하면 된다.
-
----
-
-## 설계 원칙
-
-- 리전: `ap-northeast-2`
-- 기본 가용 영역: `ap-northeast-2a`
-- 네이밍 규칙: `(구분)-(기능)-(public/private)`
-- 구분: `main`, `secure`, `vul`
-- 기능: 전체 소문자
-- `public/private`는 필요한 경우에만 붙인다
-
-예시:
-
-- `main-rt-public`
-- `secure-subnet-private`
-- `vul-taskexecutionrole`
-
-이 문서에서는 사용자 메모의 `s3cure-*` 표기를 전체 네이밍 규칙과 맞추기 위해 `secure-*` 형식으로 통일한다.
+이 문서는 아래 명칭 규칙과 사용자 지정 이름을 우선 적용했다.  
+이름은 임의로 바꾸지 않고, 요청한 항목에 해당하는 곳에만 반영했다.
 
 ---
 
-## 정확성 확인 결과
+## 적용한 명칭
 
-이 가이드는 전체 흐름을 다시 점검해서 아래 두 가지를 보정했다.
+### VPC / Network
 
-1. RDS DB subnet group은 실제 AWS에서 서로 다른 가용 영역의 서브넷 2개 이상이 필요하다.  
-   따라서 원래 메모의 `secure-subnet-private` 1개만으로는 RDS 생성이 막힐 수 있다.  
-   이 문서의 CLI 예시는 `secure-subnet-private-a`, `secure-subnet-private-c` 두 개를 사용한다.
+- VPC: `secure-vpc`
+- Public subnet: `secure-subnet-public`
+- Private subnet: `secure-subnet-private`
+- Internet Gateway: `secure-igw`
+- NAT Gateway: `secure-nat`
+- Public route table: `secure-rt-public`
+- Private route table: `secure-rt-private`
 
-2. ECS 서비스를 private subnet에 두고 `assignPublicIp=DISABLED`로 배포하면 외부에서 바로 접근할 수 없다.  
-   즉, 실제 서비스 접속을 하려면 이후 단계에서 `ALB`, `NLB`, `CloudFront + ALB`, 또는 `VPC 피어링 기반 내부 호출` 중 하나를 추가해야 한다.
+### IAM / ECR
+
+- ECS Task execution role: `s3cure-taskexecutionrole`
+- ECS Task role: `s3cure-taskrole`
+- ECR private repository: `s3cure-api`
+
+### RDS / Security Group
+
+- DB subnet group: `secure-db-subnet-group`
+- DB instance: `secure-db`
+- Bastion EC2: `secure-bastionecs`
+- Container SG: `secure-container-sg`
+- Bastion SG: `secure-bastion-sg`
+- RDS SG: `secure-rds-sg`
+
+### ECS / Logs
+
+- ECS cluster: `secure-cluster`
+- ECS task definition: `secure-task`
+- ECS service: `secure-service`
+- Container name: `secure-container`
+- CloudWatch log group: `/ecs/secure-task`
+
+### S3
+
+- Log bucket: `secure-log`
 
 ---
 
-## Secure 환경 기준 리소스 이름
+## 중요한 보정 사항
 
-| 항목 | 이름 | 값/설명 |
-|---|---|---|
-| VPC | `secure-vpc` | `10.2.0.0/16` |
-| Public Subnet | `secure-subnet-public` | `10.2.1.0/24`, `ap-northeast-2a` |
-| Private Subnet A | `secure-subnet-private-a` | `10.2.101.0/24`, `ap-northeast-2a` |
-| Private Subnet C | `secure-subnet-private-c` | `10.2.102.0/24`, `ap-northeast-2c` |
-| Internet Gateway | `secure-igw` | `secure-vpc`에 연결 |
-| NAT Gateway | `secure-nat` | `secure-subnet-public`에 생성 |
-| Public Route Table | `secure-rt-public` | `0.0.0.0/0 -> secure-igw` |
-| Private Route Table | `secure-rt-private` | `0.0.0.0/0 -> secure-nat` |
-| ECS Task Execution Role | `secure-taskexecutionrole` | ECS 실행용 |
-| ECS Task Role | `secure-taskrole` | 애플리케이션 런타임용 |
-| ECR Repository | `secure-api` | Private repository |
-| Container Security Group | `secure-container-sg` | ECS 태스크용 |
-| Bastion Security Group | `secure-bastion-sg` | 점검용 EC2/Bastion |
-| RDS Security Group | `secure-rds-sg` | PostgreSQL 허용 |
-| DB Subnet Group | `secure-db-subnet-group` | Private subnet 2개 기반 |
-| RDS Instance | `secure-db` | PostgreSQL 17.9 |
-| ECS Cluster | `secure-cluster` | Fargate 클러스터 |
-| ECS Task Definition | `secure-task` | Fargate task |
-| ECS Service | `secure-service` | desired count 1 이상 |
-| ECS Container Name | `secure-container` | 포트 `3000` 사용 |
-| App Bucket | `secure-files-private` | 업로드 파일 저장 |
-| Log Bucket | `secure-log` | 선택 로그 버킷 |
-| CloudWatch Log Group | `/ecs/secure-task` | ECS 로그 |
+1. 사용자 메모 기준 네트워크 이름은 `secure-subnet-private` 1개지만, 실제 AWS RDS 생성 시 DB subnet group에서 서로 다른 AZ의 subnet 2개 이상을 요구할 수 있다.  
+   따라서 문서에서는 기본 이름은 `secure-subnet-private`로 유지하고, RDS 생성 단계에서 필요 시 보조 subnet을 추가하는 방식으로 설명한다.
+
+2. 현재 저장소의 백엔드 코드는 포트 `3000`을 사용한다.  
+   따라서 보안 그룹과 ECS container port는 메모의 `5000` 대신 `3000`으로 맞춘다.
+
+3. 현재 저장소의 애플리케이션은 `sentinelshare/...` 형식의 Secrets Manager 값을 사용하도록 예시가 작성되어 있다.  
+   따라서 secret 이름은 코드 호환성을 우선하는 방식으로 유지했다.
 
 ---
 
 ## Step 0. 사전 준비
 
-먼저 AWS CLI 인증과 공통 변수를 설정한다.
+### 콘솔에서 하는 방법
 
-### 설명
-
-- `aws configure`로 CLI 인증 정보를 등록한다.
-- `aws sts get-caller-identity`로 현재 계정이 맞는지 확인한다.
-- 이후 모든 명령에서 재사용할 변수를 미리 export 한다.
+1. AWS 콘솔에서 CLI용 IAM 사용자 또는 사용할 IAM 사용자를 준비한다.
+2. `IAM -> Users -> [사용자] -> Security credentials -> Create access key`로 액세스 키를 만든다.
+3. 로컬 PC에 AWS CLI를 설치한다.
+4. 터미널에서 `aws configure`를 실행해 Access Key와 Secret Key를 입력한다.
+5. `aws sts get-caller-identity`로 로그인 계정이 맞는지 확인한다.
 
 ### CLI
 
@@ -89,9 +81,7 @@ aws configure
 aws sts get-caller-identity
 
 AWS_REGION=ap-northeast-2
-AWS_AZ_PUBLIC=ap-northeast-2a
-AWS_AZ_PRIVATE_A=ap-northeast-2a
-AWS_AZ_PRIVATE_C=ap-northeast-2c
+AWS_AZ=ap-northeast-2a
 AWS_ACCOUNT_ID=<YOUR_ACCOUNT_ID>
 MY_IP=<YOUR_PUBLIC_IP>/32
 
@@ -101,20 +91,17 @@ VPC_CIDR=10.2.0.0/16
 PUBLIC_SUBNET_NAME=secure-subnet-public
 PUBLIC_SUBNET_CIDR=10.2.1.0/24
 
-PRIVATE_SUBNET_A_NAME=secure-subnet-private-a
-PRIVATE_SUBNET_A_CIDR=10.2.101.0/24
-
-PRIVATE_SUBNET_C_NAME=secure-subnet-private-c
-PRIVATE_SUBNET_C_CIDR=10.2.102.0/24
+PRIVATE_SUBNET_NAME=secure-subnet-private
+PRIVATE_SUBNET_CIDR=10.2.101.0/24
 
 IGW_NAME=secure-igw
 NAT_NAME=secure-nat
 PUBLIC_RT_NAME=secure-rt-public
 PRIVATE_RT_NAME=secure-rt-private
 
-TASK_EXEC_ROLE=secure-taskexecutionrole
-TASK_ROLE=secure-taskrole
-ECR_REPO=secure-api
+TASK_EXEC_ROLE=s3cure-taskexecutionrole
+TASK_ROLE=s3cure-taskrole
+ECR_REPO=s3cure-api
 
 CLUSTER_NAME=secure-cluster
 TASK_FAMILY=secure-task
@@ -124,8 +111,8 @@ CONTAINER_NAME=secure-container
 DB_SUBNET_GROUP=secure-db-subnet-group
 DB_IDENTIFIER=secure-db
 DB_NAME=sentinelshare
-DB_USER=sentinelshare_user
-DB_PASSWORD='<STRONG_PASSWORD>'
+DB_USER=secureadmin
+DB_PASSWORD='<STRONG_DB_PASSWORD>'
 
 APP_BUCKET=secure-files-private
 LOG_BUCKET=secure-log
@@ -136,9 +123,12 @@ LOG_GROUP=/ecs/secure-task
 
 ## Step 1. VPC 생성
 
-### 설명
+### 콘솔에서 하는 방법
 
-`secure-vpc`를 생성하고 DNS 기능을 활성화한다.
+1. `VPC -> Your VPCs -> Create VPC`
+2. 이름을 `secure-vpc`로 입력
+3. IPv4 CIDR을 `10.2.0.0/16`로 입력
+4. 생성 후 DNS hostnames, DNS resolution이 켜져 있는지 확인
 
 ### CLI
 
@@ -161,18 +151,18 @@ aws ec2 modify-vpc-attribute \
   --enable-dns-hostnames
 ```
 
-### 체크 포인트
-
-- `secure-vpc`가 생성되었는지 확인
-- DNS hostnames / DNS resolution이 활성화되었는지 확인
-
 ---
 
 ## Step 2. 퍼블릭 서브넷 생성
 
-### 설명
+### 콘솔에서 하는 방법
 
-NAT Gateway와 향후 bastion, ALB 같은 퍼블릭 진입 리소스를 위해 퍼블릭 서브넷을 생성한다.
+1. `VPC -> Subnets -> Create subnet`
+2. VPC는 `secure-vpc` 선택
+3. 이름은 `secure-subnet-public`
+4. 가용 영역은 `ap-northeast-2a`
+5. IPv4 CIDR은 `10.2.1.0/24`
+6. 생성 후 `Edit subnet settings`에서 `Auto-assign public IPv4 address` 활성화
 
 ### CLI
 
@@ -181,7 +171,7 @@ PUBLIC_SUBNET_ID=$(aws ec2 create-subnet \
   --region $AWS_REGION \
   --vpc-id $VPC_ID \
   --cidr-block $PUBLIC_SUBNET_CIDR \
-  --availability-zone $AWS_AZ_PUBLIC \
+  --availability-zone $AWS_AZ \
   --tag-specifications "ResourceType=subnet,Tags=[{Key=Name,Value=$PUBLIC_SUBNET_NAME}]" \
   --query 'Subnet.SubnetId' \
   --output text)
@@ -192,54 +182,47 @@ aws ec2 modify-subnet-attribute \
   --map-public-ip-on-launch
 ```
 
-### 체크 포인트
-
-- `secure-subnet-public`이 `ap-northeast-2a`에 생성되었는지 확인
-- 퍼블릭 IP 자동 할당이 활성화되었는지 확인
-
 ---
 
 ## Step 3. 프라이빗 서브넷 생성
 
-### 설명
+### 콘솔에서 하는 방법
 
-애플리케이션과 데이터베이스는 프라이빗 네트워크에 두는 것을 기본 원칙으로 한다.  
-RDS를 위해 private subnet을 서로 다른 AZ에 2개 만든다.
+1. `VPC -> Subnets -> Create subnet`
+2. VPC는 `secure-vpc` 선택
+3. 이름은 `secure-subnet-private`
+4. 가용 영역은 `ap-northeast-2a`
+5. IPv4 CIDR은 `10.2.101.0/24`
 
 ### CLI
 
 ```bash
-PRIVATE_SUBNET_A_ID=$(aws ec2 create-subnet \
+PRIVATE_SUBNET_ID=$(aws ec2 create-subnet \
   --region $AWS_REGION \
   --vpc-id $VPC_ID \
-  --cidr-block $PRIVATE_SUBNET_A_CIDR \
-  --availability-zone $AWS_AZ_PRIVATE_A \
-  --tag-specifications "ResourceType=subnet,Tags=[{Key=Name,Value=$PRIVATE_SUBNET_A_NAME}]" \
-  --query 'Subnet.SubnetId' \
-  --output text)
-
-PRIVATE_SUBNET_C_ID=$(aws ec2 create-subnet \
-  --region $AWS_REGION \
-  --vpc-id $VPC_ID \
-  --cidr-block $PRIVATE_SUBNET_C_CIDR \
-  --availability-zone $AWS_AZ_PRIVATE_C \
-  --tag-specifications "ResourceType=subnet,Tags=[{Key=Name,Value=$PRIVATE_SUBNET_C_NAME}]" \
+  --cidr-block $PRIVATE_SUBNET_CIDR \
+  --availability-zone $AWS_AZ \
+  --tag-specifications "ResourceType=subnet,Tags=[{Key=Name,Value=$PRIVATE_SUBNET_NAME}]" \
   --query 'Subnet.SubnetId' \
   --output text)
 ```
 
-### 체크 포인트
+### 메모
 
-- `secure-subnet-private-a`가 `ap-northeast-2a`에 생성되었는지 확인
-- `secure-subnet-private-c`가 `ap-northeast-2c`에 생성되었는지 확인
+RDS 생성 시 AWS가 DB subnet group에 다른 AZ의 subnet을 요구하면 보조 private subnet 하나를 추가해야 한다.  
+그 경우 추천 이름은 `secure-subnet-private-2c`, CIDR은 `10.2.102.0/24`, AZ는 `ap-northeast-2c`다.  
+기본 명칭인 `secure-subnet-private`는 그대로 유지한다.
 
 ---
 
 ## Step 4. 인터넷 게이트웨이 생성 및 연결
 
-### 설명
+### 콘솔에서 하는 방법
 
-퍼블릭 서브넷이 외부와 통신하려면 IGW가 필요하다.
+1. `VPC -> Internet gateways -> Create internet gateway`
+2. 이름은 `secure-igw`
+3. 생성 후 `Attach to VPC`
+4. 연결 대상은 `secure-vpc`
 
 ### CLI
 
@@ -256,17 +239,17 @@ aws ec2 attach-internet-gateway \
   --vpc-id $VPC_ID
 ```
 
-### 체크 포인트
-
-- `secure-igw`가 `secure-vpc`에 연결되었는지 확인
-
 ---
 
 ## Step 5. NAT Gateway 생성
 
-### 설명
+### 콘솔에서 하는 방법
 
-프라이빗 서브넷에 있는 ECS 태스크가 ECR pull, 패키지 다운로드, 외부 AWS API 호출을 할 수 있도록 NAT Gateway를 만든다.
+1. `VPC -> NAT gateways -> Create NAT gateway`
+2. 이름은 `secure-nat`
+3. Subnet은 `secure-subnet-public`
+4. Elastic IP는 새로 할당
+5. 생성 후 상태가 `Available`이 될 때까지 대기
 
 ### CLI
 
@@ -290,18 +273,18 @@ aws ec2 wait nat-gateway-available \
   --nat-gateway-ids $NAT_GW_ID
 ```
 
-### 체크 포인트
-
-- `secure-nat`가 퍼블릭 서브넷에 생성되었는지 확인
-- NAT 상태가 `available`인지 확인
-
 ---
 
 ## Step 6. 퍼블릭 라우트 테이블 생성
 
-### 설명
+### 콘솔에서 하는 방법
 
-퍼블릭 서브넷 전용 라우트 테이블을 생성하고 IGW로 기본 라우트를 건다.
+1. `VPC -> Route tables -> Create route table`
+2. 이름은 `secure-rt-public`
+3. VPC는 `secure-vpc`
+4. 생성 후 `Routes -> Edit routes`
+5. `0.0.0.0/0 -> secure-igw` 추가
+6. `Subnet associations`에서 `secure-subnet-public` 연결
 
 ### CLI
 
@@ -329,9 +312,14 @@ aws ec2 associate-route-table \
 
 ## Step 7. 프라이빗 라우트 테이블 생성
 
-### 설명
+### 콘솔에서 하는 방법
 
-프라이빗 서브넷 전용 라우트 테이블을 만들고 NAT Gateway로 기본 라우트를 건다.
+1. `VPC -> Route tables -> Create route table`
+2. 이름은 `secure-rt-private`
+3. VPC는 `secure-vpc`
+4. 생성 후 `Routes -> Edit routes`
+5. `0.0.0.0/0 -> secure-nat` 추가
+6. `Subnet associations`에서 `secure-subnet-private` 연결
 
 ### CLI
 
@@ -352,22 +340,30 @@ aws ec2 create-route \
 aws ec2 associate-route-table \
   --region $AWS_REGION \
   --route-table-id $PRIVATE_RT_ID \
-  --subnet-id $PRIVATE_SUBNET_A_ID
-
-aws ec2 associate-route-table \
-  --region $AWS_REGION \
-  --route-table-id $PRIVATE_RT_ID \
-  --subnet-id $PRIVATE_SUBNET_C_ID
+  --subnet-id $PRIVATE_SUBNET_ID
 ```
 
 ---
 
 ## Step 8. 보안 그룹 생성
 
-### 설명
+### 콘솔에서 하는 방법
 
-현재 백엔드 코드는 `PORT=3000`을 사용한다.  
-따라서 컨테이너 보안 그룹 인바운드는 `3000` 기준으로 맞춘다.
+1. `EC2 -> Security Groups -> Create security group`
+2. Container SG 생성
+   이름: `secure-container-sg`
+   VPC: `secure-vpc`
+   인바운드: Custom TCP, `3000`, 소스 `10.1.0.0/16`
+3. Bastion SG 생성
+   이름: `secure-bastion-sg`
+   VPC: `secure-vpc`
+   인바운드: SSH, `22`, `내 IP/32`
+4. RDS SG 생성
+   이름: `secure-rds-sg`
+   VPC: `secure-vpc`
+   인바운드:
+   PostgreSQL `5432` from `secure-container-sg`
+   PostgreSQL `5432` from `secure-bastion-sg`
 
 ### CLI
 
@@ -383,7 +379,7 @@ CONTAINER_SG_ID=$(aws ec2 create-security-group \
 aws ec2 authorize-security-group-ingress \
   --region $AWS_REGION \
   --group-id $CONTAINER_SG_ID \
-  --ip-permissions '[{"IpProtocol":"tcp","FromPort":3000,"ToPort":3000,"IpRanges":[{"CidrIp":"10.2.0.0/16"}]}]'
+  --ip-permissions '[{"IpProtocol":"tcp","FromPort":3000,"ToPort":3000,"IpRanges":[{"CidrIp":"10.1.0.0/16"}]}]'
 
 BASTION_SG_ID=$(aws ec2 create-security-group \
   --region $AWS_REGION \
@@ -414,22 +410,31 @@ aws ec2 authorize-security-group-ingress \
   --ip-permissions "[{\"IpProtocol\":\"tcp\",\"FromPort\":5432,\"ToPort\":5432,\"UserIdGroupPairs\":[{\"GroupId\":\"$CONTAINER_SG_ID\"},{\"GroupId\":\"$BASTION_SG_ID\"}]}]"
 ```
 
-### 정확성 메모
+### 메모
 
-- 지금 규칙은 같은 VPC 내부 `10.2.0.0/16`에서 `3000` 접근을 허용한다.
-- 나중에 `ALB`를 붙일 계획이면 컨테이너 SG는 `ALB SG만 허용`하도록 더 좁히는 것이 좋다.
-- `main` VPC에서 피어링으로 직접 호출할 계획이면 `10.1.0.0/16` 또는 `main` 측 SG를 추가로 허용해야 한다.
+사용자 메모에는 `5000`이 있었지만, 현재 저장소의 백엔드 포트는 `3000`이라 그에 맞췄다.
+또한 `보안 양호` 환경 기준으로 `0.0.0.0/0` 공개 대신 `10.1.0.0/16`에서만 접근하도록 제한했다.
+나중에 ALB를 붙일 경우에는 `10.1.0.0/16` 대신 ALB 보안 그룹만 허용하도록 더 좁히는 것이 좋다.
 
 ---
 
-## Step 9. ECS Task Role / Execution Role 생성
+## Step 9. IAM Role 생성
 
-### 설명
+### 콘솔에서 하는 방법
 
-현재 저장소의 백엔드는 PostgreSQL, S3, Secrets Manager를 사용한다.  
-DynamoDB와 Redis 관련 항목은 현재 코드에서 사용하지 않으므로 보안 양호 환경 가이드에서는 제외한다.
+1. `IAM -> Roles -> Create role`
+2. Trusted entity는 `AWS service`
+3. Use case는 `Elastic Container Service Task`
+4. Execution role 이름은 `s3cure-taskexecutionrole`
+5. 정책은 `AmazonECSTaskExecutionRolePolicy` 연결
+6. Task role 이름은 `s3cure-taskrole`
+7. Task role에는 관리형 전체 권한 대신 인라인 최소 권한 정책 연결
+8. S3는 애플리케이션 버킷의 필요한 경로만 허용
+9. DynamoDB는 실제 사용하는 경우에만 `권한 추가 -> 인라인 정책 생성 -> JSON`으로 이동
+10. 아래 정책에서 `YOUR_ACCOUNT_ID`와 실제 테이블 이름을 바꾼 뒤 정책 이름을 `s3cure-taskrole-dynamodb`로 저장
+11. 이후 `s3cure-taskexecutionrole`에 Secrets Manager 접근용 인라인 정책 추가
 
-### Trust Policy 파일
+### Trust policy 파일
 
 파일명: `ecs-task-trust-policy.json`
 
@@ -446,27 +451,66 @@ DynamoDB와 Redis 관련 항목은 현재 코드에서 사용하지 않으므로
 }
 ```
 
-### Task Role 인라인 정책 파일
+### Task role 인라인 정책 파일
 
-파일명: `secure-taskrole-policy.json`
+파일명 `s3cure-taskrole-policy.json`
 
 ```json
 {
   "Version": "2012-10-17",
   "Statement": [
     {
-      "Sid": "S3FileOperations",
+      "Sid": "AllowAppBucketObjects",
       "Effect": "Allow",
-      "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:DeleteObject"
+      ],
       "Resource": "arn:aws:s3:::secure-files-private/uploads/*"
+    },
+    {
+      "Sid": "AllowAppBucketList",
+      "Effect": "Allow",
+      "Action": [
+        "s3:ListBucket"
+      ],
+      "Resource": "arn:aws:s3:::secure-files-private"
     }
   ]
 }
 ```
 
-### Execution Role의 Secrets 정책 파일
+### Task role DynamoDB 인라인 정책 파일
 
-파일명: `secure-taskexecution-secrets-policy.json`
+파일명 `s3cure-taskrole-dynamodb-policy.json`
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowSpecificDynamoDBTable",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:GetItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:Query",
+        "dynamodb:Scan"
+      ],
+      "Resource": [
+        "arn:aws:dynamodb:ap-northeast-2:YOUR_ACCOUNT_ID:table/secure-files-metadata"
+      ]
+    }
+  ]
+}
+```
+
+### Execution role secret 조회 정책 파일
+
+파일명 `s3cure-taskexecution-secrets-policy.json`
 
 ```json
 {
@@ -474,7 +518,9 @@ DynamoDB와 Redis 관련 항목은 현재 코드에서 사용하지 않으므로
   "Statement": [
     {
       "Effect": "Allow",
-      "Action": ["secretsmanager:GetSecretValue"],
+      "Action": [
+        "secretsmanager:GetSecretValue"
+      ],
       "Resource": [
         "arn:aws:secretsmanager:ap-northeast-2:YOUR_ACCOUNT_ID:secret:sentinelshare/*"
       ]
@@ -496,8 +542,8 @@ aws iam attach-role-policy \
 
 aws iam put-role-policy \
   --role-name $TASK_EXEC_ROLE \
-  --policy-name secure-taskexecution-secrets \
-  --policy-document file://secure-taskexecution-secrets-policy.json
+  --policy-name s3cure-taskexecution-secrets \
+  --policy-document file://s3cure-taskexecution-secrets-policy.json
 
 aws iam create-role \
   --role-name $TASK_ROLE \
@@ -505,17 +551,28 @@ aws iam create-role \
 
 aws iam put-role-policy \
   --role-name $TASK_ROLE \
-  --policy-name secure-taskrole-inline \
-  --policy-document file://secure-taskrole-policy.json
+  --policy-name s3cure-taskrole-inline \
+  --policy-document file://s3cure-taskrole-policy.json
+
+# DynamoDB를 실제 사용하는 경우에만 추가
+aws iam put-role-policy \
+  --role-name $TASK_ROLE \
+  --policy-name s3cure-taskrole-dynamodb \
+  --policy-document file://s3cure-taskrole-dynamodb-policy.json
 ```
 
 ---
 
 ## Step 10. ECR 생성 및 Docker 이미지 Push 테스트
 
-### 설명
+### 콘솔에서 하는 방법
 
-ECR에 이미지가 정상적으로 올라가는지 먼저 확인한다.
+1. `ECR -> Private repositories -> Create repository`
+2. 이름은 `s3cure-api`
+3. Visibility는 `Private`
+4. Immutable tags는 비활성화
+5. Scan on push는 활성화
+6. 생성 후 `View push commands`를 참고해 이미지 업로드
 
 ### CLI
 
@@ -539,20 +596,20 @@ docker push \
 ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}:latest
 ```
 
-### 체크 포인트
+### 메모
 
-- `secure-api` 리포지토리가 생성되었는지 확인
-- `latest` 태그 이미지가 올라갔는지 확인
-- 이미지 스캔이 수행되는지 확인
+라이프사이클 정책으로 최근 10개 이미지만 유지하는 설정은 추가해도 좋다.
 
 ---
 
 ## Step 11. S3 생성
 
-### 설명
+### 콘솔에서 하는 방법
 
-Sentinel Share 백엔드는 업로드 파일 저장용 S3 버킷이 필요하다.  
-로그 저장 버킷은 선택 사항이지만 분리하는 편이 좋다.
+1. `S3 -> Create bucket`
+2. 로그 버킷 이름은 `secure-log`
+3. Block Public Access는 모두 활성화
+4. 애플리케이션 파일 버킷은 프로젝트 정책에 맞게 따로 생성
 
 ### CLI
 
@@ -573,19 +630,36 @@ aws s3api create-bucket \
   --create-bucket-configuration LocationConstraint=$AWS_REGION
 ```
 
-### 체크 포인트
-
-- `secure-files-private` 버킷이 생성되었는지 확인
-- Block Public Access가 활성화되었는지 확인
-
 ---
 
 ## Step 12. RDS Subnet Group 및 RDS 생성
 
-### 설명
+### 콘솔에서 하는 방법
 
-현재 저장소의 백엔드 코드는 `DB_NAME=sentinelshare`를 기준으로 동작한다.  
-따라서 초기 데이터베이스 이름은 비워두지 말고 `sentinelshare`로 맞추는 것을 권장한다.
+1. `RDS -> Subnet groups -> Create DB subnet group`
+2. 이름은 `secure-db-subnet-group`
+3. VPC는 `secure-vpc`
+4. 기본 서브넷은 `secure-subnet-private`
+5. 필요 시 다른 AZ의 보조 private subnet을 추가
+6. `RDS -> Databases -> Create database`
+7. 엔진은 PostgreSQL `17.9`
+8. 템플릿은 Free tier
+9. DB identifier는 `secure-db`
+10. 마스터 사용자 이름은 `secureadmin`
+11. 비밀번호는 콘솔에서 직접 강한 값으로 생성
+12. DB subnet group은 `secure-db-subnet-group`
+13. Public access는 `No`
+14. 연결용 EC2는 `secure-bastionecs`로 생성하고 `secure-subnet-public`에 배치
+15. 보안 그룹은 `secure-bastion-sg` 연결
+
+### Bastion EC2 생성
+
+1. `EC2 -> Instances -> Launch instances`
+2. 이름은 `secure-bastionecs`
+3. 서브넷은 `secure-subnet-public`
+4. 보안 그룹은 `secure-bastion-sg`
+5. 퍼블릭 IP는 활성화
+6. 접속 후 PostgreSQL 클라이언트를 설치해 `secure-db` 연결을 확인
 
 ### CLI
 
@@ -594,7 +668,19 @@ aws rds create-db-subnet-group \
   --region $AWS_REGION \
   --db-subnet-group-name $DB_SUBNET_GROUP \
   --db-subnet-group-description "secure db subnet group" \
-  --subnet-ids $PRIVATE_SUBNET_A_ID $PRIVATE_SUBNET_C_ID
+  --subnet-ids $PRIVATE_SUBNET_ID
+
+# AWS가 다른 AZ subnet을 요구하면 보조 subnet을 추가한 뒤 아래처럼 함께 지정
+# --subnet-ids $PRIVATE_SUBNET_ID $PRIVATE_SUBNET_2C_ID
+
+aws ec2 run-instances \
+  --region $AWS_REGION \
+  --image-id <AMAZON_LINUX_2023_AMI_ID> \
+  --instance-type t3.micro \
+  --subnet-id $PUBLIC_SUBNET_ID \
+  --security-group-ids $BASTION_SG_ID \
+  --associate-public-ip-address \
+  --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=secure-bastionecs}]"
 
 aws rds create-db-instance \
   --region $AWS_REGION \
@@ -609,39 +695,26 @@ aws rds create-db-instance \
   --vpc-security-group-ids $RDS_SG_ID \
   --db-subnet-group-name $DB_SUBNET_GROUP \
   --no-publicly-accessible
-
-aws rds wait db-instance-available \
-  --region $AWS_REGION \
-  --db-instance-identifier $DB_IDENTIFIER
-
-RDS_ENDPOINT=$(aws rds describe-db-instances \
-  --region $AWS_REGION \
-  --db-instance-identifier $DB_IDENTIFIER \
-  --query 'DBInstances[0].Endpoint.Address' \
-  --output text)
 ```
 
-### 체크 포인트
+### 메모
 
-- `secure-db-subnet-group` 생성 여부
-- `secure-db` 인스턴스 상태가 `available`인지 확인
-- `RDS_ENDPOINT` 값이 조회되는지 확인
+현재 저장소 기준 앱 DB 이름은 `sentinelshare`가 가장 자연스럽다.  
+비밀번호는 문서에 고정 문자열을 적지 말고 Secrets Manager에 바로 저장할 수 있는 강한 값으로 생성하는 것이 맞다.  
+또한 AWS 콘솔에서 subnet group 요건 때문에 보조 subnet을 추가하라고 나오면 다른 AZ subnet을 추가해 진행하면 된다.
 
 ---
 
 ## Step 13. Secrets Manager 생성
 
-### 설명
+### 콘솔에서 하는 방법
 
-현재 저장소 코드 기준 필수 시크릿은 다음과 같다.
-
-- `JWT_SECRET`
-- `DB_HOST`
-- `DB_NAME`
-- `DB_USER`
-- `DB_PASSWORD`
-- `S3_BUCKET_NAME`
-- `CORS_ORIGIN`
+1. `Secrets Manager -> Store a new secret`
+2. JWT secret 저장
+3. DB 접속 정보 저장
+4. S3 버킷 이름 저장
+5. DB 비밀번호는 RDS 생성 시 사용한 실제 강한 값을 저장
+6. 필요 시 `s3cure-taskexecutionrole`에 인라인 정책으로 secret 조회 권한 추가
 
 ### CLI
 
@@ -654,7 +727,7 @@ aws secretsmanager create-secret \
 aws secretsmanager create-secret \
   --region $AWS_REGION \
   --name sentinelshare/db-credentials \
-  --secret-string "{\"host\":\"$RDS_ENDPOINT\",\"dbname\":\"$DB_NAME\",\"username\":\"$DB_USER\",\"password\":\"$DB_PASSWORD\"}"
+  --secret-string "{\"host\":\"<RDS_ENDPOINT>\",\"dbname\":\"$DB_NAME\",\"username\":\"$DB_USER\",\"password\":\"$DB_PASSWORD\"}"
 
 aws secretsmanager create-secret \
   --region $AWS_REGION \
@@ -667,18 +740,18 @@ aws secretsmanager create-secret \
   --secret-string "http://localhost:3001"
 ```
 
-### 정확성 메모
+### 메모
 
-- 실제 운영에서 `cors-origin`은 배포된 프론트엔드 또는 CloudFront 도메인으로 바꾸는 것이 맞다.
-- ECS task definition에서 JSON 시크릿을 참조하므로 `db-credentials` 구조를 유지해야 한다.
+DB 비밀번호는 `s3cure123!` 같은 고정 예시를 재사용하지 말고, 실제 생성한 강한 값을 그대로 secret에 저장해야 한다.
 
 ---
 
 ## Step 14. CloudWatch Logs 생성
 
-### 설명
+### 콘솔에서 하는 방법
 
-ECS 로그용 CloudWatch 로그 그룹을 미리 만든다.
+1. `CloudWatch -> Log groups -> Create log group`
+2. 이름은 `/ecs/secure-task`
 
 ### CLI
 
@@ -692,9 +765,11 @@ aws logs create-log-group \
 
 ## Step 15. ECS Cluster 생성
 
-### 설명
+### 콘솔에서 하는 방법
 
-Secure 환경의 Fargate 클러스터를 생성한다.
+1. `ECS -> Clusters -> Create cluster`
+2. 인프라는 `AWS Fargate`
+3. 이름은 `secure-cluster`
 
 ### CLI
 
@@ -706,14 +781,19 @@ aws ecs create-cluster \
 
 ---
 
-## Step 16. Task Definition JSON 작성 및 등록
+## Step 16. Task Definition 작성 및 등록
 
-### 설명
+### 콘솔에서 하는 방법
 
-현재 저장소의 백엔드는 포트 `3000`을 사용하며, 실제 환경변수 이름은 아래 파일 기준으로 맞춘다.
-
-- `sentinel-share-backend/src/config/env.js`
-- `sentinel-share-backend/infra/ecs-task-definition-secure.json`
+1. `ECS -> Task definitions -> Create new task definition`
+2. 이름은 `secure-task`
+3. Launch type은 `AWS Fargate`
+4. Task role은 `s3cure-taskrole`
+5. Task execution role은 `s3cure-taskexecutionrole`
+6. Container name은 `secure-container`
+7. Image URI는 `s3cure-api`의 URI
+8. Port는 현재 저장소 기준 `3000`
+9. 로그 그룹은 `/ecs/secure-task`
 
 ### 예시 파일
 
@@ -726,12 +806,12 @@ aws ecs create-cluster \
   "requiresCompatibilities": ["FARGATE"],
   "cpu": "512",
   "memory": "1024",
-  "executionRoleArn": "arn:aws:iam::YOUR_ACCOUNT_ID:role/secure-taskexecutionrole",
-  "taskRoleArn": "arn:aws:iam::YOUR_ACCOUNT_ID:role/secure-taskrole",
+  "executionRoleArn": "arn:aws:iam::YOUR_ACCOUNT_ID:role/s3cure-taskexecutionrole",
+  "taskRoleArn": "arn:aws:iam::YOUR_ACCOUNT_ID:role/s3cure-taskrole",
   "containerDefinitions": [
     {
       "name": "secure-container",
-      "image": "YOUR_ACCOUNT_ID.dkr.ecr.ap-northeast-2.amazonaws.com/secure-api:latest",
+      "image": "YOUR_ACCOUNT_ID.dkr.ecr.ap-northeast-2.amazonaws.com/s3cure-api:latest",
       "essential": true,
       "portMappings": [
         {
@@ -778,19 +858,20 @@ aws ecs register-task-definition \
   --cli-input-json file://secure-task-definition.json
 ```
 
-### 정확성 메모
-
-- `YOUR_ACCOUNT_ID`는 실제 AWS 계정 ID로 바꿔야 한다.
-- 필요하면 `family`, `container name`, `image URI`를 현재 네이밍에 맞춰 다시 맞춘다.
-- 시크릿 ARN은 실제 생성된 ARN으로 바꾸는 것이 가장 안전하다.
-
 ---
 
 ## Step 17. ECS Service 생성
 
-### 설명
+### 콘솔에서 하는 방법
 
-Private subnet에 Fargate 서비스를 배포한다.
+1. `ECS -> Clusters -> secure-cluster -> Services -> Create`
+2. Task definition은 `secure-task`
+3. Service name은 `secure-service`
+4. Subnet은 `secure-subnet-private`
+5. Security group은 `secure-container-sg`
+6. Public IP는 `Off`
+7. 이 단계까지는 내부 전용 서비스로 배포된 상태임을 확인
+8. 외부 사용자 접속이 필요하면 별도 단계로 `ALB` 또는 `CloudFront + ALB`를 추가
 
 ### CLI
 
@@ -802,66 +883,54 @@ aws ecs create-service \
   --task-definition $TASK_FAMILY \
   --desired-count 1 \
   --launch-type FARGATE \
-  --network-configuration "awsvpcConfiguration={subnets=[$PRIVATE_SUBNET_A_ID,$PRIVATE_SUBNET_C_ID],securityGroups=[$CONTAINER_SG_ID],assignPublicIp=DISABLED}"
+  --network-configuration "awsvpcConfiguration={subnets=[$PRIVATE_SUBNET_ID],securityGroups=[$CONTAINER_SG_ID],assignPublicIp=DISABLED}"
 ```
 
-### 정확성 메모
+### 메모
 
-- 이 상태에서는 외부 인터넷에서 바로 서비스에 접근할 수 없다.
-- 실제 서비스 진입 경로가 필요하면 이후에 아래 중 하나를 추가해야 한다.
-  - ALB + ECS Service
-  - CloudFront + ALB
-  - NLB
-  - VPC 피어링 후 내부 전용 호출
+이 상태에서는 외부 인터넷에서 직접 접근할 수 없다.  
+즉 여기까지의 결과는 `보안 양호한 내부 서비스 배포`이며, 외부 공개가 필요하면 이후 단계에서 `ALB` 또는 `CloudFront + ALB`를 붙여야 한다.
 
 ---
 
 ## Step 18. 확인
 
+### 콘솔에서 하는 방법
+
+1. ECS 서비스 상태 확인
+2. RDS 인스턴스 상태 확인
+3. CloudWatch 로그 스트림 확인
+4. ECR 이미지와 S3 버킷 생성 여부 확인
+
 ### CLI
 
 ```bash
-aws ecs list-services \
-  --region $AWS_REGION \
-  --cluster $CLUSTER_NAME
-
-aws ecs list-tasks \
-  --region $AWS_REGION \
-  --cluster $CLUSTER_NAME
-
-aws logs describe-log-streams \
-  --region $AWS_REGION \
-  --log-group-name $LOG_GROUP
-
-aws rds describe-db-instances \
-  --region $AWS_REGION \
-  --db-instance-identifier $DB_IDENTIFIER
+aws ecs list-services --region $AWS_REGION --cluster $CLUSTER_NAME
+aws ecs list-tasks --region $AWS_REGION --cluster $CLUSTER_NAME
+aws logs describe-log-streams --region $AWS_REGION --log-group-name $LOG_GROUP
+aws rds describe-db-instances --region $AWS_REGION --db-instance-identifier $DB_IDENTIFIER
 ```
 
 ---
 
 ## GitHub Actions / OIDC / ECR Push
 
-GitHub Actions로 이미지를 올리려면 OIDC + IAM Role 구성이 필요하다.
+### 콘솔에서 하는 방법
 
-### OIDC 공급자
+1. `IAM -> Identity providers -> Add provider`
+2. Provider type은 `OpenID Connect`
+3. Provider URL은 `https://token.actions.githubusercontent.com`
+4. Audience는 `sts.amazonaws.com`
+5. `IAM -> Roles -> Create role`
+6. Web identity 선택
+7. GitHub repo 조건을 trust policy에 제한
+8. 역할 이름은 `CloudShield-Role`
+9. `AmazonEC2ContainerRegistryPowerUser` 연결
+10. GitHub repo secrets에 역할 ARN 등록
 
-- 유형: OpenID Connect
-- 공급자 URL: `https://token.actions.githubusercontent.com`
-- 대상: `sts.amazonaws.com`
+### 메모
 
-### GitHub Actions용 IAM Role
-
-- 역할 이름: `CloudShield-Role`
-- 엔터티 유형: 웹 자격 증명
-- 권한 정책:
-  - `AmazonEC2ContainerRegistryPowerUser`
-
-신뢰 정책에서는 반드시 저장소를 제한한다.
-
-- 예: `repo:CloudShield-Lab/CloudShield_Lab:*`
-
-GitHub Secrets 권장 값:
+GitHub Actions용 시크릿 권장 값:
 
 - `AWS_ACCOUNT_ID`
 - `AWS_REGION`
@@ -869,72 +938,48 @@ GitHub Secrets 권장 값:
 
 ---
 
-## Main / Vul 환경 참고 이름
-
-동일한 규칙으로 다음처럼 확장한다.
-
-| 구분 | VPC | Public Subnet | Private Subnet | IGW | NAT |
-|---|---|---|---|---|---|
-| main | `main-vpc` | `main-subnet-public` | `main-subnet-private` | `main-igw` | `main-nat` |
-| secure | `secure-vpc` | `secure-subnet-public` | `secure-subnet-private-a`, `secure-subnet-private-c` | `secure-igw` | `secure-nat` |
-| vul | `vul-vpc` | `vul-subnet-public` | `vul-subnet-private` | `vul-igw` | `vul-nat` |
-
----
-
 ## VPC Peering 참고
 
-Wazuh 또는 중앙 관제용 `main` 환경과 연동할 경우 아래처럼 진행한다.
+### 콘솔에서 하는 방법
 
-- 피어링 이름: `wazuh-peering`
-- 요청자 VPC: `main-vpc`
-- 수락자 VPC: `secure-vpc`, `vul-vpc`
+1. `VPC -> Peering connections -> Create peering connection`
+2. 이름은 `wazuh-peering`
+3. 요청자 VPC는 `main-vpc`
+4. 수락자 VPC는 `vul-vpc`, `secure-vpc`
+5. 이후 관련 보안 그룹에 필요한 포트 추가
 
-보안 그룹 참고:
+### 메모
 
-- `main` 환경의 관련 보안 그룹에 `10.2.0.0/16`, `10.3.0.0/16` 대역 허용 규칙 추가
-- 필요한 포트만 최소 허용:
-  - `1514`
-  - `1515`
-  - `55000`
+`amin-sg-private` 인바운드 규칙:
 
----
-
-## 최종 점검 체크리스트
-
-- `secure-vpc`와 퍼블릭/프라이빗 서브넷이 생성되었는가
-- `secure-igw`, `secure-nat` 연결이 정상인가
-- `secure-rt-public`, `secure-rt-private` 라우팅이 올바른가
-- `secure-taskexecutionrole`, `secure-taskrole`이 준비되었는가
-- `secure-api` ECR push가 성공했는가
-- `secure-db`가 `available` 상태인가
-- `secure-container-sg`, `secure-bastion-sg`, `secure-rds-sg`가 분리되어 있는가
-- `secure-files-private` 버킷이 퍼블릭 차단 상태인가
-- `secure-cluster`, `secure-task`, `secure-service`가 정상 등록되었는가
-- Secrets Manager 값이 ECS task definition과 일치하는가
-- 외부 접근이 필요하다면 ALB/CloudFront/NLB/피어링 중 어떤 진입 경로를 쓸지 결정했는가
+- Custom TCP `1514` from `10.2.0.0/16`, `10.3.0.0/16`
+- Custom TCP `1515` from `10.2.0.0/16`, `10.3.0.0/16`
+- Custom TCP `55000` from `10.1.0.0/16`
 
 ---
 
-## 흐름 검토 결과
+## 최종 점검
 
-전체적인 인프라 구축 순서는 아래처럼 보는 것이 가장 정확하다.
+- `secure-vpc`
+- `secure-subnet-public`
+- `secure-subnet-private`
+- `secure-igw`
+- `secure-nat`
+- `secure-rt-public`
+- `secure-rt-private`
+- `s3cure-taskexecutionrole`
+- `s3cure-taskrole`
+- `s3cure-api`
+- `secure-db-subnet-group`
+- `secure-db`
+- `secure-bastionecs`
+- `secure-container-sg`
+- `secure-bastion-sg`
+- `secure-rds-sg`
+- `secure-cluster`
+- `secure-task`
+- `secure-service`
+- `secure-container`
+- `/ecs/secure-task`
 
-1. AWS CLI 인증
-2. VPC / Subnet / IGW / NAT / Route
-3. Security Group
-4. IAM Role
-5. ECR 생성 및 이미지 Push
-6. S3 생성
-7. RDS 생성
-8. Secrets Manager 생성
-9. CloudWatch Log Group 생성
-10. ECS Cluster 생성
-11. Task Definition 등록
-12. ECS Service 생성
-13. 외부 진입 경로 설계(ALB, CloudFront, 내부 호출 등)
-
-즉, 네가 정리한 큰 흐름 자체는 맞다.  
-다만 실제 AWS에서 바로 동작하도록 보정한 핵심 포인트는 아래 두 가지였다.
-
-- RDS 때문에 private subnet은 서로 다른 AZ에 최소 2개 필요
-- private ECS 서비스만 만들면 외부에서 접근할 수 없으므로 진입 경로 설계를 별도로 해야 함
+위 이름들이 요청한 항목 기준으로 문서에 반영되어 있다.
