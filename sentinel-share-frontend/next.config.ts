@@ -1,10 +1,12 @@
 import type { NextConfig } from 'next';
 
+const isStaticExport = process.env.STATIC_EXPORT === 'true';
+
 const nextConfig: NextConfig = {
-  output: 'export',
-  trailingSlash: true,
-  // All API calls go through the backend — no server-side API routes needed in MVP
-  // Note: headers() is ignored in static export — apply via CloudFront Response Headers Policy
+  // S3 정적 배포 시: STATIC_EXPORT=true npm run build
+  // EC2 서버 실행 시: 설정 없음 (동적 라우트 정상 동작)
+  ...(isStaticExport && { output: 'export', trailingSlash: true }),
+  // Note: headers()는 static export 시 무시됨 — CloudFront Response Headers Policy로 적용
   async headers() {
     return [
       {
