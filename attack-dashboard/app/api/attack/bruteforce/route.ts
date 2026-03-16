@@ -22,7 +22,7 @@ function sleep(ms: number) {
 async function tryLogin(baseUrl: string, password: string, attempt: number) {
   const start = Date.now();
   try {
-    const res = await fetch(`${baseUrl}/auth/login`, {
+    const res = await fetch(`${baseUrl}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: 'victim@demo.com', password }),

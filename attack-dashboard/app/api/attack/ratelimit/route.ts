@@ -12,16 +12,18 @@ function sleep(ms: number) {
 async function floodRequest(baseUrl: string, attempt: number) {
   const start = Date.now();
   try {
-    // /health 엔드포인트에 대량 요청 — 인증 불필요, 순수 볼륨 공격 시연
-    const res = await fetch(`${baseUrl}/health`, {
-      method: 'GET',
+    // /api/auth/login 엔드포인트에 대량 요청 — CloudFront 경유 가능, WAF 볼륨 공격 시연
+    const res = await fetch(`${baseUrl}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'flood@test.com', password: 'x' }),
       signal: AbortSignal.timeout(5000),
     });
     const latency = Date.now() - start;
     const blocked = res.status === 429 || res.status === 403;
     const label = blocked
       ? res.status === 429 ? 'RATE LIMITED' : 'WAF BLOCKED'
-      : res.status === 200
+      : res.status === 200 || res.status === 401
       ? 'REACHED'
       : `HTTP ${res.status}`;
     return { attempt, status: res.status, latency, blocked, label };
