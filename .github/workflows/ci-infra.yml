@@ -1,13 +1,13 @@
-name: PR CI Terraform
+name: PR CI Infra
 
 on:
-  # Terraform 변경을 PR 단계에서만 먼저 검증한다.
+  # terraform 디렉터리 변경을 PR 단계에서 먼저 검증한다.
   pull_request:
     types: [opened, synchronize, reopened]
     branches: [master, dev]
     paths:
       - 'terraform/**'
-      - '.github/workflows/ci-terraform.yml'
+      - '.github/workflows/ci-infra.yml'
 
 env:
   TERRAFORM_VERSION: '1.9.8'
@@ -56,11 +56,11 @@ jobs:
           terraform_version: ${{ env.TERRAFORM_VERSION }}
 
       - name: Check Terraform formatting
-        # 하위 디렉터리까지 포함해 포맷 표준을 강제한다.
+        # 하위 디렉터리까지 포함해 포맷 표준을 검사한다.
         run: terraform fmt -check -recursive
 
       - name: Initialize Terraform without backend
-        # 아직 remote state/backends가 정해지지 않았어도 validate가 가능하도록 backend 연결은 끈다.
+        # backend가 아직 없어도 validate가 가능하도록 backend 연결은 끈다.
         run: terraform init -backend=false
 
       - name: Validate Terraform configuration
