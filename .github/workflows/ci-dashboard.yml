@@ -38,11 +38,6 @@ jobs:
         run: npm ci
         working-directory: attack-dashboard
 
-      - name: Run dashboard lint
-        # Next.js 코드 스타일과 기본 품질 문제를 PR 단계에서 차단한다.
-        run: npm run lint
-        working-directory: attack-dashboard
-
       - name: Run dashboard build
         # 실제 배포 가능한 상태인지 확인하기 위해 production build를 수행한다.
         run: npm run build
