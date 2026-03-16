@@ -14,6 +14,9 @@ RUN npm run build
 # ── Runtime stage ──────────────────────────────────────────────────────────────
 FROM node:20-alpine AS runner
 
+# Pull the latest patched Alpine packages into the runtime image.
+RUN apk upgrade --no-cache zlib
+
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
 WORKDIR /app

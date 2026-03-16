@@ -1,0 +1,83 @@
+name: PR CI Backend
+
+on:
+  # PR이 생성되거나 업데이트될 때 백엔드 관련 변경만 검사한다.
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [master, dev]
+    paths:
+      - 'sentinel-share-backend/**'
+      - '.github/workflows/ci-backend.yml'
+
+env:
+  NODE_VERSION: '20'
+  IMAGE_NAME: backend-pr-ci
+
+jobs:
+  backend-ci:
+    name: Backend Checks
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: sentinel-share-backend/package-lock.json
+
+      - name: Install backend dependencies
+        # package-lock 기준으로 재현 가능한 설치를 수행한다.
+        run: npm ci
+        working-directory: sentinel-share-backend
+
+      - name: Check backend JavaScript syntax
+        # 별도 lint 스크립트가 없으므로 PR 단계에서 최소한의 문법 오류를 잡는다.
+        run: find src -name '*.js' -print0 | xargs -0 -n1 node --check
+        working-directory: sentinel-share-backend
+
+      - name: Build backend Docker image
+        # 실제 배포에 쓰는 Dockerfile이 PR에서도 정상 빌드되는지 확인한다.
+        uses: docker/build-push-action@v5
+        with:
+          context: ./sentinel-share-backend
+          file: ./sentinel-share-backend/Dockerfile
+          load: true
+          tags: ${{ env.IMAGE_NAME }}:${{ github.sha }}
+
+      - name: Trivy filesystem vulnerability scan
+        # 앱 디렉터리 자체를 스캔해서 의존성 취약점을 빠르게 확인한다.
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          scan-type: fs
+          scan-ref: ./sentinel-share-backend
+          scanners: vuln
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+
+      - name: Trivy filesystem secret scan
+        # 실수로 커밋된 키, 토큰, 비밀번호 등 시크릿 패턴을 탐지한다.
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          scan-type: fs
+          scan-ref: ./sentinel-share-backend
+          scanners: secret
+          exit-code: '1'
+
+      - name: Trivy image vulnerability scan
+        # Docker 이미지 레벨에서 OS 패키지와 런타임 의존성 취약점을 확인한다.
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          image-ref: ${{ env.IMAGE_NAME }}:${{ github.sha }}
+          format: table
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'

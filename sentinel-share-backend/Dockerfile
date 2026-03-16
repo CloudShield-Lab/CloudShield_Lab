@@ -10,6 +10,7 @@ COPY src/ ./src/
 
 # ── Runtime stage ─────────────────────────────────────────────────────────────
 FROM node:20-alpine AS runtime
+RUN apk upgrade --no-cache zlib
 
 # Run as non-root user — principle of least privilege
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
