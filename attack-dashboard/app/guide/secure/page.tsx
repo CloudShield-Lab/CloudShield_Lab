@@ -47,7 +47,7 @@ export default function SecureGuidePage() {
         <MethodToggle />
 
         {/* Step 1: S3 버킷 — 프라이빗 */}
-        <StepCard step={1} title="S3 버킷 생성 — Block Public Access ON">
+        <StepCard step={1} title="VPC 설정">
           <CliContent>
             <CodeBlock code={`# 버킷 생성
 aws s3api create-bucket \\
@@ -76,7 +76,7 @@ aws s3api put-public-access-block \\
         {/* Step 2: S3 버킷 정책 */}
         <StepCard
           step={2}
-          title="S3 버킷 정책 적용 — ECS Task Role만 허용"
+          title="IAM 설정"
           note="sentinel-share-backend/infra/s3-bucket-policy.json 파일의 YOUR_ACCOUNT_ID와 버킷명을 실제 값으로 대체한 후 적용합니다."
         >
           <CliContent>
@@ -92,7 +92,7 @@ aws s3api put-bucket-policy \\
         </StepCard>
 
         {/* Step 3: RDS */}
-        <StepCard step={3} title="RDS PostgreSQL 생성">
+        <StepCard step={3} title="ECR 프라이빗 레포지토리 생성">
           <CliContent>
             <p className="text-slate-500 text-sm mb-3">취약 환경과 동일한 방식으로 생성합니다. 별도 서브넷 그룹과 인스턴스를 사용하세요.</p>
             <CodeBlock code={`aws rds create-db-subnet-group \\
@@ -121,7 +121,7 @@ aws rds describe-db-instances \\
         </StepCard>
 
         {/* Step 4: IAM 역할 */}
-        <StepCard step={4} title="IAM 역할 생성 (Task Role + Task Execution Role)">
+        <StepCard step={4} title="보안 그룹 설정">
           <CliContent>
             <CodeBlock code={`# Task Execution Role
 aws iam create-role \\
@@ -165,7 +165,7 @@ aws iam put-role-policy \\
         </StepCard>
 
         {/* Step 5: Secrets Manager */}
-        <StepCard step={5} title="Secrets Manager 시크릿 생성">
+        <StepCard step={5} title="S3 설정">
           <CliContent>
             <p className="text-slate-500 text-sm mb-3">
               보안 환경 시크릿 프리픽스: <code className="font-mono text-slate-400">sentinelshare/</code> (취약 환경은 <code className="font-mono text-slate-400">sentinelshare/vulnerable/</code>)
@@ -195,7 +195,7 @@ aws secretsmanager create-secret \\
         </StepCard>
 
         {/* Step 6: ECS 클러스터 + Security Group */}
-        <StepCard step={6} title="ECS 클러스터 + Security Group 생성">
+        <StepCard step={6} title="GitHub Actions / OIDC 설정">
           <CliContent>
             <CodeBlock code={`# ECS 클러스터
 aws ecs create-cluster --cluster-name sentinelshare-secure
@@ -216,7 +216,7 @@ aws ec2 create-security-group \\
         {/* Step 7: WAF Web ACL */}
         <StepCard
           step={7}
-          title="WAF Web ACL 생성"
+          title="CloudWatch Log Group 생성"
           note="WAF는 CloudFront에 연결하므로 반드시 us-east-1 리전에서 생성해야 합니다."
         >
           <CliContent>
@@ -275,7 +275,7 @@ aws wafv2 list-web-acls \\
         {/* Step 8: ECS 태스크 정의 + 서비스 */}
         <StepCard
           step={8}
-          title="ECS 태스크 정의 등록 + 서비스 생성"
+          title="EC2 인스턴스 생성"
           note="sentinel-share-backend/infra/ecs-task-definition-secure.json을 사용합니다. ACCOUNT_ID와 시크릿 ARN을 실제 값으로 대체하세요."
         >
           <CliContent>
@@ -317,7 +317,7 @@ aws ec2 describe-network-interfaces \\
         {/* Step 9: CloudFront 배포 */}
         <StepCard
           step={9}
-          title="CloudFront 배포 생성 + WAF 연결"
+          title="DB 설정"
           note="오리진은 ECS Task의 Public IP입니다. 실제 프로덕션에서는 ALB를 오리진으로 사용하는 것이 권장되지만, 이 데모 환경에서는 ECS IP를 직접 사용합니다."
         >
           <CliContent>
@@ -363,7 +363,7 @@ aws cloudfront list-distributions \\
         {/* Step 10: Security Group CloudFront IP 제한 */}
         <StepCard
           step={10}
-          title="ECS Security Group — CloudFront IP만 허용으로 변경"
+          title="백엔드 배포 및 실행"
           warning="이 단계 완료 후 ECS에 직접 접근이 차단됩니다. CloudFront 도메인을 통해서만 접근 가능합니다."
         >
           <CliContent>
@@ -391,7 +391,7 @@ aws ec2 authorize-security-group-ingress \\
         </StepCard>
 
         {/* Step 11: DB 마이그레이션 */}
-        <StepCard step={11} title="DB 마이그레이션 실행">
+        <StepCard step={11} title="프론트엔드 연결 및 접속 테스트">
           <CliContent>
             <CodeBlock code={`export PGPASSWORD="YOUR_DB_PASSWORD"
 psql \\
@@ -405,7 +405,7 @@ psql \\
         </StepCard>
 
         {/* Step 12: Secrets Manager CORS 업데이트 + 대시보드 연결 */}
-        <StepCard step={12} title="CORS 업데이트 + Attack Dashboard 연결">
+        <StepCard step={12} title="Secrets Manager 설정">
           <CliContent>
             <p className="text-slate-500 text-sm mb-3">
               CloudFront 도메인이 확정되었으면 CORS 시크릿을 업데이트합니다.
