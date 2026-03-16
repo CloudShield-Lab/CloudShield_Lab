@@ -20,6 +20,7 @@ WORKDIR /app
 # Copy only production dependencies and source
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/src ./src
+COPY migrations/ ./migrations/
 COPY package.json ./
 
 RUN chown -R appuser:appgroup /app
