@@ -46,6 +46,8 @@ sudo systemctl start docker
 docker --version
 ```
 
+> 설치 중 "Daemons using outdated libraries" 대화창이 뜨면 그냥 Enter(Ok) 누르면 됨.
+
 ---
 
 ## Step 2: AWS CLI 설치
@@ -151,7 +153,7 @@ sudo chmod 600 /opt/app/.env
 ## Step 5: PostgreSQL 설치 및 초기화
 
 ```bash
-# PostgreSQL 17 설치
+# PostgreSQL 설치
 sudo apt-get install -y postgresql postgresql-contrib
 
 # PostgreSQL 서비스 시작
@@ -170,38 +172,12 @@ EOF
 
 ---
 
-## Step 6: DB 마이그레이션 실행
-
-```bash
-# psql로 마이그레이션 실행
-PGPASSWORD=<DB-비밀번호> psql \
-  -h 127.0.0.1 -p 5432 \
-  -U sentinelshare -d sentinelshare \
-  -f /opt/app/migrations/001_initial_schema.sql
-```
-
-> 마이그레이션 파일은 GitHub Actions 배포 후 컨테이너 안에 있으므로,
-> 최초 1회는 로컬에서 파일을 EC2로 복사하거나 psql 직접 실행.
-
-**대안 — 컨테이너 내부에서 실행:**
-```bash
-sudo docker exec -it sentinelshare-backend \
-  node -e "
-    const { Pool } = require('pg');
-    const fs = require('fs');
-    const pool = new Pool({ host:'127.0.0.1', port:5432, database:'sentinelshare', user:'sentinelshare', password:'<DB-비밀번호>' });
-    pool.query(fs.readFileSync('/app/migrations/001_initial_schema.sql','utf8')).then(()=>{ console.log('done'); pool.end(); });
-  "
-```
-
----
-
-## Step 7: 첫 배포 실행
+## Step 6: 첫 배포 실행
 
 GitHub Actions → `Deploy Backend to EC2` → **Run workflow**
 
 Actions가 자동으로:
-1. ECR에서 이미지 pull
+1. ECR에서 최신 이미지 pull
 2. `docker run --env-file /opt/app/.env --network host` 실행
 
 **배포 완료 확인:**
@@ -212,6 +188,36 @@ sudo docker ps
 curl http://localhost:3000/health
 # {"status":"ok"}
 ```
+
+---
+
+## Step 7: DB 마이그레이션 실행 (최초 1회)
+
+컨테이너가 정상 실행된 후 컨테이너 내부의 migration 파일로 실행:
+
+```bash
+sudo docker exec sentinelshare-backend \
+  psql postgresql://sentinelshare:<DB-비밀번호>@127.0.0.1:5432/sentinelshare \
+  -f /app/migrations/001_initial_schema.sql
+```
+
+**성공 시 출력:**
+```
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+...
+```
+
+**마이그레이션 확인:**
+```bash
+sudo docker exec sentinelshare-backend \
+  psql postgresql://sentinelshare:<DB-비밀번호>@127.0.0.1:5432/sentinelshare \
+  -c "\dt"
+# users, files, shared_links 테이블 목록 출력되면 완료
+```
+
+> Terraform 자동화(4단계) 시에는 `user_data.sh`에 이 명령을 포함시켜 최초 EC2 기동 시 자동 실행.
 
 ---
 
