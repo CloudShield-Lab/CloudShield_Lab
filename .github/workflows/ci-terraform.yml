@@ -14,11 +14,31 @@ env:
   TF_WORKING_DIR: terraform
 
 jobs:
+  detect-terraform:
+    name: Detect Terraform Files
+    runs-on: ubuntu-latest
+    outputs:
+      has_tf: ${{ steps.detect.outputs.has_tf }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Detect .tf files
+        id: detect
+        run: |
+          if find terraform -type f -name "*.tf" | grep -q .; then
+            echo "has_tf=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_tf=false" >> "$GITHUB_OUTPUT"
+          fi
+
   terraform-ci:
     name: Terraform Checks
+    needs: detect-terraform
     runs-on: ubuntu-latest
     # 실제 Terraform 파일이 있을 때만 검사를 실행한다.
-    if: ${{ hashFiles('terraform/**/*.tf') != '' }}
+    if: ${{ needs.detect-terraform.outputs.has_tf == 'true' }}
 
     defaults:
       run:
