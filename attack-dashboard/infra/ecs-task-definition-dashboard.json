@@ -55,7 +55,7 @@
         }
       },
       "healthCheck": {
-        "command": ["CMD-SHELL", "node -e \"require('http').get('http://127.0.0.1:3000/api/config',(r)=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))\""],
+        "command": ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000/api/config',(r)=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"],
         "interval": 30,
         "timeout": 10,
         "retries": 5,
