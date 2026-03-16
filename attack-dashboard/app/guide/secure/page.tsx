@@ -49,17 +49,132 @@ export default function SecureGuidePage() {
         {/* Step 1: S3 버킷 — 프라이빗 */}
         <StepCard step={1} title="VPC 설정">
           <CliContent>
-            <CodeBlock code={`# 버킷 생성
-aws s3api create-bucket \\
-  --bucket your-secure-bucket-name \\
-  --region ap-northeast-2 \\
-  --create-bucket-configuration LocationConstraint=ap-northeast-2
+            <CodeBlock code={`AWS_REGION=ap-northeast-2
+AWS_AZ=ap-northeast-2a
 
-# Block Public Access 전체 활성화
-aws s3api put-public-access-block \\
-  --bucket your-secure-bucket-name \\
-  --public-access-block-configuration \\
-    "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true"`} />
+VPC_ID=$(aws ec2 create-vpc \\
+  --region$AWS_REGION \\
+  --cidr-block 10.2.0.0/16 \\
+  --tag-specifications"ResourceType=vpc,Tags=[{Key=Name,Value=secure-vpc}]" \\
+  --query'Vpc.VpcId' \\
+  --output text)
+
+PUBLIC_SUBNET_ID=$(aws ec2 create-subnet \\
+  --region$AWS_REGION \\
+  --vpc-id$VPC_ID \\
+  --cidr-block 10.2.1.0/24 \\
+  --availability-zone$AWS_AZ \\
+  --tag-specifications"ResourceType=subnet,Tags=[{Key=Name,Value=secure-subnet-public}]" \\
+  --query'Subnet.SubnetId' \\
+  --output text)
+
+aws ec2 modify-subnet-attribute \\
+--region$AWS_REGION \\
+--subnet-id$PUBLIC_SUBNET_ID \\
+--map-public-ip-on-launch
+
+PRIVATE_SUBNET_ID=$(aws ec2 create-subnet \\
+  --region$AWS_REGION \\
+  --vpc-id$VPC_ID \\
+  --cidr-block 10.2.101.0/24 \\
+  --availability-zone$AWS_AZ \\
+  --tag-specifications"ResourceType=subnet,Tags=[{Key=Name,Value=secure-subnet-private}]" \\
+  --query'Subnet.SubnetId' \\
+  --output text)
+
+IGW_ID=$(aws ec2 create-internet-gateway \\
+  --region$AWS_REGION \\
+  --tag-specifications"ResourceType=internet-gateway,Tags=[{Key=Name,Value=secure-igw}]" \\
+  --query'InternetGateway.InternetGatewayId' \\
+  --output text)
+
+aws ec2 attach-internet-gateway \\
+--region$AWS_REGION \\
+--internet-gateway-id$IGW_ID \\
+--vpc-id$VPC_ID
+
+EIP_ALLOC_ID=$(aws ec2 allocate-address \\
+  --region$AWS_REGION \\
+  --domain vpc \\
+  --query'AllocationId' \\
+  --output text)
+
+NAT_GW_ID=$(aws ec2 create-nat-gateway \\
+  --region$AWS_REGION \\
+  --subnet-id$PUBLIC_SUBNET_ID \\
+  --allocation-id$EIP_ALLOC_ID \\
+  --tag-specifications"ResourceType=natgateway,Tags=[{Key=Name,Value=secure-nat}]" \\
+  --query'NatGateway.NatGatewayId' \\
+  --output text)
+
+aws ec2 wait nat-gateway-available \\
+--region$AWS_REGION \\
+--nat-gateway-ids$NAT_GW_ID
+
+PUBLIC_RT_ID=$(aws ec2 create-route-table \\
+  --region$AWS_REGION \\
+  --vpc-id$VPC_ID \\
+  --tag-specifications"ResourceType=route-table,Tags=[{Key=Name,Value=secure-rt-public}]" \\
+  --query'RouteTable.RouteTableId' \\
+  --output text)
+
+aws ec2 create-route \\
+--region$AWS_REGION \\
+--route-table-id$PUBLIC_RT_ID \\
+--destination-cidr-block0.0.0.0/0 \\
+--gateway-id$IGW_ID
+
+aws ec2 associate-route-table \\
+--region$AWS_REGION \\
+--route-table-id$PUBLIC_RT_ID \\
+--subnet-id$PUBLIC_SUBNET_ID
+
+PRIVATE_RT_ID=$(aws ec2 create-route-table \\
+  --region$AWS_REGION \\
+  --vpc-id$VPC_ID \\
+  --tag-specifications"ResourceType=route-table,Tags=[{Key=Name,Value=secure-rt-private}]" \\
+  --query'RouteTable.RouteTableId' \\
+  --output text)
+
+aws ec2 create-route \\
+--region$AWS_REGION \\
+--route-table-id$PRIVATE_RT_ID \\
+--destination-cidr-block0.0.0.0/0 \\
+--nat-gateway-id$NAT_GW_ID
+
+aws ec2 associate-route-table \\
+--region$AWS_REGION \\
+--route-table-id$PRIVATE_RT_ID \\
+--subnet-id$PRIVATE_SUBNET_ID
+
+MAIN_VPC_ID=main-vpc의 VPC ID
+VUL_VPC_ID=vul-vpc의 VPC ID
+MAIN_PRIVATE_RT_ID=main-vpc의 Route Table ID
+VUL_PRIVATE_RT_ID=vul-vpc의 Route Table ID
+
+MAIN_SECURE_PEERING_ID=$(aws ec2 create-vpc-peering-connection \\
+  --region $AWS_REGION \\
+  --vpc-id $MAIN_VPC_ID \\
+  --peer-vpc-id $VPC_ID \\
+  --tag-specifications "ResourceType=vpc-peering-connection,Tags=[{Key=Name,Value=wazuh-peering-main-secure}]" \\
+  --query 'VpcPeeringConnection.VpcPeeringConnectionId' \\
+  --output text)
+
+aws ec2 accept-vpc-peering-connection \\
+--region $AWS_REGION \\
+--vpc-peering-connection-id $MAIN_SECURE_PEERING_ID
+
+MAIN_VUL_PEERING_ID=$(aws ec2 create-vpc-peering-connection \\
+  --region $AWS_REGION \\
+  --vpc-id $MAIN_VPC_ID \\
+  --peer-vpc-id $VUL_VPC_ID \\
+  --tag-specifications "ResourceType=vpc-peering-connection,Tags=[{Key=Name,Value=wazuh-peering-main-vul}]" \\
+  --query 'VpcPeeringConnection.VpcPeeringConnectionId' \\
+  --output text)
+
+aws ec2 accept-vpc-peering-connection \\
+--region $AWS_REGION \\
+--vpc-peering-connection-id $MAIN_VUL_PEERING_ID`} />
           </CliContent>
           <ConsoleContent>
             <ol className="space-y-2 text-sm text-slate-400 list-decimal list-inside">
@@ -80,13 +195,22 @@ aws s3api put-public-access-block \\
           note="sentinel-share-backend/infra/s3-bucket-policy.json 파일의 YOUR_ACCOUNT_ID와 버킷명을 실제 값으로 대체한 후 적용합니다."
         >
           <CliContent>
-            <CodeBlock code={`# 버킷 정책 적용 (HTTPS 강제 + Task Role만 허용)
-aws s3api put-bucket-policy \\
-  --bucket your-secure-bucket-name \\
-  --policy file://sentinel-share-backend/infra/s3-bucket-policy.json`} />
-            <p className="text-slate-500 text-sm">
-              버킷 정책 내용은 HTTPS 접근만 허용하고, 업로드 prefix(<code className="font-mono text-slate-400">uploads/*</code>)에 대해 ECS Task Role ARN만 허용합니다.
-            </p>
+            <CodeBlock code={`aws iam create-role \\
+  --role-name secure-ec2-role \\
+  --assume-role-policy-document file://trust-policy-ec2.json
+
+aws iam attach-role-policy \\
+  --role-name secure-ec2-role \\
+  --policy-arn arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+
+aws iam attach-role-policy \\
+  --role-name secure-ec2-role \\
+  --policy-arn arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
+
+aws iam put-role-policy \\
+  --role-name secure-ec2-role \\
+  --policy-name secure-ec2-inline \\
+  --policy-document file://secure-ec2-inline-policy.json`} />
           </CliContent>
           <ConsoleContent />
         </StepCard>
@@ -94,28 +218,21 @@ aws s3api put-bucket-policy \\
         {/* Step 3: RDS */}
         <StepCard step={3} title="ECR 프라이빗 레포지토리 생성">
           <CliContent>
-            <p className="text-slate-500 text-sm mb-3">취약 환경과 동일한 방식으로 생성합니다. 별도 서브넷 그룹과 인스턴스를 사용하세요.</p>
-            <CodeBlock code={`aws rds create-db-subnet-group \\
-  --db-subnet-group-name sentinelshare-secure-subnet \\
-  --db-subnet-group-description "SentinelShare Secure DB Subnet" \\
-  --subnet-ids subnet-XXXXXXXX subnet-YYYYYYYY
+            <CodeBlock code={`ECR_URI=$(aws ecr create-repository \\
+  --repository-name s3cure-api \\
+  --image-scanning-configuration scanOnPush=true \\
+  --region ap-northeast-2 \\
+  --query'repository.repositoryUri' \\
+  --output text)
 
-aws rds create-db-instance \\
-  --db-instance-identifier sentinelshare-secure \\
-  --db-instance-class db.t3.micro \\
-  --engine postgres \\
-  --engine-version 17.9 \\
-  --master-username sentinelshare_user \\
-  --master-user-password YOUR_DB_PASSWORD \\
-  --db-name sentinelshare \\
-  --db-subnet-group-name sentinelshare-secure-subnet \\
-  --no-publicly-accessible \\
-  --allocated-storage 20`} />
-            <CodeBlock code={`# RDS 엔드포인트 확인
-aws rds describe-db-instances \\
-  --db-instance-identifier sentinelshare-secure \\
-  --query 'DBInstances[0].Endpoint.Address' \\
-  --output text`} />
+aws ecr get-login-password \\
+--region ap-northeast-2 \\
+  | docker login \\
+--username AWS \\
+--password-stdin${ECR_URI%/*}
+
+docker tag sentinel-api:latest${ECR_URI}:latest
+docker push${ECR_URI}:latest`} />
           </CliContent>
           <ConsoleContent />
         </StepCard>
@@ -123,43 +240,37 @@ aws rds describe-db-instances \\
         {/* Step 4: IAM 역할 */}
         <StepCard step={4} title="보안 그룹 설정">
           <CliContent>
-            <CodeBlock code={`# Task Execution Role
-aws iam create-role \\
-  --role-name sentinelshare-task-execution-role \\
-  --assume-role-policy-document file://sentinel-share-backend/infra/iam/task-execution-role.json
+            <CodeBlock code={`CONTAINER_SG_ID=$(aws ec2 create-security-group \\
+  --group-name secure-container-sg \\
+  --description "security group for secure container" \\
+  --vpc-id $VPC_ID \\
+  --region $AWS_REGION \\
+  --query 'GroupId' \\
+  --output text)
 
-aws iam attach-role-policy \\
-  --role-name sentinelshare-task-execution-role \\
-  --policy-arn arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+aws ec2 authorize-security-group-ingress \\
+  --group-id $CONTAINER_SG_ID \\
+  --protocol tcp \\
+  --port 3000 \\
+  --cidr 10.1.0.0/16 \\
+  --region $AWS_REGION
 
-# Task Role
-aws iam create-role \\
-  --role-name sentinelshare-task-role \\
-  --assume-role-policy-document file://sentinel-share-backend/infra/iam/task-role.json`} />
-            <CodeBlock code={`# S3 + Secrets Manager 접근 정책
-aws iam put-role-policy \\
-  --role-name sentinelshare-task-role \\
-  --policy-name s3-access \\
-  --policy-document '{
-    "Version": "2012-10-17",
-    "Statement": [{
-      "Effect": "Allow",
-      "Action": ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"],
-      "Resource": "arn:aws:s3:::your-secure-bucket-name/uploads/*"
-    }]
-  }'
+MY_IP=YOUR_PUBLIC_IP/32
 
-aws iam put-role-policy \\
-  --role-name sentinelshare-task-execution-role \\
-  --policy-name secrets-access \\
-  --policy-document '{
-    "Version": "2012-10-17",
-    "Statement": [{
-      "Effect": "Allow",
-      "Action": ["secretsmanager:GetSecretValue"],
-      "Resource": "arn:aws:secretsmanager:ap-northeast-2:YOUR_ACCOUNT_ID:secret:sentinelshare/*"
-    }]
-  }'`} />
+BASTION_SG_ID=$(aws ec2 create-security-group \\
+  --group-name secure-bastion-sg \\
+  --description "security group for secure bastion" \\
+  --vpc-id $VPC_ID \\
+  --region $AWS_REGION \\
+  --query 'GroupId' \\
+  --output text)
+
+aws ec2 authorize-security-group-ingress \\
+  --group-id $BASTION_SG_ID \\
+  --protocol tcp \\
+  --port 22 \\
+  --cidr $MY_IP \\
+  --region $AWS_REGION`} />
           </CliContent>
           <ConsoleContent />
         </StepCard>
@@ -167,29 +278,20 @@ aws iam put-role-policy \\
         {/* Step 5: Secrets Manager */}
         <StepCard step={5} title="S3 설정">
           <CliContent>
-            <p className="text-slate-500 text-sm mb-3">
-              보안 환경 시크릿 프리픽스: <code className="font-mono text-slate-400">sentinelshare/</code> (취약 환경은 <code className="font-mono text-slate-400">sentinelshare/vulnerable/</code>)
-            </p>
-            <CodeBlock code={`aws secretsmanager create-secret \\
-  --name sentinelshare/jwt-secret \\
-  --secret-string "$(openssl rand -base64 48)"
+            <CodeBlock code={`aws s3api create-bucket \\
+  --bucket secure-log \\
+  --region $AWS_REGION \\
+  --create-bucket-configuration LocationConstraint=$AWS_REGION
 
-aws secretsmanager create-secret \\
-  --name sentinelshare/db-credentials \\
-  --secret-string '{
-    "host": "YOUR_SECURE_RDS_ENDPOINT",
-    "dbname": "sentinelshare",
-    "username": "sentinelshare_user",
-    "password": "YOUR_DB_PASSWORD"
-  }'
+aws s3api put-public-access-block \\
+  --bucket secure-log \\
+  --public-access-block-configuration \\
+  BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
 
-aws secretsmanager create-secret \\
-  --name sentinelshare/s3-bucket-name \\
-  --secret-string "your-secure-bucket-name"
-
-aws secretsmanager create-secret \\
-  --name sentinelshare/cors-origin \\
-  --secret-string "https://YOUR_CLOUDFRONT_DOMAIN.cloudfront.net"`} />
+aws s3api put-bucket-encryption \\
+  --bucket secure-log \\
+  --server-side-encryption-configuration \\
+  '{"Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"AES256"}}]}'`} />
           </CliContent>
           <ConsoleContent />
         </StepCard>
@@ -197,18 +299,17 @@ aws secretsmanager create-secret \\
         {/* Step 6: ECS 클러스터 + Security Group */}
         <StepCard step={6} title="GitHub Actions / OIDC 설정">
           <CliContent>
-            <CodeBlock code={`# ECS 클러스터
-aws ecs create-cluster --cluster-name sentinelshare-secure
-aws logs create-log-group --log-group-name /ecs/sentinelshare-backend
+            <CodeBlock code={`aws iam create-policy \\
+  --policy-name CloudShield-Policy \\
+  --policy-document file://cloudshield-policy.json
 
-# Security Group 생성
-aws ec2 create-security-group \\
-  --group-name sentinelshare-secure-sg \\
-  --description "SentinelShare Secure - CloudFront IP only" \\
-  --vpc-id vpc-XXXXXXXX`} />
-            <p className="text-slate-500 text-sm">
-              Security Group 인바운드 규칙은 CloudFront 배포 완료 후 Step 10에서 추가합니다.
-            </p>
+aws iam create-role \\
+  --role-name CloudShield-Role \\
+  --assume-role-policy-document file://github-oidc-trust.json
+
+aws iam attach-role-policy \\
+  --role-name CloudShield-Role \\
+  --policy-arn arn:aws:iam::833453046706:policy/CloudShield-Policy`} />
           </CliContent>
           <ConsoleContent />
         </StepCard>
@@ -220,54 +321,14 @@ aws ec2 create-security-group \\
           note="WAF는 CloudFront에 연결하므로 반드시 us-east-1 리전에서 생성해야 합니다."
         >
           <CliContent>
-            <CodeBlock code={`# WAF Web ACL 생성 (us-east-1 필수)
-aws wafv2 create-web-acl \\
-  --name sentinelshare-waf \\
-  --scope CLOUDFRONT \\
-  --region us-east-1 \\
-  --default-action Allow={} \\
-  --rules '[
-    {
-      "Name": "RateLimit",
-      "Priority": 1,
-      "Statement": {
-        "RateBasedStatement": {
-          "Limit": 100,
-          "AggregateKeyType": "IP"
-        }
-      },
-      "Action": {"Block": {}},
-      "VisibilityConfig": {
-        "SampledRequestsEnabled": true,
-        "CloudWatchMetricsEnabled": true,
-        "MetricName": "RateLimit"
-      }
-    },
-    {
-      "Name": "AWSManagedRulesCommonRuleSet",
-      "Priority": 2,
-      "OverrideAction": {"None": {}},
-      "Statement": {
-        "ManagedRuleGroupStatement": {
-          "VendorName": "AWS",
-          "Name": "AWSManagedRulesCommonRuleSet"
-        }
-      },
-      "VisibilityConfig": {
-        "SampledRequestsEnabled": true,
-        "CloudWatchMetricsEnabled": true,
-        "MetricName": "AWSCommonRules"
-      }
-    }
-  ]' \\
-  --visibility-config \\
-    "SampledRequestsEnabled=true,CloudWatchMetricsEnabled=true,MetricName=sentinelshare-waf"`} />
-            <CodeBlock code={`# WAF ARN 확인 (CloudFront 설정 시 필요)
-aws wafv2 list-web-acls \\
-  --scope CLOUDFRONT \\
-  --region us-east-1 \\
-  --query 'WebACLs[?Name==\`sentinelshare-waf\`].ARN' \\
-  --output text`} />
+            <CodeBlock code={`aws logs create-log-group \\
+  --log-group-name /ec2/secure-backend \\
+  --region $AWS_REGION
+
+aws logs put-retention-policy \\
+  --log-group-name /ec2/secure-backend \\
+  --retention-in-days 30 \\
+  --region $AWS_REGION`} />
           </CliContent>
           <ConsoleContent />
         </StepCard>
@@ -279,37 +340,15 @@ aws wafv2 list-web-acls \\
           note="sentinel-share-backend/infra/ecs-task-definition-secure.json을 사용합니다. ACCOUNT_ID와 시크릿 ARN을 실제 값으로 대체하세요."
         >
           <CliContent>
-            <CodeBlock code={`# 태스크 정의 등록
-aws ecs register-task-definition \\
-  --cli-input-json file://sentinel-share-backend/infra/ecs-task-definition-secure.json
-
-# ECS 서비스 생성 (아직 assignPublicIp=ENABLED — CloudFront 연결 전 임시)
-aws ecs create-service \\
-  --cluster sentinelshare-secure \\
-  --service-name sentinelshare-backend \\
-  --task-definition sentinelshare-backend \\
-  --desired-count 1 \\
-  --launch-type FARGATE \\
-  --network-configuration "awsvpcConfiguration={
-    subnets=[subnet-XXXXXXXX],
-    securityGroups=[sg-XXXXXXXX],
-    assignPublicIp=ENABLED
-  }"`} />
-            <CodeBlock code={`# ECS Task Public IP 확인 (CloudFront 오리진으로 사용)
-TASK_ARN=$(aws ecs list-tasks \\
-  --cluster sentinelshare-secure \\
-  --query 'taskArns[0]' --output text)
-
-ENI_ID=$(aws ecs describe-tasks \\
-  --cluster sentinelshare-secure \\
-  --tasks $TASK_ARN \\
-  --query 'tasks[0].attachments[0].details[?name==\`networkInterfaceId\`].value' \\
-  --output text)
-
-aws ec2 describe-network-interfaces \\
-  --network-interface-ids $ENI_ID \\
-  --query 'NetworkInterfaces[0].Association.PublicIp' \\
-  --output text`} />
+            <CodeBlock code={`aws ec2 run-instances \\
+  --image-id <UBUNTU_AMI_ID> \\
+  --instance-type t3.small \\
+  --subnet-id $PUBLIC_SUBNET_ID \\
+  --security-group-ids $EC2_SG_ID \\
+  --iam-instance-profile Name=secure-ec2-role \\
+  --associate-public-ip-address \\
+  --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=secure-ec2}]" \\
+  --region $AWS_REGION`} />
           </CliContent>
           <ConsoleContent />
         </StepCard>
@@ -321,41 +360,18 @@ aws ec2 describe-network-interfaces \\
           note="오리진은 ECS Task의 Public IP입니다. 실제 프로덕션에서는 ALB를 오리진으로 사용하는 것이 권장되지만, 이 데모 환경에서는 ECS IP를 직접 사용합니다."
         >
           <CliContent>
-            <CodeBlock code={`# CloudFront 배포 생성
-aws cloudfront create-distribution \\
-  --distribution-config '{
-    "CallerReference": "sentinelshare-secure-'$(date +%s)'",
-    "Comment": "SentinelShare Secure Environment",
-    "DefaultCacheBehavior": {
-      "TargetOriginId": "ecs-backend",
-      "ViewerProtocolPolicy": "redirect-to-https",
-      "CachePolicyId": "4135ea2d-6df8-44a3-9df3-4b5a84be39ad",
-      "OriginRequestPolicyId": "b689b0a8-53d0-40ab-baf2-68738e2966ac",
-      "AllowedMethods": {
-        "Quantity": 7,
-        "Items": ["GET","HEAD","OPTIONS","PUT","POST","PATCH","DELETE"],
-        "CachedMethods": {"Quantity": 2, "Items": ["GET","HEAD"]}
-      }
-    },
-    "Origins": {
-      "Quantity": 1,
-      "Items": [{
-        "Id": "ecs-backend",
-        "DomainName": "YOUR_ECS_PUBLIC_IP",
-        "CustomOriginConfig": {
-          "HTTPPort": 3000,
-          "HTTPSPort": 443,
-          "OriginProtocolPolicy": "http-only"
-        }
-      }]
-    },
-    "WebACLId": "YOUR_WAF_ARN",
-    "Enabled": true
-  }'`} />
-            <CodeBlock code={`# CloudFront 도메인 확인 (배포에 약 10–15분 소요)
-aws cloudfront list-distributions \\
-  --query 'DistributionList.Items[?Comment==\`SentinelShare Secure Environment\`].DomainName' \\
-  --output text`} />
+            <CodeBlock code={`sudo apt update
+sudo apt install -y postgresql postgresql-contrib
+sudo systemctl start postgresql
+sudo systemctl enable postgresql
+
+sudo -u postgres psql <<EOF
+CREATE USER sentinelshare WITH PASSWORD 'localpassword';
+CREATE DATABASE sentinelshare OWNER sentinelshare;
+\\q
+EOF
+
+sudo -u postgres psql -c "\\l"`} />
           </CliContent>
           <ConsoleContent />
         </StepCard>
@@ -367,25 +383,32 @@ aws cloudfront list-distributions \\
           warning="이 단계 완료 후 ECS에 직접 접근이 차단됩니다. CloudFront 도메인을 통해서만 접근 가능합니다."
         >
           <CliContent>
-            <CodeBlock code={`# 기존 0.0.0.0/0 규칙 제거 (임시로 열었던 경우)
-aws ec2 revoke-security-group-ingress \\
-  --group-id sg-XXXXXXXX \\
-  --protocol tcp \\
-  --port 3000 \\
-  --cidr 0.0.0.0/0
+            <CodeBlock code={`git clone https://github.com/CloudShield-Lab/CloudShield_Lab.git Sentinel_Share
+cd Sentinel_Share/sentinel-share-backend
 
-# CloudFront 관리형 프리픽스 리스트만 허용
-aws ec2 authorize-security-group-ingress \\
-  --group-id sg-XXXXXXXX \\
-  --ip-permissions '[{
-    "IpProtocol": "tcp",
-    "FromPort": 3000,
-    "ToPort": 3000,
-    "PrefixListIds": [{"PrefixListId": "pl-3b927c52"}]
-  }]'`} />
-            <p className="text-slate-500 text-sm">
-              <code className="font-mono text-slate-400">pl-3b927c52</code>는 CloudFront가 사용하는 IP 범위 전체를 자동으로 포함하는 AWS 관리형 프리픽스 리스트입니다.
-            </p>
+sudo apt update
+sudo apt install -y nodejs npm git
+npm install
+
+cat > .env <<'EOF'
+NODE_ENV=development
+PORT=3000
+JWT_SECRET=s3cure123!
+JWT_EXPIRES_IN=1h
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=sentinelshare
+DB_USER=sentinelshare
+DB_PASSWORD=localpassword
+AWS_REGION=ap-northeast-2
+S3_BUCKET_NAME=your-sentinelshare-bucket
+PRESIGNED_URL_TTL=300
+MAX_FILE_SIZE_MB=100
+ALLOWED_MIME_TYPES=image/jpeg,image/png,image/gif,image/webp,application/pdf,text/plain,application/zip,application/x-zip-compressed
+CORS_ORIGIN=http://localhost:3000
+EOF
+
+npm run dev`} />
           </CliContent>
           <ConsoleContent />
         </StepCard>
@@ -393,13 +416,16 @@ aws ec2 authorize-security-group-ingress \\
         {/* Step 11: DB 마이그레이션 */}
         <StepCard step={11} title="프론트엔드 연결 및 접속 테스트">
           <CliContent>
-            <CodeBlock code={`export PGPASSWORD="YOUR_DB_PASSWORD"
-psql \\
-  -h YOUR_SECURE_RDS_ENDPOINT \\
-  -p 5432 \\
-  -U sentinelshare_user \\
-  -d sentinelshare \\
-  -f sentinel-share-backend/migrations/001_initial_schema.sql`} />
+            <CodeBlock code={`cd Sentinel_Share/sentinel-share-frontend
+
+cat > .env.local <<'EOF'
+NEXT_PUBLIC_API_URL=http://<EC2_PUBLIC_IP>:3000
+EOF
+
+npm install
+npm run dev
+
+curl http://<EC2_PUBLIC_IP>:3000/health`} />
           </CliContent>
           <ConsoleContent />
         </StepCard>
@@ -407,18 +433,20 @@ psql \\
         {/* Step 12: Secrets Manager CORS 업데이트 + 대시보드 연결 */}
         <StepCard step={12} title="Secrets Manager 설정">
           <CliContent>
-            <p className="text-slate-500 text-sm mb-3">
-              CloudFront 도메인이 확정되었으면 CORS 시크릿을 업데이트합니다.
-            </p>
-            <CodeBlock code={`# CORS 시크릿 업데이트
-aws secretsmanager update-secret \\
-  --secret-id sentinelshare/cors-origin \\
-  --secret-string "https://YOUR_CLOUDFRONT_DOMAIN.cloudfront.net"`} />
-            <CodeBlock filename="attack-dashboard/.env.local" code={`VULNERABLE_API_URL=http://YOUR_VULNERABLE_ECS_IP:3000
-VULNERABLE_S3_BUCKET=your-vulnerable-bucket-name
-AWS_API_URL=https://YOUR_CLOUDFRONT_DOMAIN.cloudfront.net
-AWS_S3_BUCKET=your-secure-bucket-name
-AWS_REGION=ap-northeast-2`} />
+            <CodeBlock code={`aws secretsmanager create-secret \\
+--name secure-db-password \\
+--secret-string'{"password":"s3cure123!"}' \\
+--region$AWS_REGION
+
+aws secretsmanager create-secret \\
+--name secure-jwt-secret \\
+--secret-string'{"password":"s3cure123!"}' \\
+--region$AWS_REGION
+
+aws iam put-role-policy \\
+--role-name s3cure-taskexecutionrole \\
+--policy-name SecureSecretsReadPolicy \\
+--policy-document file://secrets-inline-policy.json`} />
           </CliContent>
           <ConsoleContent />
         </StepCard>
