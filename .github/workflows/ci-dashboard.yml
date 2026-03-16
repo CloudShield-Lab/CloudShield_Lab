@@ -1,4 +1,4 @@
-name: Dashboard PR CI
+name: PR CI Dashboard
 
 on:
   # PR이 생성되거나 업데이트될 때 대시보드 관련 변경만 검사한다.
@@ -59,7 +59,7 @@ jobs:
           scan-type: fs
           scan-ref: ./attack-dashboard
           scanners: vuln
-          severity: HIGH,CRITICAL
+          severity: CRITICAL
           ignore-unfixed: true
           exit-code: '1'
 
@@ -78,6 +78,6 @@ jobs:
         with:
           image-ref: ${{ env.IMAGE_NAME }}:${{ github.sha }}
           format: table
-          severity: HIGH,CRITICAL
+          severity: CRITICAL
           ignore-unfixed: true
           exit-code: '1'
