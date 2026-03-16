@@ -1,0 +1,260 @@
+================================================================
+SentinelShare 로그 형식 스펙 (Wazuh 연동용)
+작성일: 2026-03-16
+================================================================
+
+----------------------------------------------------------------
+기본 원칙
+----------------------------------------------------------------
+- 형식     : JSON 한 줄 (NDJSON — 줄바꿈으로 구분)
+- 출력 대상 : stdout + 파일 /opt/app/logs/app.log
+- 인코딩   : UTF-8
+- 타임존   : UTC (ISO 8601)
+
+----------------------------------------------------------------
+공통 필드 (모든 로그에 반드시 포함)
+----------------------------------------------------------------
+timestamp   string   ISO 8601 UTC          "2026-03-16T12:00:00.000Z"
+level       string   info / warn / error   "warn"
+event       string   이벤트 식별자          "AUTH_FAILURE"
+ip          string   클라이언트 IP          "1.2.3.4"
+method      string   HTTP 메서드            "POST"
+path        string   요청 경로              "/auth/login"
+status      number   HTTP 응답 코드         401
+latency_ms  number   처리 시간 (ms)         320
+
+----------------------------------------------------------------
+이벤트 목록
+----------------------------------------------------------------
+
+[인증]
+
+AUTH_SIGNUP_SUCCESS — 회원가입 성공
+{
+  "timestamp": "2026-03-16T12:00:00.000Z",
+  "level": "info",
+  "event": "AUTH_SIGNUP_SUCCESS",
+  "ip": "1.2.3.4",
+  "method": "POST",
+  "path": "/auth/signup",
+  "status": 201,
+  "latency_ms": 480,
+  "user_id": "a1b2c3d4-...",
+  "email": "user@example.com"
+}
+
+AUTH_SIGNUP_DUPLICATE — 이미 존재하는 이메일 (409)
+{
+  "timestamp": "...",
+  "level": "warn",
+  "event": "AUTH_SIGNUP_DUPLICATE",
+  "ip": "1.2.3.4",
+  "method": "POST",
+  "path": "/auth/signup",
+  "status": 409,
+  "latency_ms": 20,
+  "email": "user@example.com"
+}
+
+AUTH_LOGIN_SUCCESS — 로그인 성공
+{
+  "timestamp": "...",
+  "level": "info",
+  "event": "AUTH_LOGIN_SUCCESS",
+  "ip": "1.2.3.4",
+  "method": "POST",
+  "path": "/auth/login",
+  "status": 200,
+  "latency_ms": 310,
+  "user_id": "a1b2c3d4-...",
+  "email": "user@example.com"
+}
+
+AUTH_FAILURE — 로그인 실패 (이메일 없음 / 비밀번호 틀림)
+{
+  "timestamp": "...",
+  "level": "warn",
+  "event": "AUTH_FAILURE",
+  "ip": "1.2.3.4",
+  "method": "POST",
+  "path": "/auth/login",
+  "status": 401,
+  "latency_ms": 290,
+  "email": "victim@demo.com",
+  "reason": "invalid_credentials"
+}
+※ reason 값: "invalid_credentials" 고정
+   (이메일 없음과 비밀번호 틀림을 동일하게 처리 — 이메일 열거 공격 방지)
+
+AUTH_INVALID_TOKEN — 위조 또는 만료된 JWT
+{
+  "timestamp": "...",
+  "level": "warn",
+  "event": "AUTH_INVALID_TOKEN",
+  "ip": "1.2.3.4",
+  "method": "GET",
+  "path": "/files",
+  "status": 401,
+  "latency_ms": 5,
+  "reason": "invalid_token"
+}
+※ reason 값: "invalid_token" / "token_expired"
+
+----------------------------------------------------------------
+
+[파일 작업]
+
+FILE_UPLOAD_SUCCESS — 파일 업로드 성공
+{
+  "timestamp": "...",
+  "level": "info",
+  "event": "FILE_UPLOAD_SUCCESS",
+  "ip": "1.2.3.4",
+  "method": "POST",
+  "path": "/files/upload",
+  "status": 201,
+  "latency_ms": 820,
+  "user_id": "a1b2c3d4-...",
+  "file_id": "f1e2d3c4-...",
+  "original_name": "report.pdf",
+  "mime_type": "application/pdf",
+  "size_bytes": 204800
+}
+
+FILE_UPLOAD_REJECTED — 허용되지 않은 파일 타입 또는 크기 초과
+{
+  "timestamp": "...",
+  "level": "warn",
+  "event": "FILE_UPLOAD_REJECTED",
+  "ip": "1.2.3.4",
+  "method": "POST",
+  "path": "/files/upload",
+  "status": 400,
+  "latency_ms": 10,
+  "user_id": "a1b2c3d4-...",
+  "reason": "invalid_mime_type",
+  "mime_type": "application/x-php"
+}
+※ reason 값: "invalid_mime_type" / "file_too_large"
+
+FILE_ACCESS_DENIED — 타인 파일 접근 시도 (다운로드 / 삭제 / 공유 링크 생성)
+{
+  "timestamp": "...",
+  "level": "warn",
+  "event": "FILE_ACCESS_DENIED",
+  "ip": "1.2.3.4",
+  "method": "GET",
+  "path": "/files/f1e2d3c4-.../download",
+  "status": 403,
+  "latency_ms": 15,
+  "user_id": "a1b2c3d4-...",
+  "file_id": "f1e2d3c4-...",
+  "reason": "not_owner"
+}
+
+FILE_DELETE_SUCCESS — 파일 삭제 성공
+{
+  "timestamp": "...",
+  "level": "info",
+  "event": "FILE_DELETE_SUCCESS",
+  "ip": "1.2.3.4",
+  "method": "DELETE",
+  "path": "/files/f1e2d3c4-...",
+  "status": 200,
+  "latency_ms": 95,
+  "user_id": "a1b2c3d4-...",
+  "file_id": "f1e2d3c4-..."
+}
+
+FILE_SHARE_CREATED — 공유 링크 생성
+{
+  "timestamp": "...",
+  "level": "info",
+  "event": "FILE_SHARE_CREATED",
+  "ip": "1.2.3.4",
+  "method": "POST",
+  "path": "/files/f1e2d3c4-.../share",
+  "status": 201,
+  "latency_ms": 55,
+  "user_id": "a1b2c3d4-...",
+  "file_id": "f1e2d3c4-...",
+  "expires_at": "2026-03-17T12:00:00.000Z"
+}
+
+SHARED_LINK_ACCESSED — 공유 링크로 파일 다운로드 (인증 없는 퍼블릭 접근)
+{
+  "timestamp": "...",
+  "level": "info",
+  "event": "SHARED_LINK_ACCESSED",
+  "ip": "1.2.3.4",
+  "method": "GET",
+  "path": "/shared/<token>/download",
+  "status": 200,
+  "latency_ms": 130,
+  "file_id": "f1e2d3c4-..."
+}
+※ token 값은 로그에 포함하지 않음 (유효 토큰 노출 방지)
+
+SHARED_LINK_INVALID — 없는 토큰 또는 만료된 공유 링크
+{
+  "timestamp": "...",
+  "level": "warn",
+  "event": "SHARED_LINK_INVALID",
+  "ip": "1.2.3.4",
+  "method": "GET",
+  "path": "/shared/<token>/download",
+  "status": 404,
+  "latency_ms": 12,
+  "reason": "not_found_or_expired"
+}
+
+----------------------------------------------------------------
+
+[시스템]
+
+RATE_LIMIT_TRIGGERED — 앱 레벨 rate limiter 발동 (200 req/min 초과)
+{
+  "timestamp": "...",
+  "level": "warn",
+  "event": "RATE_LIMIT_TRIGGERED",
+  "ip": "1.2.3.4",
+  "method": "POST",
+  "path": "/auth/login",
+  "status": 429,
+  "latency_ms": 2
+}
+
+SERVER_ERROR — 예상치 못한 500 에러
+{
+  "timestamp": "...",
+  "level": "error",
+  "event": "SERVER_ERROR",
+  "ip": "1.2.3.4",
+  "method": "POST",
+  "path": "/files/upload",
+  "status": 500,
+  "latency_ms": 1200,
+  "error_message": "connect ECONNREFUSED 127.0.0.1:5432"
+}
+※ NODE_ENV=production 에서는 error_message를 "Internal server error"로 마스킹
+
+----------------------------------------------------------------
+로그에 절대 포함하지 않는 값
+----------------------------------------------------------------
+password / password_hash   크리덴셜 노출 방지
+stored_key                 S3 내부 경로 노출 방지
+share token 전체 값         유효 토큰 노출 방지
+JWT 토큰 전체 값             세션 하이재킹 방지
+
+----------------------------------------------------------------
+파일 출력 경로 (EC2 배포 기준)
+----------------------------------------------------------------
+/opt/app/logs/app.log
+
+Wazuh agent ossec.conf 등록:
+  <localfile>
+    <log_format>json</log_format>
+    <location>/opt/app/logs/app.log</location>
+  </localfile>
+
+================================================================

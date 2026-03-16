@@ -93,7 +93,7 @@ jobs:
               "docker pull \($image)",
               "docker stop sentinelshare-backend || true",
               "docker rm sentinelshare-backend || true",
-              "docker run -d --name sentinelshare-backend --env-file /opt/app/.env --network host --restart unless-stopped \($image)"
+              "docker run -d --name sentinelshare-backend --env-file /opt/app/.env --network host -v /opt/app/logs:/opt/app/logs --restart unless-stopped \($image)"
             ]')
 
           COMMAND_ID=$(aws ssm send-command \
@@ -155,7 +155,7 @@ jobs:
               "docker pull \($image)",
               "docker stop sentinelshare-backend || true",
               "docker rm sentinelshare-backend || true",
-              "docker run -d --name sentinelshare-backend --env-file /opt/app/.env --network host --restart unless-stopped \($image)"
+              "docker run -d --name sentinelshare-backend --env-file /opt/app/.env --network host -v /opt/app/logs:/opt/app/logs --restart unless-stopped \($image)"
             ]')
 
           COMMAND_ID=$(aws ssm send-command \
