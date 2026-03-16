@@ -1,0 +1,65 @@
+name: PR CI Terraform
+
+on:
+  # Terraform 변경을 PR 단계에서만 먼저 검증한다.
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [master, dev]
+    paths:
+      - 'terraform/**'
+      - '.github/workflows/ci-terraform.yml'
+
+env:
+  TERRAFORM_VERSION: '1.9.8'
+  TF_WORKING_DIR: terraform
+
+jobs:
+  terraform-ci:
+    name: Terraform Checks
+    runs-on: ubuntu-latest
+    # 실제 Terraform 파일이 있을 때만 검사를 실행한다.
+    if: ${{ hashFiles('terraform/**/*.tf') != '' }}
+
+    defaults:
+      run:
+        shell: bash
+        # 모든 terraform 명령은 루트의 terraform/ 디렉터리 기준으로 실행한다.
+        working-directory: ${{ env.TF_WORKING_DIR }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Check Terraform formatting
+        # 하위 디렉터리까지 포함해 포맷 표준을 강제한다.
+        run: terraform fmt -check -recursive
+
+      - name: Initialize Terraform without backend
+        # 아직 remote state/backends가 정해지지 않았어도 validate가 가능하도록 backend 연결은 끈다.
+        run: terraform init -backend=false
+
+      - name: Validate Terraform configuration
+        # provider/schema 기준으로 기본 구성 오류를 조기에 잡는다.
+        run: terraform validate
+
+      - name: Trivy Terraform config scan
+        # IaC 설정 자체의 보안 문제를 검사한다.
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          scan-type: config
+          scan-ref: ./terraform
+          exit-code: '1'
+
+      - name: Trivy Terraform secret scan
+        # terraform 디렉터리에 실수로 커밋된 비밀값이 없는지 확인한다.
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          scan-type: fs
+          scan-ref: ./terraform
+          scanners: secret
+          exit-code: '1'
