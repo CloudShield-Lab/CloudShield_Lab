@@ -24,7 +24,7 @@ export default function ShareLinkModal({ file, onClose }: ShareLinkModalProps) {
   const [copied, setCopied] = useState(false);
 
   const shareUrl = shareLink
-    ? `${window.location.origin}/shared/${shareLink.token}`
+    ? `${window.location.origin}/shared?token=${shareLink.token}`
     : '';
 
   async function handleGenerate() {
