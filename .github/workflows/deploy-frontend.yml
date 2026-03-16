@@ -85,7 +85,7 @@ jobs:
         working-directory: sentinel-share-frontend
         env:
           STATIC_EXPORT: 'true'
-          NEXT_PUBLIC_API_URL: https://dyfs11nls1dwb.cloudfront.net
+          NEXT_PUBLIC_API_URL: https://dyfs11nls1dwb.cloudfront.net/api
         run: npm run build
 
       - name: Configure AWS credentials (OIDC)
