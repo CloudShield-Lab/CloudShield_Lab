@@ -23,7 +23,7 @@ const loginValidation = [
 async function signup(req, res) {
   try {
     const { email, password } = req.body;
-    const result = await AuthService.signup({ email, password });
+    const result = await AuthService.signup({ email, password, ip: req.ip });
     return res.status(201).json({
       token: result.token,
       user: { id: result.user.id, email: result.user.email, role: result.user.role },
@@ -36,7 +36,7 @@ async function signup(req, res) {
 async function login(req, res) {
   try {
     const { email, password } = req.body;
-    const result = await AuthService.login({ email, password });
+    const result = await AuthService.login({ email, password, ip: req.ip });
     return res.status(200).json({
       token: result.token,
       user: result.user,

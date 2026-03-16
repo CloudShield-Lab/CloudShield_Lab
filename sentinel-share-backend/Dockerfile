@@ -24,6 +24,8 @@ COPY package.json ./
 
 RUN chown -R appuser:appgroup /app
 
+RUN mkdir -p /opt/app/logs && chown appuser:appgroup /opt/app/logs
+
 USER appuser
 
 EXPOSE 3000
