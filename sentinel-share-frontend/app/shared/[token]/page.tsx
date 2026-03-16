@@ -4,8 +4,6 @@ import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import { api } from '@/lib/api';
 
-// Static export: token is unknown at build time — resolved client-side via useParams()
-export function generateStaticParams() { return []; }
 
 export default function SharedFilePage() {
   const params = useParams<{ token: string }>();
