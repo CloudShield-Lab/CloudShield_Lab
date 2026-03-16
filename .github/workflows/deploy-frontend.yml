@@ -1,0 +1,105 @@
+name: Deploy Frontend to S3
+
+on:
+  push:
+    branches: [master, dev]
+    paths:
+      - 'sentinel-share-frontend/**'
+      - '.github/workflows/deploy-frontend.yml'
+  workflow_dispatch:  # 수동 실행 허용
+
+env:
+  AWS_REGION: ap-northeast-2
+
+jobs:
+  # ──────────────────────────────────────────────────────────────
+  # 1. 취약 환경 빌드 & S3 배포 (No CloudFront, EC2 직접 접근)
+  # ──────────────────────────────────────────────────────────────
+  deploy-vulnerable:
+    name: Build & Deploy → Vulnerable (S3 Direct)
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    environment: vulnerable
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: sentinel-share-frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: sentinel-share-frontend
+        run: npm ci
+
+      - name: Build static export (Vulnerable)
+        working-directory: sentinel-share-frontend
+        env:
+          STATIC_EXPORT: 'true'
+          NEXT_PUBLIC_API_URL: ${{ secrets.VULN_API_URL }}
+        run: npm run build
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy to S3 (Vulnerable)
+        run: |
+          aws s3 sync sentinel-share-frontend/out/ s3://sentinel-share-vul-frontend/ --delete
+
+  # ──────────────────────────────────────────────────────────────
+  # 2. 보안 환경 빌드 & S3 배포 + CloudFront 캐시 무효화
+  # ──────────────────────────────────────────────────────────────
+  deploy-secure:
+    name: Build & Deploy → Secure (S3 + CloudFront)
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    environment: secure
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: sentinel-share-frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: sentinel-share-frontend
+        run: npm ci
+
+      - name: Build static export (Secure)
+        working-directory: sentinel-share-frontend
+        env:
+          STATIC_EXPORT: 'true'
+          NEXT_PUBLIC_API_URL: https://dyfs11nls1dwb.cloudfront.net
+        run: npm run build
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy to S3 (Secure)
+        run: |
+          aws s3 sync sentinel-share-frontend/out/ s3://sentinel-share-secure-frontend/ --delete
+
+      - name: Invalidate CloudFront cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
+            --paths "/*"
