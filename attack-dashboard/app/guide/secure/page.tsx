@@ -8,17 +8,17 @@ export default function SecureGuidePage() {
     <MethodProvider>
       <div className="max-w-4xl mx-auto w-full px-4 py-8 space-y-6">
 
-        {/* ?ㅻ뜑 */}
+        {/* 헤더 */}
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="flex items-center gap-3 mb-1">
               <Link href="/guide" className="text-slate-600 hover:text-slate-400 text-sm transition-colors">
-                ??Infrastructure Guide
+                ← Infrastructure Guide
               </Link>
             </div>
-            <h1 className="text-2xl font-bold text-slate-100">蹂댁븞 ?섍꼍 援ъ꽦</h1>
+            <h1 className="text-2xl font-bold text-slate-100">보안 환경 구성</h1>
             <p className="text-slate-500 mt-1 text-sm">
-              CloudFront + WAF 쨌 S3 ?꾨씪?대퉿 쨌 Security Group CloudFront IP ?쒗븳 ???숈씪 肄붾뱶, ?ㅻⅨ ?명봽??
+              CloudFront + WAF · S3 프라이빗 · Security Group CloudFront IP 제한 — 동일 코드, 다른 인프라
             </p>
           </div>
           <span className="flex-shrink-0 px-3 py-1 rounded border border-emerald-900 bg-emerald-950 text-emerald-400 text-xs font-mono uppercase tracking-widest">
@@ -26,12 +26,12 @@ export default function SecureGuidePage() {
           </span>
         </div>
 
-        {/* 援ъ꽦 ?붿빟 */}
+        {/* 구성 요약 */}
         <div className="rounded-lg border border-emerald-900/40 bg-emerald-950/10 p-4 text-sm">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
               { label: 'WAF', value: 'Rate-based + OWASP' },
-              { label: 'S3 Public Access', value: 'ON (李⑤떒)' },
+              { label: 'S3 Public Access', value: 'ON (차단)' },
               { label: 'Security Group', value: 'CF IP only' },
               { label: 'CloudFront', value: 'HTTPS + CDN' },
             ].map((item) => (
@@ -43,19 +43,19 @@ export default function SecureGuidePage() {
           </div>
         </div>
 
-        {/* CLI / Console ???좉? */}
+        {/* CLI / Console 탭 토글 */}
         <MethodToggle />
 
-        {/* Step 1: S3 踰꾪궥 ???꾨씪?대퉿 */}
-        <StepCard step={1} title="VPC 설정">
+        {/* Step 1: S3 버킷 — 프라이빗 */}
+        <StepCard step={1} title="S3 버킷 생성 — Block Public Access ON">
           <CliContent>
-            <CodeBlock code={`# 踰꾪궥 ?앹꽦
+            <CodeBlock code={`# 버킷 생성
 aws s3api create-bucket \\
   --bucket your-secure-bucket-name \\
   --region ap-northeast-2 \\
   --create-bucket-configuration LocationConstraint=ap-northeast-2
 
-# Block Public Access ?꾩껜 ?쒖꽦??
+# Block Public Access 전체 활성화
 aws s3api put-public-access-block \\
   --bucket your-secure-bucket-name \\
   --public-access-block-configuration \\
@@ -63,38 +63,38 @@ aws s3api put-public-access-block \\
           </CliContent>
           <ConsoleContent>
             <ol className="space-y-2 text-sm text-slate-400 list-decimal list-inside">
-              <li>AWS 肄섏넄 ?곷떒 寃?됱갹??<code className="font-mono text-slate-300">S3</code> 寃????S3 ?대┃</li>
-              <li>?곗륫 ?곷떒 <span className="text-slate-200">踰꾪궥 留뚮뱾湲?/span> ?대┃</li>
-              <li>踰꾪궥 ?대쫫 ?낅젰 ??由ъ쟾: <code className="font-mono text-slate-300">ap-northeast-2</code> ?좏깮</li>
-              <li>媛앹껜 ?뚯쑀沅? <span className="text-slate-200">ACL 鍮꾪솢?깊솕??/span> ?좎?</li>
-              <li>?쇰툝由??≪꽭??李⑤떒 ?ㅼ젙: 4媛???ぉ 紐⑤몢 泥댄겕 ?뺤씤</li>
-              <li><span className="text-slate-200">踰꾪궥 留뚮뱾湲?/span> ?대┃</li>
+              <li>AWS 콘솔 상단 검색창에 <code className="font-mono text-slate-300">S3</code> 검색 → S3 클릭</li>
+              <li>우측 상단 <span className="text-slate-200">버킷 만들기</span> 클릭</li>
+              <li>버킷 이름 입력 → 리전: <code className="font-mono text-slate-300">ap-northeast-2</code> 선택</li>
+              <li>객체 소유권: <span className="text-slate-200">ACL 비활성화됨</span> 유지</li>
+              <li>퍼블릭 액세스 차단 설정: 4개 항목 모두 체크 확인</li>
+              <li><span className="text-slate-200">버킷 만들기</span> 클릭</li>
             </ol>
           </ConsoleContent>
         </StepCard>
 
-        {/* Step 2: S3 踰꾪궥 ?뺤콉 */}
+        {/* Step 2: S3 버킷 정책 */}
         <StepCard
           step={2}
-          title="IAM 설정"
-          note="sentinel-share-backend/infra/s3-bucket-policy.json ?뚯씪??YOUR_ACCOUNT_ID? 踰꾪궥紐낆쓣 ?ㅼ젣 媛믪쑝濡??泥댄븳 ???곸슜?⑸땲??"
+          title="S3 버킷 정책 적용 — ECS Task Role만 허용"
+          note="sentinel-share-backend/infra/s3-bucket-policy.json 파일의 YOUR_ACCOUNT_ID와 버킷명을 실제 값으로 대체한 후 적용합니다."
         >
           <CliContent>
-            <CodeBlock code={`# 踰꾪궥 ?뺤콉 ?곸슜 (HTTPS 媛뺤젣 + Task Role留??덉슜)
+            <CodeBlock code={`# 버킷 정책 적용 (HTTPS 강제 + Task Role만 허용)
 aws s3api put-bucket-policy \\
   --bucket your-secure-bucket-name \\
   --policy file://sentinel-share-backend/infra/s3-bucket-policy.json`} />
             <p className="text-slate-500 text-sm">
-              踰꾪궥 ?뺤콉 ?댁슜? HTTPS ?묎렐留??덉슜?섍퀬, ?낅줈??prefix(<code className="font-mono text-slate-400">uploads/*</code>)?????ECS Task Role ARN留??덉슜?⑸땲??
+              버킷 정책 내용은 HTTPS 접근만 허용하고, 업로드 prefix(<code className="font-mono text-slate-400">uploads/*</code>)에 대해 ECS Task Role ARN만 허용합니다.
             </p>
           </CliContent>
           <ConsoleContent />
         </StepCard>
 
         {/* Step 3: RDS */}
-        <StepCard step={3} title="ECR 프라이빗 레포지토리 생성">
+        <StepCard step={3} title="RDS PostgreSQL 생성">
           <CliContent>
-            <p className="text-slate-500 text-sm mb-3">痍⑥빟 ?섍꼍怨??숈씪??諛⑹떇?쇰줈 ?앹꽦?⑸땲?? 蹂꾨룄 ?쒕툕??洹몃９怨??몄뒪?댁뒪瑜??ъ슜?섏꽭??</p>
+            <p className="text-slate-500 text-sm mb-3">취약 환경과 동일한 방식으로 생성합니다. 별도 서브넷 그룹과 인스턴스를 사용하세요.</p>
             <CodeBlock code={`aws rds create-db-subnet-group \\
   --db-subnet-group-name sentinelshare-secure-subnet \\
   --db-subnet-group-description "SentinelShare Secure DB Subnet" \\
@@ -111,7 +111,7 @@ aws rds create-db-instance \\
   --db-subnet-group-name sentinelshare-secure-subnet \\
   --no-publicly-accessible \\
   --allocated-storage 20`} />
-            <CodeBlock code={`# RDS ?붾뱶?ъ씤???뺤씤
+            <CodeBlock code={`# RDS 엔드포인트 확인
 aws rds describe-db-instances \\
   --db-instance-identifier sentinelshare-secure \\
   --query 'DBInstances[0].Endpoint.Address' \\
@@ -120,8 +120,8 @@ aws rds describe-db-instances \\
           <ConsoleContent />
         </StepCard>
 
-        {/* Step 4: IAM ??븷 */}
-        <StepCard step={4} title="RDS 설정">
+        {/* Step 4: IAM 역할 */}
+        <StepCard step={4} title="IAM 역할 생성 (Task Role + Task Execution Role)">
           <CliContent>
             <CodeBlock code={`# Task Execution Role
 aws iam create-role \\
@@ -136,7 +136,7 @@ aws iam attach-role-policy \\
 aws iam create-role \\
   --role-name sentinelshare-task-role \\
   --assume-role-policy-document file://sentinel-share-backend/infra/iam/task-role.json`} />
-            <CodeBlock code={`# S3 + Secrets Manager ?묎렐 ?뺤콉
+            <CodeBlock code={`# S3 + Secrets Manager 접근 정책
 aws iam put-role-policy \\
   --role-name sentinelshare-task-role \\
   --policy-name s3-access \\
@@ -165,10 +165,10 @@ aws iam put-role-policy \\
         </StepCard>
 
         {/* Step 5: Secrets Manager */}
-        <StepCard step={5} title="보안그룹 설정">
+        <StepCard step={5} title="Secrets Manager 시크릿 생성">
           <CliContent>
             <p className="text-slate-500 text-sm mb-3">
-              蹂댁븞 ?섍꼍 ?쒗겕由??꾨━?쎌뒪: <code className="font-mono text-slate-400">sentinelshare/</code> (痍⑥빟 ?섍꼍? <code className="font-mono text-slate-400">sentinelshare/vulnerable/</code>)
+              보안 환경 시크릿 프리픽스: <code className="font-mono text-slate-400">sentinelshare/</code> (취약 환경은 <code className="font-mono text-slate-400">sentinelshare/vulnerable/</code>)
             </p>
             <CodeBlock code={`aws secretsmanager create-secret \\
   --name sentinelshare/jwt-secret \\
@@ -194,20 +194,20 @@ aws secretsmanager create-secret \\
           <ConsoleContent />
         </StepCard>
 
-        {/* Step 6: ECS ?대윭?ㅽ꽣 + Security Group */}
-        <StepCard step={6} title="S3설정">
+        {/* Step 6: ECS 클러스터 + Security Group */}
+        <StepCard step={6} title="ECS 클러스터 + Security Group 생성">
           <CliContent>
-            <CodeBlock code={`# ECS ?대윭?ㅽ꽣
+            <CodeBlock code={`# ECS 클러스터
 aws ecs create-cluster --cluster-name sentinelshare-secure
 aws logs create-log-group --log-group-name /ecs/sentinelshare-backend
 
-# Security Group ?앹꽦
+# Security Group 생성
 aws ec2 create-security-group \\
   --group-name sentinelshare-secure-sg \\
   --description "SentinelShare Secure - CloudFront IP only" \\
   --vpc-id vpc-XXXXXXXX`} />
             <p className="text-slate-500 text-sm">
-              Security Group ?몃컮?대뱶 洹쒖튃? CloudFront 諛고룷 ?꾨즺 ??Step 10?먯꽌 異붽??⑸땲??
+              Security Group 인바운드 규칙은 CloudFront 배포 완료 후 Step 10에서 추가합니다.
             </p>
           </CliContent>
           <ConsoleContent />
@@ -216,11 +216,11 @@ aws ec2 create-security-group \\
         {/* Step 7: WAF Web ACL */}
         <StepCard
           step={7}
-          title="GitHub Actions / OIDC 설정"
-          note="WAF??CloudFront???곌껐?섎?濡?諛섎뱶??us-east-1 由ъ쟾?먯꽌 ?앹꽦?댁빞 ?⑸땲??"
+          title="WAF Web ACL 생성"
+          note="WAF는 CloudFront에 연결하므로 반드시 us-east-1 리전에서 생성해야 합니다."
         >
           <CliContent>
-            <CodeBlock code={`# WAF Web ACL ?앹꽦 (us-east-1 ?꾩닔)
+            <CodeBlock code={`# WAF Web ACL 생성 (us-east-1 필수)
 aws wafv2 create-web-acl \\
   --name sentinelshare-waf \\
   --scope CLOUDFRONT \\
@@ -262,7 +262,7 @@ aws wafv2 create-web-acl \\
   ]' \\
   --visibility-config \\
     "SampledRequestsEnabled=true,CloudWatchMetricsEnabled=true,MetricName=sentinelshare-waf"`} />
-            <CodeBlock code={`# WAF ARN ?뺤씤 (CloudFront ?ㅼ젙 ???꾩슂)
+            <CodeBlock code={`# WAF ARN 확인 (CloudFront 설정 시 필요)
 aws wafv2 list-web-acls \\
   --scope CLOUDFRONT \\
   --region us-east-1 \\
@@ -272,18 +272,18 @@ aws wafv2 list-web-acls \\
           <ConsoleContent />
         </StepCard>
 
-        {/* Step 8: ECS ?쒖뒪???뺤쓽 + ?쒕퉬??*/}
+        {/* Step 8: ECS 태스크 정의 + 서비스 */}
         <StepCard
           step={8}
-          title="CloudWatch Log Group 생성"
-          note="sentinel-share-backend/infra/ecs-task-definition-secure.json???ъ슜?⑸땲?? ACCOUNT_ID? ?쒗겕由?ARN???ㅼ젣 媛믪쑝濡??泥댄븯?몄슂."
+          title="ECS 태스크 정의 등록 + 서비스 생성"
+          note="sentinel-share-backend/infra/ecs-task-definition-secure.json을 사용합니다. ACCOUNT_ID와 시크릿 ARN을 실제 값으로 대체하세요."
         >
           <CliContent>
-            <CodeBlock code={`# ?쒖뒪???뺤쓽 ?깅줉
+            <CodeBlock code={`# 태스크 정의 등록
 aws ecs register-task-definition \\
   --cli-input-json file://sentinel-share-backend/infra/ecs-task-definition-secure.json
 
-# ECS ?쒕퉬???앹꽦 (?꾩쭅 assignPublicIp=ENABLED ??CloudFront ?곌껐 ???꾩떆)
+# ECS 서비스 생성 (아직 assignPublicIp=ENABLED — CloudFront 연결 전 임시)
 aws ecs create-service \\
   --cluster sentinelshare-secure \\
   --service-name sentinelshare-backend \\
@@ -295,7 +295,7 @@ aws ecs create-service \\
     securityGroups=[sg-XXXXXXXX],
     assignPublicIp=ENABLED
   }"`} />
-            <CodeBlock code={`# ECS Task Public IP ?뺤씤 (CloudFront ?ㅻ━吏꾩쑝濡??ъ슜)
+            <CodeBlock code={`# ECS Task Public IP 확인 (CloudFront 오리진으로 사용)
 TASK_ARN=$(aws ecs list-tasks \\
   --cluster sentinelshare-secure \\
   --query 'taskArns[0]' --output text)
@@ -314,14 +314,14 @@ aws ec2 describe-network-interfaces \\
           <ConsoleContent />
         </StepCard>
 
-        {/* Step 9: CloudFront 諛고룷 */}
+        {/* Step 9: CloudFront 배포 */}
         <StepCard
           step={9}
-          title="ECS Fargate 설정"
-          note="?ㅻ━吏꾩? ECS Task??Public IP?낅땲?? ?ㅼ젣 ?꾨줈?뺤뀡?먯꽌??ALB瑜??ㅻ━吏꾩쑝濡??ъ슜?섎뒗 寃껋씠 沅뚯옣?섏?留? ???곕え ?섍꼍?먯꽌??ECS IP瑜?吏곸젒 ?ъ슜?⑸땲??"
+          title="CloudFront 배포 생성 + WAF 연결"
+          note="오리진은 ECS Task의 Public IP입니다. 실제 프로덕션에서는 ALB를 오리진으로 사용하는 것이 권장되지만, 이 데모 환경에서는 ECS IP를 직접 사용합니다."
         >
           <CliContent>
-            <CodeBlock code={`# CloudFront 諛고룷 ?앹꽦
+            <CodeBlock code={`# CloudFront 배포 생성
 aws cloudfront create-distribution \\
   --distribution-config '{
     "CallerReference": "sentinelshare-secure-'$(date +%s)'",
@@ -352,7 +352,7 @@ aws cloudfront create-distribution \\
     "WebACLId": "YOUR_WAF_ARN",
     "Enabled": true
   }'`} />
-            <CodeBlock code={`# CloudFront ?꾨찓???뺤씤 (諛고룷????10??5遺??뚯슂)
+            <CodeBlock code={`# CloudFront 도메인 확인 (배포에 약 10–15분 소요)
 aws cloudfront list-distributions \\
   --query 'DistributionList.Items[?Comment==\`SentinelShare Secure Environment\`].DomainName' \\
   --output text`} />
@@ -360,20 +360,21 @@ aws cloudfront list-distributions \\
           <ConsoleContent />
         </StepCard>
 
-        {/* Step 10: Security Group CloudFront IP ?쒗븳 */}
+        {/* Step 10: Security Group CloudFront IP 제한 */}
         <StepCard
           step={10}
-          title="ECS Service 설정"
+          title="ECS Security Group — CloudFront IP만 허용으로 변경"
+          warning="이 단계 완료 후 ECS에 직접 접근이 차단됩니다. CloudFront 도메인을 통해서만 접근 가능합니다."
         >
           <CliContent>
-            <CodeBlock code={`# 湲곗〈 0.0.0.0/0 洹쒖튃 ?쒓굅 (?꾩떆濡??댁뿀??寃쎌슦)
+            <CodeBlock code={`# 기존 0.0.0.0/0 규칙 제거 (임시로 열었던 경우)
 aws ec2 revoke-security-group-ingress \\
   --group-id sg-XXXXXXXX \\
   --protocol tcp \\
   --port 3000 \\
   --cidr 0.0.0.0/0
 
-# CloudFront 愿由ы삎 ?꾨━?쎌뒪 由ъ뒪?몃쭔 ?덉슜
+# CloudFront 관리형 프리픽스 리스트만 허용
 aws ec2 authorize-security-group-ingress \\
   --group-id sg-XXXXXXXX \\
   --ip-permissions '[{
@@ -383,14 +384,14 @@ aws ec2 authorize-security-group-ingress \\
     "PrefixListIds": [{"PrefixListId": "pl-3b927c52"}]
   }]'`} />
             <p className="text-slate-500 text-sm">
-              <code className="font-mono text-slate-400">pl-3b927c52</code>??CloudFront媛 ?ъ슜?섎뒗 IP 踰붿쐞 ?꾩껜瑜??먮룞?쇰줈 ?ы븿?섎뒗 AWS 愿由ы삎 ?꾨━?쎌뒪 由ъ뒪?몄엯?덈떎.
+              <code className="font-mono text-slate-400">pl-3b927c52</code>는 CloudFront가 사용하는 IP 범위 전체를 자동으로 포함하는 AWS 관리형 프리픽스 리스트입니다.
             </p>
           </CliContent>
           <ConsoleContent />
         </StepCard>
 
-        {/* Step 11: DB 留덉씠洹몃젅?댁뀡 */}
-        <StepCard step={11} title="Secrets Manager 설정">
+        {/* Step 11: DB 마이그레이션 */}
+        <StepCard step={11} title="DB 마이그레이션 실행">
           <CliContent>
             <CodeBlock code={`export PGPASSWORD="YOUR_DB_PASSWORD"
 psql \\
@@ -403,13 +404,13 @@ psql \\
           <ConsoleContent />
         </StepCard>
 
-        {/* Step 12: Secrets Manager CORS ?낅뜲?댄듃 + ??쒕낫???곌껐 */}
-        <StepCard step={12} title="CORS ?낅뜲?댄듃 + Attack Dashboard ?곌껐">
+        {/* Step 12: Secrets Manager CORS 업데이트 + 대시보드 연결 */}
+        <StepCard step={12} title="CORS 업데이트 + Attack Dashboard 연결">
           <CliContent>
             <p className="text-slate-500 text-sm mb-3">
-              CloudFront ?꾨찓?몄씠 ?뺤젙?섏뿀?쇰㈃ CORS ?쒗겕由우쓣 ?낅뜲?댄듃?⑸땲??
+              CloudFront 도메인이 확정되었으면 CORS 시크릿을 업데이트합니다.
             </p>
-            <CodeBlock code={`# CORS ?쒗겕由??낅뜲?댄듃
+            <CodeBlock code={`# CORS 시크릿 업데이트
 aws secretsmanager update-secret \\
   --secret-id sentinelshare/cors-origin \\
   --secret-string "https://YOUR_CLOUDFRONT_DOMAIN.cloudfront.net"`} />
@@ -422,18 +423,18 @@ AWS_REGION=ap-northeast-2`} />
           <ConsoleContent />
         </StepCard>
 
-        {/* 寃利?*/}
+        {/* 검증 */}
         <div className="rounded-xl border border-emerald-900/40 bg-emerald-950/10 p-6">
-          <h3 className="text-emerald-400 font-semibold mb-3">?ㅼ젙 寃利?/h3>
+          <h3 className="text-emerald-400 font-semibold mb-3">설정 검증</h3>
           <div className="space-y-2 text-sm">
             {[
-              { check: 'CloudFront URL濡?/health ?붿껌 ??200 OK', cmd: 'curl https://YOUR_CF_DOMAIN.cloudfront.net/health' },
-              { check: 'ECS IP 吏곸젒 ?묎렐 ???곌껐 嫄곕? (SG 李⑤떒)', cmd: 'curl http://YOUR_ECS_IP:3000/health  # ??꾩븘???먮뒗 ?곌껐 嫄곕?' },
-              { check: 'S3 踰꾪궥 吏곸젒 ?묎렐 ??403 AccessDenied', cmd: 'curl https://your-secure-bucket.s3.ap-northeast-2.amazonaws.com/  # 403' },
+              { check: 'CloudFront URL로 /health 요청 → 200 OK', cmd: 'curl https://YOUR_CF_DOMAIN.cloudfront.net/health' },
+              { check: 'ECS IP 직접 접근 → 연결 거부 (SG 차단)', cmd: 'curl http://YOUR_ECS_IP:3000/health  # 타임아웃 또는 연결 거부' },
+              { check: 'S3 버킷 직접 접근 → 403 AccessDenied', cmd: 'curl https://your-secure-bucket.s3.ap-northeast-2.amazonaws.com/  # 403' },
             ].map((item, i) => (
               <div key={i} className="space-y-1">
                 <div className="flex items-center gap-2 text-slate-400">
-                  <span className="text-emerald-600">??/span>
+                  <span className="text-emerald-600">✓</span>
                   {item.check}
                 </div>
                 <CodeBlock code={item.cmd} />
@@ -442,24 +443,24 @@ AWS_REGION=ap-northeast-2`} />
           </div>
         </div>
 
-        {/* ?꾨즺 */}
+        {/* 완료 */}
         <div className="rounded-xl border border-slate-700 bg-slate-900/50 p-6">
-          <h3 className="text-slate-300 font-semibold mb-2">紐⑤뱺 援ъ꽦 ?꾨즺</h3>
+          <h3 className="text-slate-300 font-semibold mb-2">모든 구성 완료</h3>
           <p className="text-slate-500 text-sm mb-4">
-            痍⑥빟/蹂댁븞 ???섍꼍??紐⑤몢 以鍮꾨릺?덉뒿?덈떎. Attack Simulator?먯꽌 怨듦꺽???ㅽ뻾?섍퀬 寃곌낵瑜?鍮꾧탳?대낫?몄슂.
+            취약/보안 두 환경이 모두 준비되었습니다. Attack Simulator에서 공격을 실행하고 결과를 비교해보세요.
           </p>
           <div className="flex gap-3">
             <Link
               href="/"
               className="px-4 py-2 rounded-lg border border-red-700 bg-red-950 text-red-400 text-sm font-medium hover:bg-red-900 transition-colors"
             >
-              ??Attack Simulator ?ㅽ뻾
+              ▶ Attack Simulator 실행
             </Link>
             <Link
               href="/guide/vulnerable"
               className="px-4 py-2 rounded-lg border border-slate-700 text-slate-400 text-sm hover:text-slate-200 hover:border-slate-600 transition-colors"
             >
-              ??痍⑥빟 ?섍꼍 媛?대뱶
+              ← 취약 환경 가이드
             </Link>
           </div>
         </div>
