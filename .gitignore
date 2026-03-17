@@ -18,3 +18,9 @@ prompt.txt
 
 # Private keys
 *.pem
+
+# Terraform state (커밋 금지 — 민감 정보 포함)
+*.tfstate
+*.tfstate.backup
+.terraform/
+.terraform.lock.hcl
