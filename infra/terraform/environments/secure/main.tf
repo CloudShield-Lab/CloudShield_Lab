@@ -6,6 +6,11 @@ terraform {
       version = "~> 5.0"
     }
   }
+  backend "s3" {
+    bucket = "sentinelshare-terraform-state"
+    key    = "secure/terraform.tfstate"
+    region = "ap-northeast-2"
+  }
 }
 
 provider "aws" {
@@ -33,11 +38,11 @@ module "s3" {
 }
 
 module "waf" {
-  source = "../../modules/waf"
+  source    = "../../modules/waf"
   providers = {
     aws.us_east_1 = aws.us_east_1
   }
-  env_name = "secure"
+  env_name  = "secure"
 }
 
 module "cloudfront" {
