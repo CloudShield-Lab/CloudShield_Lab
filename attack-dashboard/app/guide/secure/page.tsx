@@ -51,7 +51,7 @@ export default function SecureGuidePage() {
           step={1}
           title="VPC 설정"
           warning="Public/Private subnet 역할을 섞지 않는 것이 중요합니다. DB나 내부 자원은 public에 두지 않고, route table도 IGW/NAT 대상이 바뀌지 않도록 확인해야 합니다. VPC Peering은 생성만 해서는 안 되고 라우트까지 정확히 추가해야 합니다."
-          note="AWS_REGION, AWS_AZ, CIDR 대역, main/vul VPC ID와 Route Table ID는 사용자 환경 값으로 바꿔야 하며, 기존 네트워크와 CIDR이 겹치지 않는지 먼저 확인하세요."
+          cliNote="AWS_REGION, AWS_AZ, CIDR 대역, main/vul VPC ID와 Route Table ID는 사용자 환경 값으로 바꿔야 하며, 기존 네트워크와 CIDR이 겹치지 않는지 먼저 확인하세요."
         >
           <CliContent>
             <CodeBlock code={`AWS_REGION=ap-northeast-2
@@ -200,7 +200,7 @@ aws ec2 accept-vpc-peering-connection \\
           step={2}
           title="IAM 설정"
           warning="전체 권한보다 필요한 S3 경로, Secret만 허용하는 최소 권한이 중요합니다. EC2 role과 사람이 쓰는 IAM 권한을 혼동하지 않도록 주의해야 합니다."
-          note="trust-policy-ec2.json, secure-ec2-inline-policy.json 안의 YOUR_ACCOUNT_ID, S3 버킷 ARN, Secret ARN은 실제 값으로 바꿔야 합니다."
+          cliNote="trust-policy-ec2.json, secure-ec2-inline-policy.json 안의 YOUR_ACCOUNT_ID, S3 버킷 ARN, Secret ARN은 실제 값으로 바꿔야 합니다."
         >
           <CliContent>
             <CodeBlock code={`aws iam create-role \\
@@ -238,7 +238,7 @@ aws iam put-role-policy \\
           step={3}
           title="ECR 프라이빗 레포지토리 생성"
           warning="반드시 Private로 생성하고, Scan on push를 켜는 것이 좋습니다. 검증되지 않은 이미지를 그대로 배포하지 않도록 주의해야 합니다."
-          note="리전, 저장소 이름, 로컬 이미지명은 사용자 환경에 맞게 조정하고, 출력된 ECR_URI를 그대로 docker tag/push에 사용하세요."
+          cliNote="리전, 저장소 이름, 로컬 이미지명은 사용자 환경에 맞게 조정하고, 출력된 ECR_URI를 그대로 docker tag/push에 사용하세요."
         >
           <CliContent>
             <CodeBlock code={`ECR_URI=$(aws ecr create-repository \\
@@ -275,7 +275,7 @@ docker push \${ECR_URI}:latest`} />
           step={4}
           title="보안 그룹 설정"
           warning="22, 3000 포트를 0.0.0.0/0으로 열지 않는 것이 핵심입니다. 반드시 내 IP/32 또는 필요한 범위만 허용해야 합니다."
-          note="YOUR_PUBLIC_IP/32는 현재 작업 중인 공인 IP로 바꿔야 하며, 0.0.0.0/0 전체 공개는 피하는 것이 좋습니다."
+          cliNote="YOUR_PUBLIC_IP/32는 현재 작업 중인 공인 IP로 바꿔야 하며, 0.0.0.0/0 전체 공개는 피하는 것이 좋습니다."
         >
           <CliContent>
             <CodeBlock code={`CONTAINER_SG_ID=$(aws ec2 create-security-group \\
@@ -328,7 +328,7 @@ aws ec2 authorize-security-group-ingress \\
           step={5}
           title="S3 설정"
           warning="Block Public Access를 반드시 유지해야 합니다. 기본 암호화도 함께 적용해 저장 데이터 노출 위험을 줄이는 것이 좋습니다."
-          note="버킷 이름은 전역 고유해야 하므로 이미 사용 중이면 다른 이름으로 바꾸고, 실제 생성된 이름을 이후 IAM 정책과 앱 설정에 동일하게 사용하세요."
+          cliNote="버킷 이름은 전역 고유해야 하므로 이미 사용 중이면 다른 이름으로 바꾸고, 실제 생성된 이름을 이후 IAM 정책과 앱 설정에 동일하게 사용하세요."
         >
           <CliContent>
             <CodeBlock code={`aws s3api create-bucket \\
@@ -364,7 +364,7 @@ aws s3api put-bucket-encryption \\
           step={6}
           title="GitHub Actions / OIDC 설정"
           warning="장기 Access Key를 GitHub Secrets에 넣지 않는 것이 중요합니다. Trust Policy에서 저장소 범위를 제한하지 않으면 다른 repo가 Role을 사용할 위험이 있습니다."
-          note="github-oidc-trust.json과 cloudshield-policy.json 안의 AWS 계정 ID, 저장소명, ARN, 버킷/테이블 이름은 실제 사용자 환경 값으로 바꿔야 합니다."
+          cliNote="github-oidc-trust.json과 cloudshield-policy.json 안의 AWS 계정 ID, 저장소명, ARN, 버킷/테이블 이름은 실제 사용자 환경 값으로 바꿔야 합니다."
         >
           <CliContent>
             <CodeBlock code={`aws iam create-policy \\
@@ -398,7 +398,7 @@ aws iam attach-role-policy \\
           step={7}
           title="CloudWatch Log Group 생성"
           warning="로그는 남기기만 하고 안 보면 의미가 적으므로 보존 기간과 수집 대상을 같이 정해야 합니다. 민감정보가 로그에 평문으로 남지 않도록 주의해야 합니다."
-          note="로그 그룹 이름과 보존 기간은 운영 정책에 맞게 조정할 수 있으며, AWS_REGION은 실제 로그를 저장할 리전과 일치해야 합니다."
+          cliNote="로그 그룹 이름과 보존 기간은 운영 정책에 맞게 조정할 수 있으며, AWS_REGION은 실제 로그를 저장할 리전과 일치해야 합니다."
         >
           <CliContent>
             <CodeBlock code={`aws logs create-log-group \\
@@ -426,7 +426,7 @@ aws logs put-retention-policy \\
           step={8}
           title="EC2 인스턴스 생성"
           warning="실습상 public subnet에 두더라도 SG 제한이 반드시 필요합니다. 장기적으로는 private subnet + bastion/SSM 구조가 더 안전합니다."
-          note="<UBUNTU_AMI_ID>와 보안 그룹 ID는 실제 값으로 바꿔야 하며, subnet, instance type, 태그는 사용자 환경에 맞게 조정할 수 있습니다."
+          cliNote="<UBUNTU_AMI_ID>와 보안 그룹 ID는 실제 값으로 바꿔야 하며, subnet, instance type, 태그는 사용자 환경에 맞게 조정할 수 있습니다."
         >
           <CliContent>
             <CodeBlock code={`aws ec2 run-instances \\
@@ -457,7 +457,7 @@ aws logs put-retention-policy \\
           step={9}
           title="DB 설정"
           warning="PostgreSQL을 EC2에 직접 설치하면 편하지만 앱 서버와 DB가 한 곳에 있어 분리 수준은 낮아집니다. 기본 postgres 계정 대신 전용 DB 사용자로 분리하는 것이 중요합니다. 비밀번호는 약한 값 대신 강한 값으로 써야 합니다."
-          note="DB 사용자명, DB 이름, 비밀번호는 사용자 환경에 맞게 변경하고, 이후 백엔드 .env의 DB_* 값과 반드시 동일하게 맞춰야 합니다."
+          cliNote="DB 사용자명, DB 이름, 비밀번호는 사용자 환경에 맞게 변경하고, 이후 백엔드 .env의 DB_* 값과 반드시 동일하게 맞춰야 합니다."
         >
           <CliContent>
             <CodeBlock code={`sudo apt update
@@ -489,7 +489,7 @@ sudo -u postgres psql -c "\\l"`} />
           step={10}
           title="백엔드 배포 및 실행"
           warning=".env에 시크릿을 오래 평문으로 두는 것은 위험하므로 운영에서는 Secrets Manager로 넘기는 게 좋습니다. CORS_ORIGIN을 너무 넓게 열지 않도록 주의해야 합니다. 개발 실행 방식(npm run dev)은 운영용 프로세스 관리와 구분해야 합니다."
-          note=".env 안의 JWT_SECRET, DB 접속 정보, AWS_REGION, S3_BUCKET_NAME, CORS_ORIGIN은 실제 환경 값으로 변경해야 하며, S3_BUCKET_NAME은 생성한 버킷 이름과 일치해야 합니다."
+          cliNote=".env 안의 JWT_SECRET, DB 접속 정보, AWS_REGION, S3_BUCKET_NAME, CORS_ORIGIN은 실제 환경 값으로 변경해야 하며, S3_BUCKET_NAME은 생성한 버킷 이름과 일치해야 합니다."
         >
           <CliContent>
             <CodeBlock code={`git clone https://github.com/CloudShield-Lab/CloudShield_Lab.git Sentinel_Share
@@ -536,7 +536,7 @@ npm run dev`} />
           step={11}
           title="프론트엔드 연결 및 접속 테스트"
           warning="NEXT_PUBLIC_API_URL이 잘못 설정되면 다른 환경으로 요청이 갈 수 있으니 주의해야 합니다. 테스트 후에도 불필요하게 공개된 API 주소나 포트가 없는지 확인하는 것이 좋습니다."
-          note="<EC2_PUBLIC_IP>는 실제 EC2 퍼블릭 IP 또는 사용 중인 도메인으로 바꿔야 하며, NEXT_PUBLIC_API_URL과 백엔드 CORS_ORIGIN이 서로 호환되도록 함께 확인하세요."
+          cliNote="<EC2_PUBLIC_IP>는 실제 EC2 퍼블릭 IP 또는 사용 중인 도메인으로 바꿔야 하며, NEXT_PUBLIC_API_URL과 백엔드 CORS_ORIGIN이 서로 호환되도록 함께 확인하세요."
         >
           <CliContent>
             <CodeBlock code={`cd Sentinel_Share/sentinel-share-frontend
@@ -568,7 +568,7 @@ curl http://<EC2_PUBLIC_IP>:3000/health`} />
           step={12}
           title="Secrets Manager 설정"
           warning="Secret을 만드는 것만으로 끝이 아니라, 읽을 수 있는 IAM 주체를 최소화해야 합니다. DB 비밀번호, JWT Secret처럼 민감한 값은 코드나 Task/EC2 설정 파일에 직접 두지 않는 것이 중요합니다."
-          note="Secret 이름, AWS_ACCOUNT_ID, Secret ARN, Role 이름은 실제 사용자 환경 값으로 맞춰야 하며, 현재 EC2 기반 구조라면 ECS용 역할명 대신 실제 EC2 역할명을 사용하세요."
+          cliNote="Secret 이름, AWS_ACCOUNT_ID, Secret ARN, Role 이름은 실제 사용자 환경 값으로 맞춰야 하며, 현재 EC2 기반 구조라면 ECS용 역할명 대신 실제 EC2 역할명을 사용하세요."
         >
           <CliContent>
             <CodeBlock code={`aws secretsmanager create-secret \\
@@ -594,6 +594,50 @@ aws iam put-role-policy \\
               <li>같은 방식으로 JWT secret을 <code className="font-mono text-slate-300">secure-jwt-secret</code> 이름으로 생성합니다.</li>
               <li><code className="font-mono text-slate-300">IAM</code> → <span className="text-slate-200">Roles</span>에서 해당 역할을 열고 <span className="text-slate-200">Add permissions</span> → <span className="text-slate-200">Create inline policy</span>를 선택합니다.</li>
               <li><code className="font-mono text-slate-300">GetSecretValue</code> 권한을 허용하고 <code className="font-mono text-slate-300">secure-db-password</code>, <code className="font-mono text-slate-300">secure-jwt-secret</code>만 접근 가능하도록 제한합니다.</li>
+            </ol>
+          </ConsoleContent>
+        </StepCard>
+
+        <StepCard
+          step={13}
+          title="자동 배포 및 운영 확인"
+          warning="GitHub Actions에 장기 AWS Access Key를 직접 저장하지 말고 OIDC 기반 AssumeRole을 유지해야 합니다. 보안 환경 프론트엔드는 S3 객체 직접 노출이 아니라 CloudFront를 통한 접근 경로를 유지하는 것이 좋습니다. CloudShield-Role은 GitHub Actions용 역할이며 ECS 실행 역할과 혼동하지 않도록 주의해야 합니다."
+          cliNote="현재 구성 기준으로 OIDC용 역할은 CloudShield-Role이며, ECS 클러스터 이름은 cloudshield-lab, 대시보드 서비스 이름은 cloudshield-dashboard, 보안 프론트엔드 버킷은 sentinel-share-secure-frontend입니다."
+        >
+          <CliContent>
+            <CodeBlock code={`# deploy-dashboard.yml
+name: Deploy Attack Dashboard to ECS
+branches: [master, dev]
+ECR_REPOSITORY: cloudshield-dashboard
+role-to-assume: \${{ secrets.AWS_ROLE_ARN }}
+task-definition: attack-dashboard/infra/ecs-task-definition-dashboard.json
+service: \${{ secrets.DASHBOARD_ECS_SERVICE }}
+cluster: \${{ secrets.DASHBOARD_ECS_CLUSTER }}
+
+# ecs-task-definition-dashboard.json
+"family": "cloudshield-dashboard"
+"networkMode": "awsvpc"
+"requiresCompatibilities": ["FARGATE"]
+"cpu": "512"
+"memory": "2048"
+"name": "cloudshield-dashboard"
+"containerPort": 3000
+"hostPort": 3000
+"awslogs-group": "/ecs/cloudshield-dashboard"
+
+# deploy-frontend.yml
+Deploy Frontend to S3
+Build & Deploy → Secure (S3 + CloudFront)`} />
+          </CliContent>
+          <ConsoleContent>
+            <ol className="space-y-2 text-sm text-slate-400 list-decimal list-inside">
+              <li>AWS Console 접속 후 <code className="font-mono text-slate-300">ECS</code> → <span className="text-slate-200">Clusters</span> → <code className="font-mono text-slate-300">cloudshield-lab</code>으로 이동하고 <span className="text-slate-200">Services</span> 탭에서 <code className="font-mono text-slate-300">cloudshield-dashboard</code> 서비스가 활성 상태이며 Fargate 태스크가 1개 실행 중인지 확인합니다.</li>
+              <li><code className="font-mono text-slate-300">ECS</code> → <span className="text-slate-200">Task definitions</span>에서 <code className="font-mono text-slate-300">cloudshield-dashboard</code> 패밀리의 최신 revision을 열고 <code className="font-mono text-slate-300">awsvpc</code>, <code className="font-mono text-slate-300">FARGATE</code>, <code className="font-mono text-slate-300">CPU 512</code>, <code className="font-mono text-slate-300">Memory 2048</code>, 컨테이너 포트 <code className="font-mono text-slate-300">3000</code>, 로그 그룹 <code className="font-mono text-slate-300">/ecs/cloudshield-dashboard</code>를 확인합니다.</li>
+              <li><code className="font-mono text-slate-300">S3</code>에서 <code className="font-mono text-slate-300">sentinel-share-secure-frontend</code> 버킷을 열어 정적 프론트엔드 파일이 업로드되어 있는지 확인하고, <code className="font-mono text-slate-300">CloudFront</code>에서 해당 버킷을 오리진으로 사용하는 배포가 존재하는지 확인한 뒤 <code className="font-mono text-slate-300">https://dyfs11nls1dwb.cloudfront.net/signup/</code> 접속을 테스트합니다.</li>
+              <li>GitHub 저장소의 <span className="text-slate-200">Actions</span> 탭에서 <code className="font-mono text-slate-300">Deploy Frontend to S3</code> 워크플로를 열고 <code className="font-mono text-slate-300">Build & Deploy → Secure (S3 + CloudFront)</code> job이 성공했는지 확인합니다.</li>
+              <li>같은 <span className="text-slate-200">Actions</span> 탭에서 <code className="font-mono text-slate-300">Deploy Attack Dashboard to ECS</code> 워크플로를 열고 최근 배포가 성공했는지 확인합니다.</li>
+              <li>GitHub 저장소의 <span className="text-slate-200">Settings → Secrets and variables → Actions</span>에서 <code className="font-mono text-slate-300">AWS_ROLE_ARN</code>, <code className="font-mono text-slate-300">DASHBOARD_ECS_CLUSTER</code>, <code className="font-mono text-slate-300">DASHBOARD_ECS_SERVICE</code>가 등록되어 있는지 확인합니다.</li>
+              <li>AWS Console의 <code className="font-mono text-slate-300">IAM</code> → <span className="text-slate-200">Roles</span>에서 <code className="font-mono text-slate-300">CloudShield-Role</code>을 선택하고 <span className="text-slate-200">Trust relationships</span> 탭에서 <code className="font-mono text-slate-300">token.actions.githubusercontent.com</code>, <code className="font-mono text-slate-300">sts:AssumeRoleWithWebIdentity</code>, <code className="font-mono text-slate-300">repo:CloudShield-Lab/CloudShield_Lab:*</code> 조건이 포함되어 있는지 확인합니다.</li>
             </ol>
           </ConsoleContent>
         </StepCard>

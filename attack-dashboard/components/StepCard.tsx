@@ -1,19 +1,30 @@
+import { CliContent, ConsoleContent } from '@/components/MethodTabs';
+
 interface Props {
   step: number;
   title: string;
   children: React.ReactNode;
   warning?: string;
   note?: string;
+  cliNote?: string;
+  consoleNote?: string;
   done?: boolean;
 }
 
-export function StepCard({ step, title, children, warning, note }: Props) {
+export function StepCard({ step, title, children, warning, note, cliNote, consoleNote }: Props) {
   const warningItems = warning
     ? warning
         .split(/(?<=[.!?])\s+/)
         .map((item) => item.trim())
         .filter(Boolean)
     : [];
+
+  const renderNote = (content: string) => (
+    <div className="flex items-start gap-2 rounded-lg border border-slate-700/50 bg-slate-800/30 px-4 py-3 text-sm text-slate-400">
+      <span className="flex-shrink-0 mt-0.5 text-slate-500">ℹ</span>
+      <span>{content}</span>
+    </div>
+  );
 
   return (
     <div className="rounded-xl border border-slate-800 bg-[#0d1117] overflow-hidden">
@@ -27,12 +38,9 @@ export function StepCard({ step, title, children, warning, note }: Props) {
       <div className="px-6 py-5 space-y-4">
         {children}
 
-        {note && (
-          <div className="flex items-start gap-2 rounded-lg border border-slate-700/50 bg-slate-800/30 px-4 py-3 text-sm text-slate-400">
-            <span className="flex-shrink-0 mt-0.5 text-slate-500">ℹ</span>
-            <span>{note}</span>
-          </div>
-        )}
+        {cliNote && <CliContent>{renderNote(cliNote)}</CliContent>}
+        {consoleNote && <ConsoleContent>{renderNote(consoleNote)}</ConsoleContent>}
+        {!cliNote && !consoleNote && note && renderNote(note)}
 
         {warning && (
           <div className="space-y-3">
