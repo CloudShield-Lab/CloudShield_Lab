@@ -81,6 +81,24 @@ jobs:
           TF_VAR_jwt_secret: ${{ secrets.TF_JWT_SECRET }}
         run: terraform destroy -auto-approve
 
+      - name: Export outputs to GitHub Secrets
+        if: github.event.inputs.action == 'apply'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          EC2_ID=$(terraform output -raw ec2_instance_id)
+          CF_DOMAIN=$(terraform output -raw cloudfront_domain)
+          CF_DIST_ID=$(terraform output -raw cloudfront_distribution_id)
+
+          gh secret set SECURE_EC2_INSTANCE_ID --body "$EC2_ID"
+          gh secret set TF_SECURE_CF_URL       --body "https://${CF_DOMAIN}"
+          gh secret set TF_SECURE_CF_DIST_ID   --body "$CF_DIST_ID"
+
+          echo "✅ SECURE_EC2_INSTANCE_ID=$EC2_ID"
+          echo "✅ TF_SECURE_CF_URL=https://${CF_DOMAIN}"
+          echo "✅ TF_SECURE_CF_DIST_ID=$CF_DIST_ID"
+
       - name: Output Results
         if: github.event.inputs.action == 'apply'
         working-directory: ${{ env.TF_WORKING_DIR }}

@@ -81,6 +81,21 @@ jobs:
           TF_VAR_jwt_secret: ${{ secrets.TF_JWT_SECRET }}
         run: terraform destroy -auto-approve
 
+      - name: Export outputs to GitHub Secrets
+        if: github.event.inputs.action == 'apply'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          EC2_ID=$(terraform output -raw ec2_instance_id)
+          EIP=$(terraform output -raw elastic_ip)
+
+          gh secret set VULN_EC2_INSTANCE_ID --body "$EC2_ID"
+          gh secret set TF_VULN_API_URL       --body "http://${EIP}:3000/api"
+
+          echo "✅ VULN_EC2_INSTANCE_ID=$EC2_ID"
+          echo "✅ TF_VULN_API_URL=http://${EIP}:3000/api"
+
       - name: Output Results
         if: github.event.inputs.action == 'apply'
         working-directory: ${{ env.TF_WORKING_DIR }}
