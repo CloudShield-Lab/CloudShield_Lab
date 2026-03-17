@@ -13,7 +13,7 @@ router.get(
   [param('token').isHexadecimal().isLength({ min: 64, max: 64 }), validateRequest],
   async (req, res) => {
     try {
-      const result = await FilesService.getSharedDownloadUrl(req.params.token);
+      const result = await FilesService.getSharedDownloadUrl(req.params.token, req.ip);
       return res.status(200).json(result);
     } catch (err) {
       return res.status(err.statusCode || 500).json({ error: err.message });

@@ -14,6 +14,9 @@ RUN npm run build
 # ── Runtime stage ──────────────────────────────────────────────────────────────
 FROM node:20-alpine AS runner
 
+# Pull the latest patched Alpine packages into the runtime image.
+RUN apk upgrade --no-cache zlib
+
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
 WORKDIR /app
@@ -34,7 +37,7 @@ ENV HOSTNAME=0.0.0.0
 # 환경 변수는 ECS 태스크 정의에서 런타임 주입
 # VULNERABLE_API_URL, AWS_API_URL, AWS_S3_BUCKET, VULNERABLE_S3_BUCKET, AWS_REGION
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-  CMD wget -qO- http://localhost:3000/api/config || exit 1
+HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=5 \
+  CMD ["node", "-e", "require('http').get('http://127.0.0.1:3000/api/config',(r)=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
 
-CMD ["node", "server.js"]
+CMD ["sh", "-c", "HOSTNAME=0.0.0.0 node server.js"]

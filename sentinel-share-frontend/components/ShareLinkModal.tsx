@@ -24,7 +24,7 @@ export default function ShareLinkModal({ file, onClose }: ShareLinkModalProps) {
   const [copied, setCopied] = useState(false);
 
   const shareUrl = shareLink
-    ? `${window.location.origin}/shared/${shareLink.token}`
+    ? `${window.location.origin}/shared/?token=${shareLink.token}`
     : '';
 
   async function handleGenerate() {
@@ -41,7 +41,18 @@ export default function ShareLinkModal({ file, onClose }: ShareLinkModalProps) {
   }
 
   async function handleCopy() {
-    await navigator.clipboard.writeText(shareUrl);
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(shareUrl);
+    } else {
+      const el = document.createElement('textarea');
+      el.value = shareUrl;
+      el.style.position = 'fixed';
+      el.style.opacity = '0';
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+    }
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }

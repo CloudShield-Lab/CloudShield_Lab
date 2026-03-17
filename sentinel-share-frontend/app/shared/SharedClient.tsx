@@ -1,13 +1,12 @@
 'use client';
 
 import { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
 
-interface PageProps {
-  params: { token: string };
-}
-
-export default function SharedFilePage({ params }: PageProps) {
+export default function SharedClient() {
+  const searchParams = useSearchParams();
+  const token = searchParams.get('token') ?? '';
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [downloaded, setDownloaded] = useState(false);
@@ -16,7 +15,7 @@ export default function SharedFilePage({ params }: PageProps) {
     setError('');
     setLoading(true);
     try {
-      const res = await api.shared.download(params.token);
+      const res = await api.shared.download(token);
       window.open(res.url, '_blank', 'noopener,noreferrer');
       setDownloaded(true);
     } catch (err) {
@@ -48,7 +47,7 @@ export default function SharedFilePage({ params }: PageProps) {
         ) : (
           <button
             onClick={handleDownload}
-            disabled={loading}
+            disabled={loading || !token}
             className="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
           >
             {loading ? 'Preparing download…' : 'Download file'}

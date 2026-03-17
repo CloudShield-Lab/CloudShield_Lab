@@ -2,7 +2,7 @@ name: Deploy Attack Dashboard to ECS
 
 on:
   push:
-    branches: [master]
+    branches: [master, dev]
     paths:
       - 'attack-dashboard/**'
       - '.github/workflows/deploy-dashboard.yml'
@@ -10,7 +10,7 @@ on:
 
 env:
   AWS_REGION: ap-northeast-2
-  ECR_REPOSITORY: sentinelshare-dashboard
+  ECR_REPOSITORY: cloudshield-dashboard
 
 jobs:
   # ──────────────────────────────────────────────────────────────
@@ -19,6 +19,9 @@ jobs:
   build:
     name: Build & Push Dashboard Image
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     outputs:
       image-tag: ${{ steps.meta.outputs.tag }}
 
@@ -26,11 +29,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
+      - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
@@ -60,17 +62,19 @@ jobs:
     name: Deploy → Attack Dashboard
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     environment: dashboard
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
+      - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Render task definition with new image
@@ -78,7 +82,7 @@ jobs:
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
           task-definition: attack-dashboard/infra/ecs-task-definition-dashboard.json
-          container-name: sentinelshare-dashboard
+          container-name: cloudshield-dashboard
           image: ${{ needs.build.outputs.image-tag }}
 
       - name: Deploy to ECS
@@ -88,3 +92,4 @@ jobs:
           service: ${{ secrets.DASHBOARD_ECS_SERVICE }}
           cluster: ${{ secrets.DASHBOARD_ECS_CLUSTER }}
           wait-for-service-stability: true
+          health-check-grace-period-seconds: 120

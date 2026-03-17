@@ -12,7 +12,8 @@ const pool = new Pool({
   max: 10,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000,
-  ssl: env.NODE_ENV === 'production' ? { rejectUnauthorized: true } : false,
+  // EC2 co-located PostgreSQL uses self-signed cert — rejectUnauthorized: false
+  ssl: env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
 });
 
 pool.on('error', (err) => {

@@ -22,7 +22,7 @@ function sleep(ms: number) {
 async function tryLogin(baseUrl: string, password: string, attempt: number) {
   const start = Date.now();
   try {
-    const res = await fetch(`${baseUrl}/auth/login`, {
+    const res = await fetch(`${baseUrl}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: 'victim@demo.com', password }),
@@ -52,7 +52,7 @@ async function tryLogin(baseUrl: string, password: string, attempt: number) {
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
-  const count = Math.min(parseInt(url.searchParams.get('count') || '30'), 60);
+  const count = Math.min(parseInt(url.searchParams.get('count') || '100'), 120);
 
   const encoder = new TextEncoder();
   const { readable, writable } = new TransformStream();
@@ -91,7 +91,7 @@ export async function GET(request: NextRequest) {
         await send({ type: 'result', env: 'aws', ...awsResult });
 
         // 공격 간 딜레이 (너무 빠르면 로컬 rate-limiter가 먼저 막음)
-        await sleep(250);
+        await sleep(500);
       }
 
       await send({ type: 'complete' });

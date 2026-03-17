@@ -24,8 +24,8 @@ export function Navbar() {
           <div>
             <div className="flex items-center gap-3 mb-0.5">
               <div className="flex items-center gap-1">
-                <span className="text-red-500 font-bold text-lg font-mono">S</span>
-                <span className="text-slate-300 font-bold text-lg font-mono">3cure</span>
+                <span className="text-emerald-400 font-bold text-lg font-mono">CloudShield</span>
+                <span className="text-slate-500 font-bold text-lg font-mono">Lab</span>
               </div>
               <span className="px-2 py-0.5 rounded text-[10px] bg-red-950 text-red-400 border border-red-900 font-mono uppercase tracking-widest">
                 Attack Simulator

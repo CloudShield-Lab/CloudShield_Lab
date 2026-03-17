@@ -37,6 +37,7 @@ async function uploadFile(req, res) {
     const record = await FilesService.uploadFile({
       file: req.file,
       ownerId: req.user.id,
+      ip: req.ip,
     });
     return res.status(201).json({ file: record });
   } catch (err) {
@@ -55,7 +56,7 @@ async function listFiles(req, res) {
 
 async function downloadFile(req, res) {
   try {
-    const result = await FilesService.getDownloadUrl(req.params.id, req.user.id);
+    const result = await FilesService.getDownloadUrl(req.params.id, req.user.id, req.ip);
     return res.status(200).json(result);
   } catch (err) {
     return res.status(err.statusCode || 500).json({ error: err.message });
@@ -64,7 +65,7 @@ async function downloadFile(req, res) {
 
 async function deleteFile(req, res) {
   try {
-    const result = await FilesService.deleteFile(req.params.id, req.user.id);
+    const result = await FilesService.deleteFile(req.params.id, req.user.id, req.ip);
     return res.status(200).json(result);
   } catch (err) {
     return res.status(err.statusCode || 500).json({ error: err.message });
@@ -78,6 +79,7 @@ async function shareFile(req, res) {
       fileId: req.params.id,
       ownerId: req.user.id,
       expiresInHours,
+      ip: req.ip,
     });
     return res.status(201).json({ shareLink: link });
   } catch (err) {

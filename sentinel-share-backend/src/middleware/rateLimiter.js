@@ -1,6 +1,7 @@
 'use strict';
 
 const rateLimit = require('express-rate-limit');
+const { log } = require('../config/logger');
 
 /**
  * General API limiter applied globally.
@@ -12,10 +13,16 @@ const rateLimit = require('express-rate-limit');
  */
 const apiLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 200,
+  max: 1000,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests, please try again later' },
+  handler(req, res, next, options) {
+    log('warn', 'RATE_LIMIT_TRIGGERED', {
+      ip: req.ip, method: req.method, path: req.path, status: 429,
+    });
+    res.status(options.statusCode).json(options.message);
+  },
 });
 
 module.exports = { apiLimiter };
