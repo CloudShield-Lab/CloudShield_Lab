@@ -81,6 +81,16 @@ jobs:
           TF_VAR_jwt_secret: ${{ secrets.TF_JWT_SECRET }}
         run: terraform destroy -auto-approve
 
+      - name: Clear GitHub Secrets after Destroy
+        if: github.event.inputs.action == 'destroy'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          gh secret set SECURE_EC2_INSTANCE_ID --body "DESTROYED"
+          gh secret set TF_SECURE_CF_URL       --body "DESTROYED"
+          gh secret set TF_SECURE_CF_DIST_ID   --body "DESTROYED"
+          echo "✅ 시크릿 초기화 완료"
+
       - name: Export outputs to GitHub Secrets
         if: github.event.inputs.action == 'apply'
         working-directory: ${{ env.TF_WORKING_DIR }}
