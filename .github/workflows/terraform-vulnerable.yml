@@ -96,6 +96,17 @@ jobs:
           echo "✅ VULN_EC2_INSTANCE_ID=$EC2_ID"
           echo "✅ TF_VULN_API_URL=http://${EIP}:3000/api"
 
+      - name: Deploy Frontend to TF Vulnerable S3
+        if: github.event.inputs.action == 'apply'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          gh workflow run deploy-frontend.yml \
+            --ref feat/terraform-infra \
+            --field deploy_tf_envs=true
+
+          echo "✅ deploy-frontend 워크플로우 트리거 완료"
+
       - name: Output Results
         if: github.event.inputs.action == 'apply'
         working-directory: ${{ env.TF_WORKING_DIR }}

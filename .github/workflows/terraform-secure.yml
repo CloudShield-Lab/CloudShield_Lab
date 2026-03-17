@@ -99,6 +99,17 @@ jobs:
           echo "✅ TF_SECURE_CF_URL=https://${CF_DOMAIN}"
           echo "✅ TF_SECURE_CF_DIST_ID=$CF_DIST_ID"
 
+      - name: Deploy Frontend to TF Secure S3
+        if: github.event.inputs.action == 'apply'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          gh workflow run deploy-frontend.yml \
+            --ref feat/terraform-infra \
+            --field deploy_tf_envs=true
+
+          echo "✅ deploy-frontend 워크플로우 트리거 완료"
+
       - name: Output Results
         if: github.event.inputs.action == 'apply'
         working-directory: ${{ env.TF_WORKING_DIR }}
