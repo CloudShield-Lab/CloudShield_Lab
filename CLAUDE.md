@@ -121,14 +121,14 @@ SentinelShare/
 
 ---
 
-## Key Architectural Decisions <!-- LAST_UPDATED: 2026-03-16 -->
+## Key Architectural Decisions <!-- LAST_UPDATED: 2026-03-17 -->
 
 - **두 AWS 환경 비교** — 동일한 Docker 이미지를 취약/보안 두 EC2에 배포. 인프라 설정(S3 정책, WAF, CloudFront, Security Group)만 다름.
 - **백엔드: EC2 (not Fargate)** — Wazuh agent가 OS 레벨 접근을 필요로 하기 때문에 ECS Fargate 대신 EC2 사용. Attack Dashboard는 Fargate 유지.
 - **PostgreSQL: EC2 동거 (co-located)** — 앱 서버 EC2에 PostgreSQL을 함께 설치. 별도 RDS 없음. `terraform destroy` 시 DB도 함께 정리되는 것이 데모 특성상 자연스러움. Wazuh가 PostgreSQL 로그도 감시 가능.
 - **Wazuh agent** — 취약/보안 EC2 각각에 수동 설치. Wazuh Manager는 별도 EC2(공식 AMI). Terraform 자동화 제외.
 - **authLimiter 제거 (의도적)** — 브루트포스 rate limit은 앱 코드가 아닌 AWS WAF 인프라가 담당. "인프라 보호 효과"를 시연하기 위한 설계. **절대 authLimiter를 다시 추가하지 않는다.**
-- **No ALB** — CloudFront가 HTTPS/CDN 처리. 보안 EC2 Security Group이 CloudFront IP(pl-3b927c52)만 허용.
+- **No ALB** — CloudFront가 HTTPS/CDN 처리. 보안 EC2 Security Group이 CloudFront IP(pl-22a6434b)만 허용.
 - **Presigned URLs only** — 백엔드는 파일 바이트를 절대 프록시하지 않음. S3 소유권/토큰 검증 후 presigned URL 발급 (5분 TTL).
 - **Soft delete** — `files.is_deleted = true`. S3 객체는 best-effort 삭제. 하드 캐스케이드 없음.
 - **LocalStack for local dev** — `AWS_ENDPOINT_URL=http://localhost:4566` + `forcePathStyle: true`. 프로덕션과 동일한 앱 코드 실행.
@@ -137,9 +137,16 @@ SentinelShare/
 - **프론트엔드 next.config `output: 'export'` 조건부 적용** — EC2 서버 실행 시(`npm run dev` / `npm start`)에는 비활성. S3 정적 빌드 시에만 `STATIC_EXPORT=true` 환경변수로 활성화. deploy-frontend.yml에 적용 완료.
 - **shared/[token] 동적 라우트 구조** — `page.tsx`(서버 컴포넌트)가 `generateStaticParams() { return [] }` 담당, 클라이언트 로직은 `SharedClient.tsx`로 분리. S3 배포 시 토큰은 빌드 타임에 알 수 없으므로 CloudFront Custom Error Response(403/404 → `/index.html`, HTTP 200)로 처리.
 - **NEXT_PUBLIC_API_URL에 /api suffix 포함** — `https://domain.com/api` 형태로 설정. 프론트 코드는 `/auth/login` 등 상대 경로만 붙임. `/health` 엔드포인트는 `/api` prefix 없음 (헬스체크 전용).
-- **CloudFront prefix list (ap-northeast-2)** — `pl-22a6434b`. CLAUDE.md의 `pl-3b927c52`는 다른 리전 값이었음. 보안 EC2 Security Group에 이 값으로 설정됨.
+- **CloudFront prefix list (ap-northeast-2)** — `pl-22a6434b`. 보안 EC2 Security Group 및 Terraform modules/ec2 SG에 이 값으로 설정됨.
 - **Docker 컨테이너 로그 볼륨 마운트 권한** — `-v /opt/app/logs:/opt/app/logs` 사용 시 호스트 디렉토리를 `chmod 777`로 설정 필수. Dockerfile 내 `chown appuser`는 호스트 마운트 시 덮어씌워짐.
-- **마이그레이션 전략** — Dockerfile에 `migrations/` 포함. EC2 최초 설정 시 `docker cp` + psql로 실행. Terraform user_data.sh에 자동화 예정.
+- **마이그레이션 전략** — Dockerfile에 `migrations/` 포함. Terraform user_data.sh.tpl에서 컨테이너 기동 후 `docker exec psql`로 자동 실행 (완료).
+- **Terraform 리소스 이름 규칙** — `sentinelshare-tf-{환경}-{리소스}` 형태로 기존 수동 환경과 구분. 예: `sentinelshare-tf-vul-ec2`, `sentinelshare-tf-secure-files`.
+- **Terraform state 로컬 관리** — 데모 프로젝트 단순화 목적. `*.tfstate`는 `.gitignore` 처리. S3 backend는 미사용.
+- **Terraform 민감 변수 전달** — `db_password`, `jwt_secret`은 `terraform.tfvars`에 기재 금지. `TF_VAR_db_password`, `TF_VAR_jwt_secret` 환경변수로 전달 (GitHub Secrets: `TF_DB_PASSWORD`, `TF_JWT_SECRET`).
+- **WAF scope CLOUDFRONT → us-east-1 필수** — CloudFront에 붙이는 WAF WebACL은 반드시 us-east-1에 생성해야 함. `environments/secure/main.tf`에 `provider alias aws.us_east_1` 선언 + waf 모듈에 `providers` 블록으로 전달.
+- **InfraControl workflow_dispatch ref** — `api/infra/deploy/route.ts`에서 `ref: 'dev'`로 고정. 워크플로우 파일이 dev 브랜치에 존재하므로 master로 하면 422 에러 발생.
+- **InfraControl 로컬 전용 (git 미포함)** — 팀원 attack-dashboard 작업과 충돌 방지를 위해 `InfraControl.tsx`, `app/api/infra/deploy/route.ts`, `page.tsx` 수정분은 로컬에만 존재. 팀원 작업 완료 후 merge 예정.
+- **NEXT_PUBLIC_ENV_TYPE 빌드타임 고정** — `deploy-frontend.yml`에서 취약 빌드 시 `vulnerable`, 보안 빌드 시 `secure` 주입. `layout.tsx`에서 배경색 분기 (bg-red-50 / bg-green-50). 런타임 분기 없음.
 
 ---
 
@@ -185,7 +192,7 @@ SentinelShare/
 
 ---
 
-## CI/CD Overview <!-- LAST_UPDATED: 2026-03-16 -->
+## CI/CD Overview <!-- LAST_UPDATED: 2026-03-17 -->
 
 ```
 .github/workflows/deploy-backend.yml
@@ -199,13 +206,24 @@ SentinelShare/
   build  → Docker 이미지 빌드 + ECR 푸시 (cloudshield-dashboard)
     └── deploy → aws ecs update-service (Fargate 유지)
 
-.github/workflows/deploy-frontend.yml  ← 완료
+.github/workflows/deploy-frontend.yml
   trigger: master/dev, sentinel-share-frontend/** 변경
-  deploy-vulnerable → NEXT_PUBLIC_API_URL=$VULN_API_URL, STATIC_EXPORT=true npm run build
+  deploy-vulnerable → NEXT_PUBLIC_API_URL=$VULN_API_URL, NEXT_PUBLIC_ENV_TYPE=vulnerable
+                   → STATIC_EXPORT=true npm run build
                    → aws s3 sync out/ s3://sentinel-share-vul-frontend/ --delete
   deploy-secure    → NEXT_PUBLIC_API_URL=https://dyfs11nls1dwb.cloudfront.net/api
+                   → NEXT_PUBLIC_ENV_TYPE=secure, STATIC_EXPORT=true npm run build
                    → aws s3 sync out/ s3://sentinel-share-secure-frontend/ --delete
                    → aws cloudfront create-invalidation --paths "/*"
+
+.github/workflows/terraform-vulnerable.yml  ← 완료 (4단계)
+  trigger: workflow_dispatch (inputs: action = apply | destroy)
+  steps: terraform init → validate → plan → apply 또는 destroy
+  vars: TF_VAR_db_password=${{ secrets.TF_DB_PASSWORD }}, TF_VAR_jwt_secret=${{ secrets.TF_JWT_SECRET }}
+
+.github/workflows/terraform-secure.yml  ← 완료 (4단계)
+  trigger: workflow_dispatch (inputs: action = apply | destroy)
+  동일 구조, environments/secure/ 디렉토리 대상
 ```
 
 **SSM 배포 방식 (백엔드):**
@@ -227,6 +245,8 @@ SentinelShare/
 | `CLOUDFRONT_DISTRIBUTION_ID` | `E1UMT2HJR995IV` | Terraform output 자동 주입 |
 | `DASHBOARD_ECS_CLUSTER` | 대시보드 ECS 클러스터 | Terraform output 자동 주입 |
 | `DASHBOARD_ECS_SERVICE` | 대시보드 ECS 서비스 | Terraform output 자동 주입 |
+| `TF_DB_PASSWORD` | PostgreSQL 비밀번호 (Terraform용) | 영구 유지 |
+| `TF_JWT_SECRET` | JWT 시크릿 (Terraform용) | 영구 유지 |
 
 **계획 (3단계):**
 - `trivy-scan` — 이미지 빌드 후 CRITICAL/HIGH 취약점 스캔 (exit-code: 1)
@@ -234,38 +254,49 @@ SentinelShare/
 
 ---
 
-## Terraform 모듈 구조 (4단계 — 진행중) <!-- LAST_UPDATED: 2026-03-16 -->
+## Terraform 모듈 구조 (4단계 — 완료) <!-- LAST_UPDATED: 2026-03-17 -->
 
 ```
 infra/terraform/
 ├── modules/
-│   ├── network/        VPC, subnets, security groups
-│   ├── ec2/            EC2 인스턴스 (앱 + PostgreSQL 동거), user_data로 초기화
-│   ├── s3/             bucket + policy (취약/보안 옵션)
-│   ├── waf/            WebACL — Rate-based rule + AWS Managed Rules (보안 환경만)
-│   └── cloudfront/     CloudFront distribution (보안 환경만)
+│   ├── network/        aws_vpc, aws_subnet(public), aws_internet_gateway, aws_route_table
+│   ├── ec2/            aws_instance(t3.small), aws_eip, aws_iam_role(SSM+ECR+S3), aws_security_group
+│   │                   └─ user_data: templatefile("scripts/user_data.sh.tpl")
+│   ├── s3/             파일버킷 + 프론트엔드버킷
+│   │                   └─ block_public_access 변수로 취약/보안 분기
+│   ├── waf/            aws_wafv2_web_acl (scope=CLOUDFRONT, us-east-1 provider alias)
+│   │                   └─ rate-limit 20req/5min + CommonRuleSet + KnownBadInputs
+│   └── cloudfront/     aws_cloudfront_distribution + OAC
+│                       └─ /api/* → EC2:3000, /* → S3, 403/404 → index.html
 ├── environments/
-│   ├── vulnerable/     취약 환경 (WAF/CloudFront 비활성, SG 전체 오픈)
-│   └── secure/         보안 환경 (WAF/CloudFront 활성, SG CloudFront IP만 허용)
-└── main.tf
-
-user_data.sh 주요 동작 (docs/ec2-setup-guide.md 기반으로 자동화):
-  1. Docker 설치 (apt-get, GPG 키, 레포 추가)
-  2. Docker 데몬 enable + start
-  3. AWS CLI 설치 (snap install aws-cli --classic)
-  4. /opt/app/logs 디렉토리 생성 + chmod 777 (non-root appuser 쓰기 권한)
-  5. PostgreSQL 14 설치 + DB/유저 생성
-  6. /opt/app/.env 파일 생성 (변수는 Terraform templatefile로 주입)
-  7. ECR에서 sentinelshare-backend:latest pull + docker run
-  8. 마이그레이션: docker cp로 SQL 파일 복사 후 psql 실행 (최초 1회)
-
-GitHub Secrets 자동화 (Terraform GitHub Provider):
-  → terraform apply 완료 시 EC2 ID, CloudFront ID, ECS 정보를 GitHub Secrets에 자동 주입
-  → aws_eip 리소스로 Elastic IP 고정 → VULN_API_URL 불변
-
-Wazuh Agent 설치: 수동 (Terraform 자동화 제외)
-  → Wazuh Manager IP를 알아야 agent 등록 가능하므로 별도 수동 진행
+│   ├── vulnerable/     allow_public_access=true, block_public_access=false, WAF/CF 없음
+│   └── secure/         allow_public_access=false, block_public_access=true, WAF+CF 포함
+│                       └─ provider alias aws.us_east_1 선언 (WAF용)
+└── scripts/
+    └── user_data.sh.tpl  EC2 자동 초기화:
+        1. Docker 설치 (GPG 키 + 공식 레포)
+        2. AWS CLI (snap install)
+        3. /opt/app/logs 생성 + chmod 777
+        4. PostgreSQL 14 설치 + sentinelshare DB/유저 생성
+        5. /opt/app/.env 생성 (templatefile 변수 주입)
+        6. ECR login + docker pull sentinelshare-backend:latest
+        7. docker run --network host --restart unless-stopped
+        8. 헬스체크 대기 후 마이그레이션 실행 (docker exec psql)
 ```
+
+**검증 방법:**
+```bash
+cd infra/terraform/environments/vulnerable
+terraform init
+terraform validate
+terraform plan -var="db_password=..." -var="jwt_secret=..."
+terraform apply
+# EC2 user_data 완료 약 3~5분 후:
+curl http://<elastic-ip>:3000/health  # {"status":"ok"} 확인
+```
+
+**Wazuh Agent 설치:** 수동 유지 (Terraform 자동화 제외)
+→ Wazuh Manager IP를 알아야 agent 등록 가능하므로 별도 수동 진행
 
 ---
 
