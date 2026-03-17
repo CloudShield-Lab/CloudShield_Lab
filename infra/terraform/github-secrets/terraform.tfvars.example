@@ -1,0 +1,13 @@
+# terraform.tfvars.example
+# 두 환경 apply 완료 후 output 값을 여기에 입력하고 terraform apply
+
+github_owner = "YOUR_GITHUB_USERNAME_OR_ORG"
+github_repo  = "CloudShield_Lab"
+
+# environments/vulnerable 의 terraform output 값
+vuln_ec2_instance_id = "i-xxxxxxxxxxxxxxxxx"
+vuln_ec2_public_ip   = "x.x.x.x"
+
+# environments/secure 의 terraform output 값
+secure_ec2_instance_id     = "i-yyyyyyyyyyyyyyyyy"
+cloudfront_distribution_id = "XXXXXXXXXXXXX"

@@ -1,0 +1,12 @@
+# terraform.tfvars.example — 실제 사용 시 terraform.tfvars로 복사 후 값 입력
+# 주의: terraform.tfvars는 .gitignore에 추가되어 있음 (커밋 금지)
+
+aws_region                = "ap-northeast-2"
+aws_account_id            = "833453046706"
+storage_bucket_name       = "sentinel-share-secure-files"
+cloudfront_prefix_list_id = "pl-22a6434b"
+waf_rate_limit            = 2000
+
+# 민감 값 — 실제 값으로 교체
+jwt_secret  = "CHANGE_ME_strong_random_jwt_secret_at_least_32_chars"
+db_password = "CHANGE_ME_strong_db_password"
