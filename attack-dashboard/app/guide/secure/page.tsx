@@ -229,10 +229,10 @@ aws ecr get-login-password \\
 --region ap-northeast-2 \\
   | docker login \\
 --username AWS \\
---password-stdin${ECR_URI%/*}
+--password-stdin \${ECR_URI%/*}
 
-docker tag sentinel-api:latest${ECR_URI}:latest
-docker push${ECR_URI}:latest`} />
+docker tag sentinel-api:latest \${ECR_URI}:latest
+docker push \${ECR_URI}:latest`} />
           </CliContent>
           <ConsoleContent />
         </StepCard>
