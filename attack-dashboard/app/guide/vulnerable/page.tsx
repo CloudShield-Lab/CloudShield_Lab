@@ -75,7 +75,7 @@ aws logs create-log-group \\
         {/* Step 3: RDS */}
         <StepCard
           step={3}
-          title="RDS PostgreSQL 생성"
+          title="RDS X PostgreSQL 생성"
           warning="취약 환경이지만 RDS는 VPC 내부에만 배치합니다. ECS에서만 접근 가능하도록 Security Group을 설정하세요."
         >
           <CliContent>
