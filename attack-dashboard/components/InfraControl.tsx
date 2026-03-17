@@ -32,7 +32,7 @@ export function InfraControl() {
   }, []);
 
   const startDeploy = useCallback(() => {
-    if (phase === 'running') return;
+    if (phase !== 'idle') return;
 
     setPhase('running');
     setLogs([]);
@@ -161,15 +161,13 @@ export function InfraControl() {
             <label className="text-xs text-slate-500 uppercase tracking-wider font-medium invisible">실행</label>
             <button
               onClick={startDeploy}
-              disabled={phase === 'running'}
+              disabled={phase !== 'idle'}
               className={`px-5 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
                 phase === 'idle'
                   ? selectedAction === 'apply'
                     ? 'bg-emerald-700 hover:bg-emerald-600 border-emerald-600 text-white cursor-pointer'
                     : 'bg-red-700 hover:bg-red-600 border-red-600 text-white cursor-pointer'
-                  : phase === 'running'
-                  ? 'bg-slate-800 border-slate-700 text-slate-500 cursor-not-allowed'
-                  : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300 cursor-pointer'
+                  : 'bg-slate-800 border-slate-700 text-slate-500 cursor-not-allowed'
               }`}
             >
               {phase === 'idle' && `▶ ${actionLabel}`}
