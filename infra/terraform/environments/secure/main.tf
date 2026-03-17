@@ -6,6 +6,11 @@ terraform {
       version = "~> 5.0"
     }
   }
+  backend "s3" {
+    bucket = "sentinelshare-terraform-state"
+    key    = "secure/terraform.tfstate"
+    region = "ap-northeast-2"
+  }
 }
 
 provider "aws" {
