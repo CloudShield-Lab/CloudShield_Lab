@@ -7,7 +7,7 @@ terraform {
     }
   }
   backend "s3" {
-    bucket = "sentinelshare-terraform-state"
+    bucket = "sentinelshare-terraform-state-833453046706-ap-northeast-2-an"
     key    = "vulnerable/terraform.tfstate"
     region = "ap-northeast-2"
   }
