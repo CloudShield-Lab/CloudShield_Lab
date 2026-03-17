@@ -47,7 +47,11 @@ export default function SecureGuidePage() {
         <MethodToggle />
 
         {/* Step 1: S3 버킷 — 프라이빗 */}
-        <StepCard step={1} title="VPC 설정">
+        <StepCard
+          step={1}
+          title="VPC 설정"
+          note="AWS_REGION, AWS_AZ, CIDR 대역, main/vul VPC ID와 Route Table ID는 사용자 환경 값으로 바꿔야 하며, 기존 네트워크와 CIDR이 겹치지 않는지 먼저 확인하세요."
+        >
           <CliContent>
             <CodeBlock code={`AWS_REGION=ap-northeast-2
 AWS_AZ=ap-northeast-2a
@@ -194,7 +198,7 @@ aws ec2 accept-vpc-peering-connection \\
         <StepCard
           step={2}
           title="IAM 설정"
-          note="sentinel-share-backend/infra/s3-bucket-policy.json 파일의 YOUR_ACCOUNT_ID와 버킷명을 실제 값으로 대체한 후 적용합니다."
+          note="trust-policy-ec2.json, secure-ec2-inline-policy.json 안의 YOUR_ACCOUNT_ID, S3 버킷 ARN, Secret ARN은 실제 값으로 바꿔야 합니다."
         >
           <CliContent>
             <CodeBlock code={`aws iam create-role \\
@@ -228,7 +232,11 @@ aws iam put-role-policy \\
         </StepCard>
 
         {/* Step 3: RDS */}
-        <StepCard step={3} title="ECR 프라이빗 레포지토리 생성">
+        <StepCard
+          step={3}
+          title="ECR 프라이빗 레포지토리 생성"
+          note="리전, 저장소 이름, 로컬 이미지명은 사용자 환경에 맞게 조정하고, 출력된 ECR_URI를 그대로 docker tag/push에 사용하세요."
+        >
           <CliContent>
             <CodeBlock code={`ECR_URI=$(aws ecr create-repository \\
   --repository-name s3cure-api \\
@@ -260,7 +268,11 @@ docker push \${ECR_URI}:latest`} />
         </StepCard>
 
         {/* Step 4: IAM 역할 */}
-        <StepCard step={4} title="보안 그룹 설정">
+        <StepCard
+          step={4}
+          title="보안 그룹 설정"
+          note="YOUR_PUBLIC_IP/32는 현재 작업 중인 공인 IP로 바꿔야 하며, 0.0.0.0/0 전체 공개는 피하는 것이 좋습니다."
+        >
           <CliContent>
             <CodeBlock code={`CONTAINER_SG_ID=$(aws ec2 create-security-group \\
   --group-name secure-container-sg \\
@@ -308,7 +320,11 @@ aws ec2 authorize-security-group-ingress \\
         </StepCard>
 
         {/* Step 5: Secrets Manager */}
-        <StepCard step={5} title="S3 설정">
+        <StepCard
+          step={5}
+          title="S3 설정"
+          note="버킷 이름은 전역 고유해야 하므로 이미 사용 중이면 다른 이름으로 바꾸고, 실제 생성된 이름을 이후 IAM 정책과 앱 설정에 동일하게 사용하세요."
+        >
           <CliContent>
             <CodeBlock code={`aws s3api create-bucket \\
   --bucket secure-log \\
@@ -339,7 +355,11 @@ aws s3api put-bucket-encryption \\
         </StepCard>
 
         {/* Step 6: ECS 클러스터 + Security Group */}
-        <StepCard step={6} title="GitHub Actions / OIDC 설정">
+        <StepCard
+          step={6}
+          title="GitHub Actions / OIDC 설정"
+          note="github-oidc-trust.json과 cloudshield-policy.json 안의 AWS 계정 ID, 저장소명, ARN, 버킷/테이블 이름은 실제 사용자 환경 값으로 바꿔야 합니다."
+        >
           <CliContent>
             <CodeBlock code={`aws iam create-policy \\
   --policy-name CloudShield-Policy \\
@@ -371,7 +391,7 @@ aws iam attach-role-policy \\
         <StepCard
           step={7}
           title="CloudWatch Log Group 생성"
-          note="WAF는 CloudFront에 연결하므로 반드시 us-east-1 리전에서 생성해야 합니다."
+          note="로그 그룹 이름과 보존 기간은 운영 정책에 맞게 조정할 수 있으며, AWS_REGION은 실제 로그를 저장할 리전과 일치해야 합니다."
         >
           <CliContent>
             <CodeBlock code={`aws logs create-log-group \\
@@ -398,7 +418,7 @@ aws logs put-retention-policy \\
         <StepCard
           step={8}
           title="EC2 인스턴스 생성"
-          note="sentinel-share-backend/infra/ecs-task-definition-secure.json을 사용합니다. ACCOUNT_ID와 시크릿 ARN을 실제 값으로 대체하세요."
+          note="<UBUNTU_AMI_ID>와 보안 그룹 ID는 실제 값으로 바꿔야 하며, subnet, instance type, 태그는 사용자 환경에 맞게 조정할 수 있습니다."
         >
           <CliContent>
             <CodeBlock code={`aws ec2 run-instances \\
@@ -428,7 +448,7 @@ aws logs put-retention-policy \\
         <StepCard
           step={9}
           title="DB 설정"
-          note="오리진은 ECS Task의 Public IP입니다. 실제 프로덕션에서는 ALB를 오리진으로 사용하는 것이 권장되지만, 이 데모 환경에서는 ECS IP를 직접 사용합니다."
+          note="DB 사용자명, DB 이름, 비밀번호는 사용자 환경에 맞게 변경하고, 이후 백엔드 .env의 DB_* 값과 반드시 동일하게 맞춰야 합니다."
         >
           <CliContent>
             <CodeBlock code={`sudo apt update
@@ -459,6 +479,7 @@ sudo -u postgres psql -c "\\l"`} />
         <StepCard
           step={10}
           title="백엔드 배포 및 실행"
+          note=".env 안의 JWT_SECRET, DB 접속 정보, AWS_REGION, S3_BUCKET_NAME, CORS_ORIGIN은 실제 환경 값으로 변경해야 하며, S3_BUCKET_NAME은 생성한 버킷 이름과 일치해야 합니다."
           warning="이 단계 완료 후 ECS에 직접 접근이 차단됩니다. CloudFront 도메인을 통해서만 접근 가능합니다."
         >
           <CliContent>
@@ -502,7 +523,11 @@ npm run dev`} />
         </StepCard>
 
         {/* Step 11: DB 마이그레이션 */}
-        <StepCard step={11} title="프론트엔드 연결 및 접속 테스트">
+        <StepCard
+          step={11}
+          title="프론트엔드 연결 및 접속 테스트"
+          note="<EC2_PUBLIC_IP>는 실제 EC2 퍼블릭 IP 또는 사용 중인 도메인으로 바꿔야 하며, NEXT_PUBLIC_API_URL과 백엔드 CORS_ORIGIN이 서로 호환되도록 함께 확인하세요."
+        >
           <CliContent>
             <CodeBlock code={`cd Sentinel_Share/sentinel-share-frontend
 
@@ -529,7 +554,11 @@ curl http://<EC2_PUBLIC_IP>:3000/health`} />
         </StepCard>
 
         {/* Step 12: Secrets Manager CORS 업데이트 + 대시보드 연결 */}
-        <StepCard step={12} title="Secrets Manager 설정">
+        <StepCard
+          step={12}
+          title="Secrets Manager 설정"
+          note="Secret 이름, AWS_ACCOUNT_ID, Secret ARN, Role 이름은 실제 사용자 환경 값으로 맞춰야 하며, 현재 EC2 기반 구조라면 ECS용 역할명 대신 실제 EC2 역할명을 사용하세요."
+        >
           <CliContent>
             <CodeBlock code={`aws secretsmanager create-secret \\
 --name secure-db-password \\
