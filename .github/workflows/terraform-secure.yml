@@ -38,6 +38,9 @@ jobs:
         with:
           terraform_version: '1.7.x'
 
+      - name: Terraform Format
+        run: terraform fmt -recursive infra/terraform
+
       - name: Terraform Init
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform init
