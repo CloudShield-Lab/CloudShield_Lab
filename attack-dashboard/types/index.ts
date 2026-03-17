@@ -15,6 +15,16 @@ export type AttackResult = {
 export type AttackEvent =
   | { type: 'start' }
   | {
+      type: 'stage';
+      env: Environment;
+      stage: ArchitectureStage;
+      status: NodeStatus;
+      title: string;
+      description: string;
+      severity?: EventSeverity;
+      attempt?: number;
+    }
+  | {
       type: 'result';
       env: Environment;
       attempt: number;

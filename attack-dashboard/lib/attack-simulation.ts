@@ -6,6 +6,7 @@ import type {
   AttackEndpoint,
   AttackEvent,
   AttackSimulationEvent,
+  EventSeverity,
   NodeStatus,
 } from '@/types';
 
@@ -141,6 +142,10 @@ function createEvent(
   };
 }
 
+function isSuccessfulS3Reach(status: number) {
+  return status > 0 && status !== 403;
+}
+
 export function mapAttackResultToArchitectureEvents(
   endpoint: ScenarioKey,
   event: Extract<AttackEvent, { type: 'result' }>,
@@ -188,7 +193,7 @@ export function mapAttackResultToArchitectureEvents(
         ),
       );
 
-      if (event.status === 200) {
+      if (isSuccessfulS3Reach(event.status)) {
         events.push(
           createEvent(
             endpoint,
@@ -296,7 +301,7 @@ export function mapAttackResultToArchitectureEvents(
       ),
     );
 
-    if (endpoint === 's3-access' && event.status === 200) {
+    if (endpoint === 's3-access' && isSuccessfulS3Reach(event.status)) {
       secureEvents.push(
         createEvent(
           endpoint,
@@ -313,4 +318,30 @@ export function mapAttackResultToArchitectureEvents(
   }
 
   return secureEvents;
+}
+
+export function mapStageEventToArchitectureEvent(
+  endpoint: ScenarioKey,
+  event: Extract<AttackEvent, { type: 'stage' }>,
+): AttackSimulationEvent {
+  return {
+    id: `${endpoint}-${event.env}-${event.stage}-${event.attempt ?? 'na'}-${event.status}-${Date.now()}`,
+    env: mapEnvironment(event.env),
+    stage: event.stage,
+    status: event.status,
+    title: event.title,
+    description: event.description,
+    timestampLabel: buildTimestampLabel(),
+    offsetMs: 0,
+    severity: event.severity ?? inferSeverity(event.status),
+  };
+}
+
+function inferSeverity(status: NodeStatus): EventSeverity {
+  if (status === 'blocked') return 'success';
+  if (status === 'success') return 'critical';
+  if (status === 'failed') return 'warning';
+  if (status === 'passed') return 'warning';
+  if (status === 'reached') return 'critical';
+  return 'info';
 }

@@ -11,6 +11,7 @@ import {
   applySimulationEvent,
   createInitialNodeStates,
   getScenarioByKey,
+  mapStageEventToArchitectureEvent,
   mapAttackResultToArchitectureEvents,
   type ScenarioKey,
 } from '@/lib/attack-simulation';
@@ -94,7 +95,10 @@ export function ArchitectureVisualizationProvider({
       return;
     }
 
-    const derivedEvents = mapAttackResultToArchitectureEvents(key, event);
+    const derivedEvents =
+      event.type === 'stage'
+        ? [mapStageEventToArchitectureEvent(key, event)]
+        : mapAttackResultToArchitectureEvents(key, event);
 
     setState((current) => {
       let nextNodeStates = current.nodeStates;
