@@ -30,7 +30,7 @@
 파일 공유 서비스(SentinelShare)를 동일한 앱 코드로 취약/보안 두 AWS 환경에 배포한 뒤,
 공격 시뮬레이터 대시보드에서 실제 공격을 수행하고 결과를 나란히 비교한다.
 
-**현재 상태:** 취약/보안 EC2 Docker 배포 완료. 프론트엔드 S3 정적 배포 + CloudFront 보안 환경 구성 완료. Terraform 인프라 자동화(4단계) 코드 작성 완료 (2026-03-17 기준).
+**현재 상태:** 취약/보안 EC2 Docker 배포 완료. 프론트엔드 S3 정적 배포 + CloudFront 보안 환경 구성 완료. Terraform 인프라 자동화(4단계) 완료 + S3 backend 상태 관리 + apply 실패 시 auto-destroy + GitHub Secrets 자동 주입 구현 완료 (2026-03-17 기준). InfraControl 대시보드 통합 완료 — `feat/terraform-infra` 브랜치에서 관리 중.
 
 ---
 
@@ -73,12 +73,14 @@
 - `infra/terraform/environments/vulnerable/` — 취약 환경 (WAF/CloudFront 없음, SG 전체공개)
 - `infra/terraform/environments/secure/` — 보안 환경 (WAF+CloudFront, SG CloudFront prefix list)
 - `infra/terraform/scripts/user_data.sh.tpl` — EC2 자동 초기화 (Docker, AWS CLI, PostgreSQL, 앱 기동, 마이그레이션)
-- `.github/workflows/terraform-vulnerable.yml` + `terraform-secure.yml` — workflow_dispatch (apply/destroy)
-- Attack Dashboard `InfraControl` 컴포넌트 — 대시보드에서 Terraform apply/destroy 버튼 + SSE 로그 스트리밍
-- `attack-dashboard/app/api/infra/deploy/route.ts` — GitHub Actions workflow_dispatch + 상태 폴링 SSE
-- `deploy-frontend.yml` — `NEXT_PUBLIC_ENV_TYPE` 환경변수 추가 (취약: vulnerable, 보안: secure)
+- `.github/workflows/terraform-vulnerable.yml` + `terraform-secure.yml` — workflow_dispatch (apply/destroy) + **apply 실패 시 auto-destroy** + **apply 완료 후 GitHub Secrets 자동 주입**
+- `infra/terraform/environments/*/main.tf` — **S3 backend** (`sentinelshare-terraform-state-833453046706-ap-northeast-2-an`) 로 state 영구 저장
+- Attack Dashboard `InfraControl` 컴포넌트 — 대시보드에서 Terraform apply/destroy 버튼 + SSE 로그 스트리밍 (`feat/terraform-infra` 브랜치)
+- `attack-dashboard/app/api/infra/deploy/route.ts` — GitHub Actions workflow_dispatch + 상태 폴링 SSE (`ref: 'feat/terraform-infra'`)
+- `deploy-frontend.yml` — `NEXT_PUBLIC_ENV_TYPE` 환경변수 추가 + **Terraform 환경 배포 job** (`deploy-tf-vulnerable`, `deploy-tf-secure`) workflow_dispatch 수동 선택 시 실행
 - `sentinel-share-frontend/app/layout.tsx` — 환경별 배경색 (취약: bg-red-50, 보안: bg-green-50)
 - `.gitignore` — `*.tfstate`, `.terraform/` 추가
+- `attack-dashboard/app/page.tsx` — 팀원 `DashboardHome` 위에 `InfraControl` 통합 (`feat/terraform-infra` 브랜치)
 
 ---
 
@@ -141,11 +143,11 @@ SentinelShare/
 - **Docker 컨테이너 로그 볼륨 마운트 권한** — `-v /opt/app/logs:/opt/app/logs` 사용 시 호스트 디렉토리를 `chmod 777`로 설정 필수. Dockerfile 내 `chown appuser`는 호스트 마운트 시 덮어씌워짐.
 - **마이그레이션 전략** — Dockerfile에 `migrations/` 포함. Terraform user_data.sh.tpl에서 컨테이너 기동 후 `docker exec psql`로 자동 실행 (완료).
 - **Terraform 리소스 이름 규칙** — `sentinelshare-tf-{환경}-{리소스}` 형태로 기존 수동 환경과 구분. 예: `sentinelshare-tf-vul-ec2`, `sentinelshare-tf-secure-files`.
-- **Terraform state 로컬 관리** — 데모 프로젝트 단순화 목적. `*.tfstate`는 `.gitignore` 처리. S3 backend는 미사용.
+- **Terraform state S3 backend** — S3 버킷 `sentinelshare-terraform-state-833453046706-ap-northeast-2-an`에 state 저장. `vulnerable/terraform.tfstate`, `secure/terraform.tfstate`로 분리. apply 실패 후 retry/destroy가 올바르게 동작하기 위해 필수. `*.tfstate`는 `.gitignore` 처리.
 - **Terraform 민감 변수 전달** — `db_password`, `jwt_secret`은 `terraform.tfvars`에 기재 금지. `TF_VAR_db_password`, `TF_VAR_jwt_secret` 환경변수로 전달 (GitHub Secrets: `TF_DB_PASSWORD`, `TF_JWT_SECRET`).
 - **WAF scope CLOUDFRONT → us-east-1 필수** — CloudFront에 붙이는 WAF WebACL은 반드시 us-east-1에 생성해야 함. `environments/secure/main.tf`에 `provider alias aws.us_east_1` 선언 + waf 모듈에 `providers` 블록으로 전달.
-- **InfraControl workflow_dispatch ref** — `api/infra/deploy/route.ts`에서 `ref: 'dev'`로 고정. 워크플로우 파일이 dev 브랜치에 존재하므로 master로 하면 422 에러 발생.
-- **InfraControl 로컬 전용 (git 미포함)** — 팀원 attack-dashboard 작업과 충돌 방지를 위해 `InfraControl.tsx`, `app/api/infra/deploy/route.ts`, `page.tsx` 수정분은 로컬에만 존재. 팀원 작업 완료 후 merge 예정.
+- **InfraControl workflow_dispatch ref** — `api/infra/deploy/route.ts`에서 `ref: 'feat/terraform-infra'`로 고정. Secrets 자동 주입 등 최신 워크플로우 변경이 이 브랜치에 있음. dev merge 후 `ref: 'dev'`로 변경 필요.
+- **InfraControl `feat/terraform-infra` 브랜치 관리** — 팀원 `DashboardHome` 컴포넌트 위에 `InfraControl` 통합 완료. 기능 검증 후 dev 브랜치에 PR merge 예정.
 - **NEXT_PUBLIC_ENV_TYPE 빌드타임 고정** — `deploy-frontend.yml`에서 취약 빌드 시 `vulnerable`, 보안 빌드 시 `secure` 주입. `layout.tsx`에서 배경색 분기 (bg-red-50 / bg-green-50). 런타임 분기 없음.
 
 ---
@@ -207,23 +209,31 @@ SentinelShare/
     └── deploy → aws ecs update-service (Fargate 유지)
 
 .github/workflows/deploy-frontend.yml
-  trigger: master/dev, sentinel-share-frontend/** 변경
-  deploy-vulnerable → NEXT_PUBLIC_API_URL=$VULN_API_URL, NEXT_PUBLIC_ENV_TYPE=vulnerable
-                   → STATIC_EXPORT=true npm run build
-                   → aws s3 sync out/ s3://sentinel-share-vul-frontend/ --delete
-  deploy-secure    → NEXT_PUBLIC_API_URL=https://dyfs11nls1dwb.cloudfront.net/api
-                   → NEXT_PUBLIC_ENV_TYPE=secure, STATIC_EXPORT=true npm run build
-                   → aws s3 sync out/ s3://sentinel-share-secure-frontend/ --delete
-                   → aws cloudfront create-invalidation --paths "/*"
+  trigger: master/dev push (sentinel-share-frontend/** 변경) + workflow_dispatch
+  deploy-vulnerable    → NEXT_PUBLIC_API_URL=$VULN_API_URL, ENV_TYPE=vulnerable
+                       → s3://sentinel-share-vul-frontend/ (기존 수동 환경)
+  deploy-secure        → NEXT_PUBLIC_API_URL=https://dyfs11nls1dwb.cloudfront.net/api
+                       → s3://sentinel-share-secure-frontend/ + CloudFront invalidation (기존 수동 환경)
+  deploy-tf-vulnerable → workflow_dispatch에서 "Terraform 환경 배포" 체크 시만 실행
+                       → NEXT_PUBLIC_API_URL=$TF_VULN_API_URL, ENV_TYPE=vulnerable
+                       → s3://sentinelshare-tf-vul-frontend/
+  deploy-tf-secure     → workflow_dispatch에서 "Terraform 환경 배포" 체크 시만 실행
+                       → NEXT_PUBLIC_API_URL=$TF_SECURE_CF_URL/api, ENV_TYPE=secure
+                       → s3://sentinelshare-tf-secure-frontend/ + CloudFront($TF_SECURE_CF_DIST_ID) invalidation
 
-.github/workflows/terraform-vulnerable.yml  ← 완료 (4단계)
+.github/workflows/terraform-vulnerable.yml  ← 완료 (4단계, feat/terraform-infra)
   trigger: workflow_dispatch (inputs: action = apply | destroy)
-  steps: terraform init → validate → plan → apply 또는 destroy
+  steps: terraform fmt → init(S3 backend) → validate → plan → apply 또는 destroy
+         apply 실패 시 → auto-destroy (고아 리소스 방지)
+         apply 성공 시 → GitHub Secrets 자동 주입:
+           VULN_EC2_INSTANCE_ID, TF_VULN_API_URL (gh secret set, GH_PAT 사용)
   vars: TF_VAR_db_password=${{ secrets.TF_DB_PASSWORD }}, TF_VAR_jwt_secret=${{ secrets.TF_JWT_SECRET }}
 
-.github/workflows/terraform-secure.yml  ← 완료 (4단계)
+.github/workflows/terraform-secure.yml  ← 완료 (4단계, feat/terraform-infra)
   trigger: workflow_dispatch (inputs: action = apply | destroy)
   동일 구조, environments/secure/ 디렉토리 대상
+  apply 성공 시 → GitHub Secrets 자동 주입:
+    SECURE_EC2_INSTANCE_ID, TF_SECURE_CF_URL, TF_SECURE_CF_DIST_ID
 ```
 
 **SSM 배포 방식 (백엔드):**
@@ -247,6 +257,10 @@ SentinelShare/
 | `DASHBOARD_ECS_SERVICE` | 대시보드 ECS 서비스 | Terraform output 자동 주입 |
 | `TF_DB_PASSWORD` | PostgreSQL 비밀번호 (Terraform용) | 영구 유지 |
 | `TF_JWT_SECRET` | JWT 시크릿 (Terraform용) | 영구 유지 |
+| `GH_PAT` | GitHub PAT (`repo` 스코프) — `gh secret set` 용 | 영구 유지 |
+| `TF_VULN_API_URL` | `http://<TF취약EIP>:3000/api` | terraform-vulnerable apply 시 자동 주입 |
+| `TF_SECURE_CF_URL` | `https://<TF보안CloudFront도메인>` | terraform-secure apply 시 자동 주입 |
+| `TF_SECURE_CF_DIST_ID` | Terraform 보안 CloudFront Distribution ID | terraform-secure apply 시 자동 주입 |
 
 **계획 (3단계):**
 - `trivy-scan` — 이미지 빌드 후 CRITICAL/HIGH 취약점 스캔 (exit-code: 1)
