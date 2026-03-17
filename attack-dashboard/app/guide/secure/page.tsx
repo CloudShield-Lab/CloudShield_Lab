@@ -199,7 +199,7 @@ aws ec2 accept-vpc-peering-connection \\
         <StepCard
           step={2}
           title="IAM 설정"
-          warning="* 전체 권한보다 필요한 S3 경로, Secret만 허용하는 최소 권한이 중요합니다. EC2 role과 사람이 쓰는 IAM 권한을 혼동하지 않도록 주의해야 합니다."
+          warning="전체 권한보다 필요한 S3 경로, Secret만 허용하는 최소 권한이 중요합니다. EC2 role과 사람이 쓰는 IAM 권한을 혼동하지 않도록 주의해야 합니다."
           note="trust-policy-ec2.json, secure-ec2-inline-policy.json 안의 YOUR_ACCOUNT_ID, S3 버킷 ARN, Secret ARN은 실제 값으로 바꿔야 합니다."
         >
           <CliContent>
