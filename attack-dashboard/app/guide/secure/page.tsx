@@ -50,6 +50,7 @@ export default function SecureGuidePage() {
         <StepCard
           step={1}
           title="VPC 설정"
+          warning="Public/Private subnet 역할을 섞지 않는 것이 중요합니다. DB나 내부 자원은 public에 두지 않고, route table도 IGW/NAT 대상이 바뀌지 않도록 확인해야 합니다. VPC Peering은 생성만 해서는 안 되고 라우트까지 정확히 추가해야 합니다."
           note="AWS_REGION, AWS_AZ, CIDR 대역, main/vul VPC ID와 Route Table ID는 사용자 환경 값으로 바꿔야 하며, 기존 네트워크와 CIDR이 겹치지 않는지 먼저 확인하세요."
         >
           <CliContent>
@@ -198,6 +199,7 @@ aws ec2 accept-vpc-peering-connection \\
         <StepCard
           step={2}
           title="IAM 설정"
+          warning="* 전체 권한보다 필요한 S3 경로, Secret만 허용하는 최소 권한이 중요합니다. EC2 role과 사람이 쓰는 IAM 권한을 혼동하지 않도록 주의해야 합니다."
           note="trust-policy-ec2.json, secure-ec2-inline-policy.json 안의 YOUR_ACCOUNT_ID, S3 버킷 ARN, Secret ARN은 실제 값으로 바꿔야 합니다."
         >
           <CliContent>
@@ -235,6 +237,7 @@ aws iam put-role-policy \\
         <StepCard
           step={3}
           title="ECR 프라이빗 레포지토리 생성"
+          warning="반드시 Private로 생성하고, Scan on push를 켜는 것이 좋습니다. 검증되지 않은 이미지를 그대로 배포하지 않도록 주의해야 합니다."
           note="리전, 저장소 이름, 로컬 이미지명은 사용자 환경에 맞게 조정하고, 출력된 ECR_URI를 그대로 docker tag/push에 사용하세요."
         >
           <CliContent>
@@ -271,6 +274,7 @@ docker push \${ECR_URI}:latest`} />
         <StepCard
           step={4}
           title="보안 그룹 설정"
+          warning="22, 3000 포트를 0.0.0.0/0으로 열지 않는 것이 핵심입니다. 반드시 내 IP/32 또는 필요한 범위만 허용해야 합니다."
           note="YOUR_PUBLIC_IP/32는 현재 작업 중인 공인 IP로 바꿔야 하며, 0.0.0.0/0 전체 공개는 피하는 것이 좋습니다."
         >
           <CliContent>
@@ -323,6 +327,7 @@ aws ec2 authorize-security-group-ingress \\
         <StepCard
           step={5}
           title="S3 설정"
+          warning="Block Public Access를 반드시 유지해야 합니다. 기본 암호화도 함께 적용해 저장 데이터 노출 위험을 줄이는 것이 좋습니다."
           note="버킷 이름은 전역 고유해야 하므로 이미 사용 중이면 다른 이름으로 바꾸고, 실제 생성된 이름을 이후 IAM 정책과 앱 설정에 동일하게 사용하세요."
         >
           <CliContent>
@@ -358,6 +363,7 @@ aws s3api put-bucket-encryption \\
         <StepCard
           step={6}
           title="GitHub Actions / OIDC 설정"
+          warning="장기 Access Key를 GitHub Secrets에 넣지 않는 것이 중요합니다. Trust Policy에서 저장소 범위를 제한하지 않으면 다른 repo가 Role을 사용할 위험이 있습니다."
           note="github-oidc-trust.json과 cloudshield-policy.json 안의 AWS 계정 ID, 저장소명, ARN, 버킷/테이블 이름은 실제 사용자 환경 값으로 바꿔야 합니다."
         >
           <CliContent>
@@ -391,6 +397,7 @@ aws iam attach-role-policy \\
         <StepCard
           step={7}
           title="CloudWatch Log Group 생성"
+          warning="로그는 남기기만 하고 안 보면 의미가 적으므로 보존 기간과 수집 대상을 같이 정해야 합니다. 민감정보가 로그에 평문으로 남지 않도록 주의해야 합니다."
           note="로그 그룹 이름과 보존 기간은 운영 정책에 맞게 조정할 수 있으며, AWS_REGION은 실제 로그를 저장할 리전과 일치해야 합니다."
         >
           <CliContent>
@@ -418,6 +425,7 @@ aws logs put-retention-policy \\
         <StepCard
           step={8}
           title="EC2 인스턴스 생성"
+          warning="실습상 public subnet에 두더라도 SG 제한이 반드시 필요합니다. 장기적으로는 private subnet + bastion/SSM 구조가 더 안전합니다."
           note="<UBUNTU_AMI_ID>와 보안 그룹 ID는 실제 값으로 바꿔야 하며, subnet, instance type, 태그는 사용자 환경에 맞게 조정할 수 있습니다."
         >
           <CliContent>
@@ -448,6 +456,7 @@ aws logs put-retention-policy \\
         <StepCard
           step={9}
           title="DB 설정"
+          warning="PostgreSQL을 EC2에 직접 설치하면 편하지만 앱 서버와 DB가 한 곳에 있어 분리 수준은 낮아집니다. 기본 postgres 계정 대신 전용 DB 사용자로 분리하는 것이 중요합니다. 비밀번호는 약한 값 대신 강한 값으로 써야 합니다."
           note="DB 사용자명, DB 이름, 비밀번호는 사용자 환경에 맞게 변경하고, 이후 백엔드 .env의 DB_* 값과 반드시 동일하게 맞춰야 합니다."
         >
           <CliContent>
@@ -479,8 +488,8 @@ sudo -u postgres psql -c "\\l"`} />
         <StepCard
           step={10}
           title="백엔드 배포 및 실행"
+          warning=".env에 시크릿을 오래 평문으로 두는 것은 위험하므로 운영에서는 Secrets Manager로 넘기는 게 좋습니다. CORS_ORIGIN을 너무 넓게 열지 않도록 주의해야 합니다. 개발 실행 방식(npm run dev)은 운영용 프로세스 관리와 구분해야 합니다."
           note=".env 안의 JWT_SECRET, DB 접속 정보, AWS_REGION, S3_BUCKET_NAME, CORS_ORIGIN은 실제 환경 값으로 변경해야 하며, S3_BUCKET_NAME은 생성한 버킷 이름과 일치해야 합니다."
-          warning="이 단계 완료 후 ECS에 직접 접근이 차단됩니다. CloudFront 도메인을 통해서만 접근 가능합니다."
         >
           <CliContent>
             <CodeBlock code={`git clone https://github.com/CloudShield-Lab/CloudShield_Lab.git Sentinel_Share
@@ -526,6 +535,7 @@ npm run dev`} />
         <StepCard
           step={11}
           title="프론트엔드 연결 및 접속 테스트"
+          warning="NEXT_PUBLIC_API_URL이 잘못 설정되면 다른 환경으로 요청이 갈 수 있으니 주의해야 합니다. 테스트 후에도 불필요하게 공개된 API 주소나 포트가 없는지 확인하는 것이 좋습니다."
           note="<EC2_PUBLIC_IP>는 실제 EC2 퍼블릭 IP 또는 사용 중인 도메인으로 바꿔야 하며, NEXT_PUBLIC_API_URL과 백엔드 CORS_ORIGIN이 서로 호환되도록 함께 확인하세요."
         >
           <CliContent>
@@ -557,6 +567,7 @@ curl http://<EC2_PUBLIC_IP>:3000/health`} />
         <StepCard
           step={12}
           title="Secrets Manager 설정"
+          warning="Secret을 만드는 것만으로 끝이 아니라, 읽을 수 있는 IAM 주체를 최소화해야 합니다. DB 비밀번호, JWT Secret처럼 민감한 값은 코드나 Task/EC2 설정 파일에 직접 두지 않는 것이 중요합니다."
           note="Secret 이름, AWS_ACCOUNT_ID, Secret ARN, Role 이름은 실제 사용자 환경 값으로 맞춰야 하며, 현재 EC2 기반 구조라면 ECS용 역할명 대신 실제 EC2 역할명을 사용하세요."
         >
           <CliContent>
