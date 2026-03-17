@@ -4,6 +4,7 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'SentinelShare',
   description: 'Secure cloud file sharing',
+  icons: [{ rel: 'icon', url: 'data:,' }],
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
