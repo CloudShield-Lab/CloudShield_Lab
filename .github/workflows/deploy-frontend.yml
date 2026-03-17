@@ -43,6 +43,7 @@ jobs:
         env:
           STATIC_EXPORT: 'true'
           NEXT_PUBLIC_API_URL: ${{ secrets.VULN_API_URL }}
+          NEXT_PUBLIC_ENV_TYPE: 'vulnerable'
         run: npm run build
 
       - name: Configure AWS credentials (OIDC)
@@ -86,6 +87,7 @@ jobs:
         env:
           STATIC_EXPORT: 'true'
           NEXT_PUBLIC_API_URL: https://dyfs11nls1dwb.cloudfront.net/api
+          NEXT_PUBLIC_ENV_TYPE: 'secure'
         run: npm run build
 
       - name: Configure AWS credentials (OIDC)
