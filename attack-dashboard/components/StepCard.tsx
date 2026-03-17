@@ -25,6 +25,15 @@ export function StepCard({ step, title, children, warning, note }: Props) {
       </div>
 
       <div className="px-6 py-5 space-y-4">
+        {children}
+
+        {note && (
+          <div className="flex items-start gap-2 rounded-lg border border-slate-700/50 bg-slate-800/30 px-4 py-3 text-sm text-slate-400">
+            <span className="flex-shrink-0 mt-0.5 text-slate-500">ℹ</span>
+            <span>{note}</span>
+          </div>
+        )}
+
         {warning && (
           <div className="space-y-3">
             {(warningItems.length > 0 ? warningItems : [warning]).map((item, index) => (
@@ -36,15 +45,6 @@ export function StepCard({ step, title, children, warning, note }: Props) {
                 <span>{item}</span>
               </div>
             ))}
-          </div>
-        )}
-
-        {children}
-
-        {note && (
-          <div className="flex items-start gap-2 rounded-lg border border-slate-700/50 bg-slate-800/30 px-4 py-3 text-sm text-slate-400">
-            <span className="flex-shrink-0 mt-0.5 text-slate-500">ℹ</span>
-            <span>{note}</span>
           </div>
         )}
       </div>
