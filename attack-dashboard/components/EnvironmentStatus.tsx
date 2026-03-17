@@ -8,60 +8,45 @@ export function EnvironmentStatus() {
 
   useEffect(() => {
     fetch('/api/config')
-      .then((r) => r.json())
+      .then((response) => response.json())
       .then(setConfig)
       .catch(() => {});
   }, []);
 
-  if (!config) {
-    return (
-      <div className="border-b border-slate-800 bg-[#0d1117] px-6 py-3">
-        <div className="max-w-6xl mx-auto flex gap-6 text-xs text-slate-600 font-mono">
-          <span>환경 정보 로딩 중...</span>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="border-b border-slate-800 bg-[#0d1117] px-6 py-3">
-      <div className="max-w-6xl mx-auto flex flex-wrap gap-6 items-center text-xs font-mono">
-        {/* 취약 환경 */}
-        <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-          <span className="text-slate-500">취약 환경</span>
-          <span className="text-red-400 font-semibold">{config.vulnerable.url}</span>
-          <span className="px-1.5 py-0.5 rounded text-[10px] bg-red-950 text-red-400 border border-red-900">
-            LOCAL / NO PROTECTION
-          </span>
-        </div>
+    <div className="border-b border-slate-800 bg-slate-950/80 px-6 py-3">
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-4 text-xs font-mono text-slate-400">
+        {config ? (
+          <>
+            <div className="flex items-center gap-2">
+              <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
+              <span>취약 환경</span>
+              <span className="font-semibold text-red-300">{config.vulnerable.url}</span>
+              <span className="rounded border border-red-900 bg-red-950/60 px-2 py-0.5 text-red-300">
+                LOCAL / NO PROTECTION
+              </span>
+            </div>
 
-        <span className="text-slate-700">|</span>
+            <span className="text-slate-700">|</span>
 
-        {/* AWS 환경 */}
-        <div className="flex items-center gap-2">
-          {config.aws.configured ? (
-            <>
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-slate-500">AWS 환경</span>
-              <span className="text-emerald-400 font-semibold truncate max-w-xs">
-                {config.aws.url}
-              </span>
-              <span className="px-1.5 py-0.5 rounded text-[10px] bg-emerald-950 text-emerald-400 border border-emerald-900">
-                WAF + CloudFront
-              </span>
-            </>
-          ) : (
-            <>
-              <span className="w-2 h-2 rounded-full bg-slate-700" />
-              <span className="text-slate-600">AWS 환경</span>
-              <span className="text-slate-600">미설정</span>
-              <span className="px-1.5 py-0.5 rounded text-[10px] bg-slate-800 text-slate-500 border border-slate-700">
-                .env.local에 AWS_API_URL 추가
-              </span>
-            </>
-          )}
-        </div>
+            <div className="flex items-center gap-2">
+              <span className={`h-2.5 w-2.5 rounded-full ${config.aws.configured ? 'bg-emerald-500' : 'bg-slate-600'}`} />
+              <span>AWS 환경</span>
+              {config.aws.configured ? (
+                <span className="font-semibold text-emerald-300">{config.aws.url}</span>
+              ) : (
+                <>
+                  <span className="text-slate-500">미설정</span>
+                  <span className="rounded border border-slate-700 bg-slate-800 px-2 py-0.5 text-slate-400">
+                    .env.local에 AWS_API_URL 추가
+                  </span>
+                </>
+              )}
+            </div>
+          </>
+        ) : (
+          <span className="text-slate-500">환경 설정을 불러오는 중입니다...</span>
+        )}
       </div>
     </div>
   );
