@@ -186,7 +186,7 @@ jobs:
         if: github.event.inputs.action == 'apply'
         working-directory: sentinel-share-frontend
         run: |
-          CLOUDFRONT_DOMAIN=$(terraform -chdir="${{ env.TF_WORKING_DIR }}" output -raw cloudfront_domain)
+          CLOUDFRONT_DOMAIN=$(terraform -chdir="${{ github.workspace }}/${{ env.TF_WORKING_DIR }}" output -raw cloudfront_domain)
           STATIC_EXPORT=true \
           NEXT_PUBLIC_API_URL="https://${CLOUDFRONT_DOMAIN}/api" \
           NEXT_PUBLIC_ENV_TYPE=secure \
@@ -199,7 +199,7 @@ jobs:
       - name: Invalidate CloudFront cache (TF Secure)
         if: github.event.inputs.action == 'apply'
         run: |
-          DISTRIBUTION_ID=$(terraform -chdir="${{ env.TF_WORKING_DIR }}" output -raw cloudfront_distribution_id)
+          DISTRIBUTION_ID=$(terraform -chdir="${{ github.workspace }}/${{ env.TF_WORKING_DIR }}" output -raw cloudfront_distribution_id)
           aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION_ID" --paths "/*"
 
       - name: Output Results
