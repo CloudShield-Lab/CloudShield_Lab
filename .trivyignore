@@ -1,0 +1,38 @@
+# ============================================================
+# SentinelShare Trivy Ignore Rules
+# 이 프로젝트는 취약/보안 환경을 비교하는 데모입니다.
+# 아래 항목들은 아키텍처상 의도적이거나 데모 범위 밖입니다.
+# ============================================================
+
+# [CloudFront] 액세스 로깅 미설정 — 데모 환경, 스코프 밖
+AVD-AWS-0010
+
+# [EC2] IMDSv2 미강제 — 데모 환경 baseline
+AVD-AWS-0028
+
+# [EC2] egress 0.0.0.0/0 — ECR pull, 패키지 설치 등 인터넷 접근 필수
+AVD-AWS-0104
+
+# [EC2] SSH ingress 0.0.0.0/0 — EIP 기반 데모 관리 구조
+AVD-AWS-0107
+
+# [EC2] root block device 암호화 없음 — 데모 환경 baseline
+AVD-AWS-0131
+
+# [Network] subnet map_public_ip_on_launch — No ALB, EC2 직접 노출 아키텍처
+AVD-AWS-0164
+
+# [Network] VPC Flow Logs 미설정 — 데모 환경, 스코프 밖
+AVD-AWS-0178
+
+# [S3] 버킷 암호화(SSE) 없음 — 데모 환경 baseline
+AVD-AWS-0088
+
+# [S3] 버킷 versioning 없음 — 데모 환경 불필요
+AVD-AWS-0090
+
+# [S3] CMK 암호화 미사용 — 데모 환경, SSE-S3로 충분
+AVD-AWS-0132
+
+# [S3] 버킷 액세스 로깅 없음 — 데모 환경, 스코프 밖
+s3-bucket-logging
