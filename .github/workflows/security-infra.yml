@@ -49,6 +49,8 @@ jobs:
 
       - name: Run Prowler against AWS account
         run: |
+          set +e
+
           docker run --rm \
             --user 0:0 \
             -e AWS_ACCESS_KEY_ID \
@@ -61,6 +63,13 @@ jobs:
             --region "${{ env.AWS_REGION }}" \
             --resource-tags "Environment=${{ inputs.environment_tag }}" "ManagedBy=${{ inputs.managed_by_tag }}" \
             --output-modes json-ocsf html csv
+
+          PROWLER_EXIT_CODE=$?
+          echo "Prowler exit code: ${PROWLER_EXIT_CODE}"
+
+          if [ "${PROWLER_EXIT_CODE}" -ne 0 ] && [ "${PROWLER_EXIT_CODE}" -ne 3 ]; then
+            exit "${PROWLER_EXIT_CODE}"
+          fi
 
       - name: Upload Prowler report artifacts
         uses: actions/upload-artifact@v4
