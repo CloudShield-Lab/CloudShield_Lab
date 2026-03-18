@@ -166,7 +166,7 @@ interface EnvPanelProps {
   onStart: () => void;
   onReset: () => void;
   onSetAction: (a: Action) => void;
-  logsEndRef: React.RefObject<HTMLDivElement | null>;
+  logsEndRef: React.RefObject<HTMLDivElement>;
   accentColor: 'red' | 'emerald';
 }
 
