@@ -15,6 +15,10 @@ env:
   AWS_REGION: ap-northeast-2
   TF_WORKING_DIR: infra/terraform/environments/vulnerable
 
+concurrency:
+  group: terraform-vulnerable
+  cancel-in-progress: false
+
 jobs:
   terraform:
     name: Terraform ${{ github.event.inputs.action }} (Vulnerable)
