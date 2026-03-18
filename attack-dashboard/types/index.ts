@@ -10,6 +10,7 @@ export type AttackResult = {
   blocked: boolean;
   label?: string;
   error?: string;
+  url?: string;
 };
 
 export type AttackEvent =
@@ -35,6 +36,7 @@ export type AttackEvent =
       error?: string;
       email?: string;
       password?: string;
+      url?: string;
     }
   | { type: 'complete' }
   | { type: 'error'; message: string };
@@ -104,4 +106,4 @@ export type ArchitectureScenario = {
   events: AttackSimulationEvent[];
 };
 
-export type AttackEndpoint = 'bruteforce' | 's3-access' | 'ratelimit';
+export type AttackEndpoint = 'bruteforce' | 's3-access' | 'ratelimit' | 'header-scan';

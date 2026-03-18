@@ -112,7 +112,13 @@ export function BruteforceAttackCard({
             if (event.env === 'vulnerable') {
               setVulnResults((prev) => [...prev, result]);
               if (event.status === 200 && event.email && event.password) {
-                setCapturedAccounts((prev) => [...prev, { email: event.email!, password: event.password! }]);
+                setCapturedAccounts((prev) => {
+                  const next = [...prev, { email: event.email!, password: event.password! }];
+                  try {
+                    localStorage.setItem('sentinelshare_captured_accounts', JSON.stringify(next));
+                  } catch {}
+                  return next;
+                });
               }
             } else {
               setAwsResults((prev) => [...prev, result]);
@@ -142,6 +148,7 @@ export function BruteforceAttackCard({
     setAwsResults([]);
     setCapturedAccounts([]);
     setCredentials(DEFAULT_CREDENTIALS);
+    try { localStorage.removeItem('sentinelshare_captured_accounts'); } catch {}
   }, [resetScenario]);
 
   const buttonClass =

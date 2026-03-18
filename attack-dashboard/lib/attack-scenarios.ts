@@ -52,30 +52,30 @@ export const attackScenarioConfigs: AttackScenarioConfig[] = [
   {
     key: 's3-access',
     index: 2,
-    title: 'S3 접근 경로 비교 API',
-    shortTitle: 'S3 접근 경로 비교 API',
+    title: 'S3 데이터 탈취 체인',
+    shortTitle: 'S3 데이터 탈취 체인',
     description:
-      'S3 요청이 공개 경로로 노출되는지, 보호된 경로를 통해서만 허용되는지 비교합니다.',
-    totalRequests: 5,
+      '피해자 계정으로 로그인 → 파일 목록 조회 → Presigned URL 획득 → 서명 제거 후 S3 직접 접근까지의 탈취 체인 전체를 비교합니다.',
+    totalRequests: 4,
     vulnNote:
-      '취약 환경은 잘못된 스토리지 설정으로 인해 S3 접근이 직접 허용되는 흐름을 확인할 수 있습니다.',
+      '취약 환경은 퍼블릭 버킷 설정으로 인해 서명 없는 S3 직접 URL로도 실제 파일이 다운로드됩니다.',
     awsNote:
-      '보안 환경은 프라이빗 버킷, 제한된 권한, 보호된 전달 경로를 통해 동일한 요청을 제어합니다.',
+      '보안 환경은 프라이빗 버킷으로 설정되어 있어 서명 파라미터를 제거한 직접 URL 접근 시 403이 반환됩니다.',
     flowSteps: [
       {
-        title: '1. 스토리지 요청 전송',
-        vulnerable: '공개 경로로 들어온 요청이 앱과 스토리지 경로를 그대로 탐색합니다.',
-        secure: '보호된 전달 경로를 따라 요청의 정당성을 먼저 확인합니다.',
+        title: '1. 피해자 계정 로그인',
+        vulnerable: '크리덴셜 스터핑으로 획득한 victim@demo.com 계정으로 JWT를 발급받습니다.',
+        secure: '동일 로그인 시도는 정상 처리되지만 이후 S3 직접 접근 단계에서 차단됩니다.',
       },
       {
-        title: '2. 접근 허용 범위 비교',
-        vulnerable: '버킷 또는 오브젝트가 잘못 공개돼 있으면 직접 접근이 가능해집니다.',
-        secure: '프라이빗 버킷과 제한된 권한으로 인해 우회 접근이 막힙니다.',
+        title: '2. 파일 목록 & 다운로드 URL',
+        vulnerable: 'JWT를 사용해 /api/files 파일 목록과 Presigned URL을 정상적으로 획득합니다.',
+        secure: '보안 환경에서도 API는 동일하게 Presigned URL을 반환합니다.',
       },
       {
-        title: '3. 최종 도달 지점 확인',
-        vulnerable: 'S3 성공 응답 여부로 노출 상태를 직관적으로 확인합니다.',
-        secure: '차단 또는 제한 응답으로 보호된 아키텍처를 검증합니다.',
+        title: '3. 서명 제거 후 S3 직접 접근',
+        vulnerable: 'Presigned URL에서 서명 파라미터를 모두 제거한 순수 S3 URL로 파일 다운로드가 성공합니다.',
+        secure: '프라이빗 버킷이므로 서명 없는 접근은 즉시 403 Access Denied로 차단됩니다.',
       },
     ],
   },
@@ -107,6 +107,36 @@ export const attackScenarioConfigs: AttackScenarioConfig[] = [
         title: '3. 보호 효과 해석',
         vulnerable: '도달 수와 평균 지연을 통해 서비스 부담을 확인합니다.',
         secure: '차단 수와 차단 비율로 앞단 제어 효과를 시각적으로 확인합니다.',
+      },
+    ],
+  },
+  {
+    key: 'header-scan',
+    index: 4,
+    title: 'HTTP 헤더 정보 노출',
+    shortTitle: 'HTTP 헤더 스캔',
+    description:
+      '응답 헤더를 분석해 기술 스택 노출 여부를 비교합니다. 취약 환경은 Express·Node.js 버전 등이 노출되고 보안 환경은 CloudFront가 이를 숨기고 보안 헤더를 추가합니다.',
+    totalRequests: 1,
+    vulnNote:
+      '취약 환경은 Express 기본 헤더(X-Powered-By 등)가 그대로 노출되어 공격자가 기술 스택을 쉽게 파악할 수 있습니다.',
+    awsNote:
+      '보안 환경은 CloudFront가 위험 헤더를 제거하고 HSTS 등 보안 헤더를 추가해 정보 노출을 최소화합니다.',
+    flowSteps: [
+      {
+        title: '1. HTTP GET 요청 전송',
+        vulnerable: '공격자가 취약 환경 API에 직접 GET 요청을 보내 응답 헤더를 수집합니다.',
+        secure: '동일 요청이 CloudFront 엣지를 경유하며 헤더 변환이 적용됩니다.',
+      },
+      {
+        title: '2. 위험 헤더 탐지',
+        vulnerable: 'X-Powered-By: Express, Server 헤더 등 기술 스택 정보가 노출됩니다.',
+        secure: 'CloudFront가 위험 헤더를 제거하고 Via, X-Cache 등 CDN 헤더로 대체합니다.',
+      },
+      {
+        title: '3. 보안 헤더 비교',
+        vulnerable: 'HSTS, X-Content-Type-Options 등 보안 헤더가 누락된 상태입니다.',
+        secure: 'CloudFront 및 앱 설정으로 주요 보안 헤더가 추가된 상태를 확인합니다.',
       },
     ],
   },

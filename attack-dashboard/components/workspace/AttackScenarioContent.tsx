@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { AttackCard } from '@/components/AttackCard';
 import { BruteforceAttackCard } from '@/components/BruteforceAttackCard';
+import { HeaderScanCard } from '@/components/HeaderScanCard';
 import { ArchitectureVisualizationProvider } from '@/hooks/useArchitectureVisualization';
 import { getAttackScenarioConfig } from '@/lib/attack-scenarios';
 import type { AttackEndpoint, DashboardConfig, WorkspaceMode } from '@/types';
@@ -100,6 +101,15 @@ export function AttackScenarioContent({
             title={config.title}
             description={config.description}
             totalRequests={config.totalRequests}
+            vulnNote={config.vulnNote}
+            awsNote={config.awsNote}
+            mode={mode}
+          />
+        ) : scenario === 'header-scan' ? (
+          <HeaderScanCard
+            index={config.index}
+            title={config.title}
+            description={config.description}
             vulnNote={config.vulnNote}
             awsNote={config.awsNote}
             mode={mode}
