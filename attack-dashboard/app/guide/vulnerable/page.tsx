@@ -10,7 +10,7 @@ export default function VulnerableGuidePage() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="flex items-center gap-3 mb-1">
-              <Link href="/guide" className="text-slate-600 hover:text-slate-400 text-sm transition-colors">
+              <Link href="/manual" className="text-slate-600 hover:text-slate-400 text-sm transition-colors">
                 ← Infrastructure Guide
               </Link>
             </div>
@@ -394,13 +394,13 @@ Build & Deploy → Vulnerable (S3 Direct)`} />
           </p>
           <div className="flex gap-3">
             <Link
-              href="/guide/secure"
+              href="/manual/secure"
               className="px-4 py-2 rounded-lg border border-emerald-700 bg-emerald-950 text-emerald-400 text-sm font-medium hover:bg-emerald-900 transition-colors"
             >
               보안 환경 구성 →
             </Link>
             <Link
-              href="/"
+              href="/manual/attack/bruteforce"
               className="px-4 py-2 rounded-lg border border-slate-700 text-slate-400 text-sm hover:text-slate-200 hover:border-slate-600 transition-colors"
             >
               Attack Simulator로 이동

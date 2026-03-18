@@ -24,12 +24,12 @@ type ArchitectureNodeData = {
 };
 
 const statusClasses: Record<NodeStatus, string> = {
-  idle: 'border-slate-600 bg-slate-900/95 text-slate-200',
-  reached: 'border-sky-500 bg-sky-950/70 text-sky-100 shadow-[0_0_0_1px_rgba(56,189,248,0.24)]',
-  passed: 'border-amber-500 bg-amber-950/75 text-amber-100 shadow-[0_0_0_1px_rgba(251,191,36,0.24)]',
-  blocked: 'border-emerald-300 bg-emerald-900/90 text-emerald-50 shadow-[0_0_36px_rgba(52,211,153,0.65)]',
-  failed: 'border-rose-500 bg-rose-950/75 text-rose-100 shadow-[0_0_0_1px_rgba(251,113,133,0.24)]',
-  success: 'border-fuchsia-300 bg-fuchsia-900/90 text-fuchsia-50 shadow-[0_0_38px_rgba(232,121,249,0.7)]',
+  idle: 'border-slate-200 bg-white text-slate-700',
+  reached: 'border-sky-300 bg-sky-50 text-sky-700 shadow-[0_0_0_1px_rgba(56,189,248,0.14)]',
+  passed: 'border-amber-300 bg-amber-50 text-amber-700 shadow-[0_0_0_1px_rgba(251,191,36,0.14)]',
+  blocked: 'border-emerald-300 bg-emerald-100 text-emerald-800 shadow-[0_0_24px_rgba(16,185,129,0.18)]',
+  failed: 'border-rose-300 bg-rose-50 text-rose-700 shadow-[0_0_0_1px_rgba(251,113,133,0.14)]',
+  success: 'border-fuchsia-300 bg-fuchsia-100 text-fuchsia-800 shadow-[0_0_24px_rgba(232,121,249,0.18)]',
 };
 
 const icons: Record<ArchitectureStage, typeof Globe> = {
@@ -47,19 +47,19 @@ const icons: Record<ArchitectureStage, typeof Globe> = {
 export function ArchitectureNode({ data }: NodeProps<ArchitectureNodeData>) {
   const Icon = icons[data.stage];
   const mutedClass = data.muted ? 'opacity-45 grayscale' : '';
-  const highlightedClass = data.highlighted ? 'scale-[1.03] ring-2 ring-white/20 ring-offset-1 ring-offset-slate-950' : '';
+  const highlightedClass = data.highlighted ? 'scale-[1.03] ring-2 ring-slate-200 ring-offset-1 ring-offset-white' : '';
   const titleClass =
     data.status === 'blocked'
-      ? 'text-emerald-50'
+      ? 'text-emerald-800'
       : data.status === 'success'
-        ? 'text-fuchsia-50'
-        : 'text-white';
+        ? 'text-fuchsia-800'
+        : 'text-slate-900';
   const badgeClass =
     data.status === 'blocked'
-      ? 'border-emerald-200/50 bg-emerald-200/15 text-emerald-50'
+      ? 'border-emerald-300 bg-white/70 text-emerald-700'
       : data.status === 'success'
-        ? 'border-fuchsia-200/50 bg-fuchsia-200/15 text-fuchsia-50'
-        : 'border-current/30 bg-black/20 text-white';
+        ? 'border-fuchsia-300 bg-white/70 text-fuchsia-700'
+        : 'border-slate-200 bg-white/70 text-slate-600';
 
   return (
     <div
@@ -68,7 +68,7 @@ export function ArchitectureNode({ data }: NodeProps<ArchitectureNodeData>) {
       <Handle
         position={Position.Left}
         type="target"
-        className="!h-2.5 !w-2.5 !border-2 !border-slate-950 !bg-slate-300"
+        className="!h-2.5 !w-2.5 !border-2 !border-white !bg-slate-400"
       />
       <div className="mb-2 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
@@ -79,11 +79,11 @@ export function ArchitectureNode({ data }: NodeProps<ArchitectureNodeData>) {
           {data.status}
         </span>
       </div>
-      <div className="text-[11px] text-slate-400">{data.description}</div>
+      <div className="text-[11px] text-slate-500">{data.description}</div>
       <Handle
         position={Position.Right}
         type="source"
-        className="!h-2.5 !w-2.5 !border-2 !border-slate-950 !bg-slate-300"
+        className="!h-2.5 !w-2.5 !border-2 !border-white !bg-slate-400"
       />
     </div>
   );

@@ -118,22 +118,20 @@ export function InfraControl() {
   );
 
   return (
-    <div className="rounded-xl border border-slate-800 bg-[#0d1117] overflow-hidden">
-      {/* 헤더 */}
-      <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-800">
-        <span className="flex-shrink-0 w-7 h-7 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-xs font-mono text-slate-400">
-          ⚙
+    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-[0_14px_36px_rgba(15,23,42,0.05)]">
+      <div className="flex items-center gap-3 border-b border-slate-200 px-6 py-4">
+        <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-xs font-mono text-slate-500">
+          IaC
         </span>
         <div>
-          <h2 className="text-slate-100 font-semibold tracking-wide">인프라 자동 배포/삭제</h2>
-          <p className="text-slate-500 text-sm mt-0.5">
-            Terraform으로 취약/보안 환경을 독립적으로 배포하거나 삭제합니다.
+          <h2 className="font-semibold tracking-wide text-slate-900">인프라 자동 배포/삭제</h2>
+          <p className="mt-0.5 text-sm text-slate-500">
+            Terraform으로 취약 환경과 보안 환경을 자동 배포하거나 삭제합니다.
           </p>
         </div>
       </div>
 
-      {/* 두 환경 나란히 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-slate-800">
+      <div className="grid grid-cols-1 divide-y divide-slate-200 md:grid-cols-2 md:divide-x md:divide-y-0">
         <EnvPanel
           label="취약 환경"
           env="vulnerable"
@@ -183,35 +181,34 @@ function EnvPanel({
   const isRed = accentColor === 'red';
 
   const headerBg = isRed
-    ? 'bg-red-950/30 border-b border-red-900/40'
-    : 'bg-emerald-950/30 border-b border-emerald-900/40';
-  const headerText = isRed ? 'text-red-300' : 'text-emerald-300';
+    ? 'bg-red-50 border-b border-red-100'
+    : 'bg-emerald-50 border-b border-emerald-100';
+  const headerText = isRed ? 'text-red-600' : 'text-emerald-600';
   const dot = isRed ? 'bg-red-500' : 'bg-emerald-500';
 
   const phaseColor =
     phase === 'complete'
-      ? 'text-emerald-400'
+      ? 'text-emerald-600'
       : phase === 'error'
-      ? 'text-red-400'
-      : phase === 'running'
-      ? 'text-yellow-400'
-      : 'text-slate-500';
+        ? 'text-red-600'
+        : phase === 'running'
+          ? 'text-amber-600'
+          : 'text-slate-500';
 
   const phaseLabel =
     phase === 'idle'
       ? '대기'
       : phase === 'running'
-      ? '실행 중'
-      : phase === 'complete'
-      ? '완료'
-      : '오류';
+        ? '실행 중'
+        : phase === 'complete'
+          ? '완료'
+          : '오류';
 
   return (
     <div className="flex flex-col">
-      {/* 환경 헤더 */}
       <div className={`flex items-center justify-between px-5 py-3 ${headerBg}`}>
         <div className="flex items-center gap-2">
-          <span className={`w-2 h-2 rounded-full ${dot}`} />
+          <span className={`h-2 w-2 rounded-full ${dot}`} />
           <span className={`text-sm font-semibold ${headerText}`}>{label}</span>
         </div>
         <div className="flex items-center gap-2">
@@ -219,7 +216,7 @@ function EnvPanel({
           {phase !== 'idle' && (
             <button
               onClick={onReset}
-              className="px-2 py-1 rounded text-xs border border-slate-700 text-slate-400 hover:text-slate-200 hover:border-slate-600 transition-colors"
+              className="rounded border border-slate-200 px-2 py-1 text-xs text-slate-500 transition-colors hover:border-slate-300 hover:text-slate-800"
             >
               초기화
             </button>
@@ -227,97 +224,91 @@ function EnvPanel({
         </div>
       </div>
 
-      {/* 컨트롤 */}
-      <div className="p-5 space-y-4 flex-1">
-        {/* 액션 선택 */}
+      <div className="flex-1 space-y-4 p-5">
         <div className="space-y-1.5">
-          <label className="text-xs text-slate-500 uppercase tracking-wider font-medium">액션</label>
+          <label className="text-xs font-medium uppercase tracking-wider text-slate-500">Action</label>
           <div className="flex gap-2">
             {(['apply', 'destroy'] as Action[]).map((a) => (
               <button
                 key={a}
                 onClick={() => onSetAction(a)}
                 disabled={phase !== 'idle'}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
                   action === a
                     ? a === 'apply'
-                      ? 'bg-emerald-900/50 border-emerald-700 text-emerald-300'
-                      : 'bg-red-900/50 border-red-700 text-red-300'
-                    : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-600'
-                } ${phase !== 'idle' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                      ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                      : 'border-red-300 bg-red-50 text-red-700'
+                    : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'
+                } ${phase !== 'idle' ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
               >
-                {a === 'apply' ? '▲ Apply (배포)' : '▼ Destroy (삭제)'}
+                {a === 'apply' ? 'Apply' : 'Destroy'}
               </button>
             ))}
           </div>
         </div>
 
-        {/* 실행 버튼 */}
         <button
           onClick={onStart}
           disabled={phase !== 'idle'}
-          className={`w-full py-2 rounded-lg text-xs font-semibold border transition-colors ${
+          className={`w-full rounded-lg border py-2 text-xs font-semibold transition-colors ${
             phase === 'idle'
               ? action === 'apply'
-                ? 'bg-emerald-700 hover:bg-emerald-600 border-emerald-600 text-white cursor-pointer'
-                : 'bg-red-700 hover:bg-red-600 border-red-600 text-white cursor-pointer'
-              : 'bg-slate-800 border-slate-700 text-slate-500 cursor-not-allowed'
+                ? 'border-emerald-500 bg-emerald-500 text-white hover:bg-emerald-600'
+                : 'border-red-500 bg-red-500 text-white hover:bg-red-600'
+              : 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400'
           }`}
         >
-          {phase === 'idle' && `▶ ${action === 'apply' ? '배포 (Apply)' : '삭제 (Destroy)'}`}
+          {phase === 'idle' && `${action === 'apply' ? '배포' : '삭제'} 실행`}
           {phase === 'running' && (
             <span className="flex items-center justify-center gap-1.5">
-              <span className="w-1.5 h-1.5 bg-yellow-400 rounded-full animate-pulse" />
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
               실행 중...
             </span>
           )}
-          {phase === 'complete' && '✓ 완료'}
-          {phase === 'error' && '✗ 오류'}
+          {phase === 'complete' && '실행 완료'}
+          {phase === 'error' && '오류 발생'}
         </button>
 
-        {/* destroy 경고 */}
         {action === 'destroy' && phase === 'idle' && (
-          <div className="rounded-lg border border-red-900/50 bg-red-950/20 px-4 py-2.5 text-xs text-red-300/80 flex items-start gap-2">
-            <span className="flex-shrink-0 mt-0.5">⚠</span>
+          <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-xs text-red-700">
+            <span className="mt-0.5 flex-shrink-0">!</span>
             <span>
-              Destroy를 실행하면 <strong>모든 AWS 리소스가 삭제</strong>됩니다.
-              EC2, S3 버킷(파일 포함), EIP, VPC 등이 제거됩니다.
+              Destroy를 실행하면 모든 AWS 리소스가 삭제됩니다. EC2, S3 버킷, EIP, VPC 등이 제거됩니다.
             </span>
           </div>
         )}
 
-        {/* 로그 패널 */}
         {logs.length > 0 && (
-          <div className="rounded-lg bg-slate-900 border border-slate-800 p-3 font-mono text-xs space-y-1 max-h-56 overflow-y-auto">
+          <div className="max-h-56 space-y-1 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-3 font-mono text-xs">
             {logs.map((log, i) => (
               <div
                 key={i}
                 className={
                   log.type === 'error'
-                    ? 'text-red-400'
+                    ? 'text-red-600'
                     : log.type === 'complete' && log.success
-                    ? 'text-emerald-400'
-                    : log.type === 'complete'
-                    ? 'text-red-400'
-                    : log.type === 'status'
-                    ? log.conclusion === 'success'
-                      ? 'text-emerald-400'
-                      : log.conclusion === 'failure'
-                      ? 'text-red-400'
-                      : 'text-yellow-400'
-                    : 'text-slate-400'
+                      ? 'text-emerald-600'
+                      : log.type === 'complete'
+                        ? 'text-red-600'
+                        : log.type === 'status'
+                          ? log.conclusion === 'success'
+                            ? 'text-emerald-600'
+                            : log.conclusion === 'failure'
+                              ? 'text-red-600'
+                              : 'text-amber-600'
+                          : 'text-slate-600'
                 }
               >
                 {log.type === 'status' ? (
                   <>
-                    <span className="text-slate-600">[STATUS] </span>
+                    <span className="text-slate-400">[STATUS] </span>
                     {log.message}
                     {log.html_url && (
                       <a
                         href={log.html_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="ml-2 text-blue-400 hover:text-blue-300 underline"
+                        className="ml-2 text-blue-600 underline hover:text-blue-700"
                       >
                         [Actions 보기]
                       </a>
@@ -325,7 +316,7 @@ function EnvPanel({
                   </>
                 ) : (
                   <>
-                    <span className="text-slate-600">[{log.type.toUpperCase()}] </span>
+                    <span className="text-slate-400">[{log.type.toUpperCase()}] </span>
                     {log.message}
                   </>
                 )}
@@ -335,7 +326,6 @@ function EnvPanel({
           </div>
         )}
 
-        {/* 결과 링크 */}
         {resultUrl && (
           <div className="flex items-center gap-2 text-xs">
             <span className="text-slate-500">Actions:</span>
@@ -343,7 +333,7 @@ function EnvPanel({
               href={resultUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-400 hover:text-blue-300 underline truncate"
+              className="truncate text-blue-600 underline hover:text-blue-700"
             >
               {resultUrl}
             </a>

@@ -3,7 +3,7 @@ import Link from 'next/link';
 const phases = [
   {
     number: 1,
-    href: '/guide/vulnerable',
+    href: '/manual/vulnerable',
     label: '취약 환경 구성',
     subtitle: 'Vulnerable Environment',
     description: 'WAF 없음, CloudFront 없음, S3 퍼블릭, Security Group 전체 개방. 외부 요청이 직접 도달하는 환경.',
@@ -12,7 +12,7 @@ const phases = [
   },
   {
     number: 2,
-    href: '/guide/secure',
+    href: '/manual/secure',
     label: '보안 환경 구성',
     subtitle: 'Secure Environment',
     description: 'CloudFront + WAF, S3 프라이빗, 제한된 보안 그룹, Secrets Manager. 동일 코드, 다른 인프라.',

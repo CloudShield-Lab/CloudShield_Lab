@@ -9,18 +9,18 @@ interface Props {
 }
 
 function statusColor(status: number, blocked: boolean): string {
-  if (blocked) return 'text-emerald-400';
-  if (status === 200) return 'text-yellow-400';
-  if (status === 401) return 'text-orange-400';
-  if (status === 403 || status === 429) return 'text-emerald-400';
-  if (status <= 0) return 'text-slate-500';
-  return 'text-slate-400';
+  if (blocked) return 'text-emerald-700';
+  if (status === 200) return 'text-amber-600';
+  if (status === 401) return 'text-orange-600';
+  if (status === 403 || status === 429) return 'text-emerald-700';
+  if (status <= 0) return 'text-slate-400';
+  return 'text-slate-600';
 }
 
 function rowBg(blocked: boolean, env: Environment): string {
-  if (blocked) return 'border-l-2 border-emerald-600 bg-emerald-950/30';
-  if (env === 'vulnerable') return 'border-l-2 border-red-900 bg-red-950/20';
-  return 'border-l-2 border-slate-700 bg-slate-900/30';
+  if (blocked) return 'border-l-2 border-emerald-400 bg-emerald-50';
+  if (env === 'vulnerable') return 'border-l-2 border-red-300 bg-red-50';
+  return 'border-l-2 border-slate-300 bg-slate-50';
 }
 
 export function RequestLog({ results, env }: Props) {
@@ -34,7 +34,7 @@ export function RequestLog({ results, env }: Props) {
 
   if (results.length === 0) {
     return (
-      <div className="flex h-32 items-center justify-center font-mono text-sm text-slate-600">
+      <div className="flex h-32 items-center justify-center font-mono text-sm text-slate-500">
         아직 실행된 요청이 없습니다.
       </div>
     );
@@ -52,20 +52,20 @@ export function RequestLog({ results, env }: Props) {
               result.blocked ? 'bg-emerald-500' : env === 'vulnerable' ? 'bg-red-500' : 'bg-slate-500'
             }`}
           />
-          <span className="w-8 flex-shrink-0 text-right text-slate-600">#{result.attempt}</span>
+          <span className="w-8 flex-shrink-0 text-right text-slate-500">#{result.attempt}</span>
           <span className={`w-10 flex-shrink-0 font-bold ${statusColor(result.status, result.blocked)}`}>
             {result.status > 0 ? result.status : 'ERR'}
           </span>
-          <span className="w-14 flex-shrink-0 text-slate-600">
+          <span className="w-14 flex-shrink-0 text-slate-500">
             {result.latency > 0 ? `${result.latency}ms` : '-'}
           </span>
           <span
             className={`flex-1 truncate ${
               result.blocked
-                ? 'font-semibold text-emerald-400'
+                ? 'font-semibold text-emerald-700'
                 : env === 'vulnerable'
-                  ? 'text-red-400'
-                  : 'text-slate-500'
+                  ? 'text-red-600'
+                  : 'text-slate-600'
             }`}
           >
             {result.label || '응답 수신'}
