@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { DEFAULT_CREDENTIALS, type Credential } from '@/lib/default-credentials';
 import { normalizeApiBaseUrl } from '@/lib/url-utils';
+import { getTerraformOutputs } from '@/lib/terraform-state';
 
 export const dynamic = 'force-dynamic';
 
@@ -95,8 +96,17 @@ export async function POST(request: NextRequest) {
     // body 없거나 파싱 실패 시 기본값 사용
   }
 
-  const VULNERABLE_URL = URL_MAP[mode].vulnerable || 'http://localhost:3000';
-  const AWS_URL = URL_MAP[mode].aws;
+  let vulnUrl = URL_MAP[mode].vulnerable;
+  let awsUrl = URL_MAP[mode].aws;
+
+  if (mode === 'auto' && (!vulnUrl || !awsUrl)) {
+    const tf = await getTerraformOutputs();
+    if (!vulnUrl) vulnUrl = tf.vulnerable?.backendUrl || '';
+    if (!awsUrl) awsUrl = tf.secure?.backendUrl || '';
+  }
+
+  const VULNERABLE_URL = vulnUrl || 'http://localhost:3000';
+  const AWS_URL = awsUrl;
 
   const count = Math.min(credentials.length, 120);
 

@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { normalizeApiBaseUrl } from '@/lib/url-utils';
+import { getTerraformOutputs } from '@/lib/terraform-state';
 
 export const dynamic = 'force-dynamic';
 
@@ -79,8 +80,17 @@ export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const count = Math.min(parseInt(url.searchParams.get('count') || '200'), 250);
   const mode = url.searchParams.get('mode') === 'auto' ? 'auto' : 'manual';
-  const VULNERABLE_URL = URL_MAP[mode].vulnerable || 'http://localhost:3000';
-  const AWS_URL = URL_MAP[mode].aws;
+  let vulnUrl = URL_MAP[mode].vulnerable;
+  let awsUrl = URL_MAP[mode].aws;
+
+  if (mode === 'auto' && (!vulnUrl || !awsUrl)) {
+    const tf = await getTerraformOutputs();
+    if (!vulnUrl) vulnUrl = tf.vulnerable?.backendUrl || '';
+    if (!awsUrl) awsUrl = tf.secure?.backendUrl || '';
+  }
+
+  const VULNERABLE_URL = vulnUrl || 'http://localhost:3000';
+  const AWS_URL = awsUrl;
 
   const encoder = new TextEncoder();
   const { readable, writable } = new TransformStream();
