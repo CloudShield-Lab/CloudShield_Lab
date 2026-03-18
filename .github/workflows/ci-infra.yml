@@ -82,6 +82,7 @@ jobs:
         with:
           scan-type: config
           scan-ref: ${{ matrix.working_directory }}
+          trivyignores: .trivyignore
           exit-code: ${{ matrix.fail_on_findings && '1' || '0' }}
 
       - name: Trivy Terraform secret scan
@@ -90,4 +91,5 @@ jobs:
           scan-type: fs
           scan-ref: ${{ matrix.working_directory }}
           scanners: secret
+          trivyignores: .trivyignore
           exit-code: ${{ matrix.fail_on_findings && '1' || '0' }}
