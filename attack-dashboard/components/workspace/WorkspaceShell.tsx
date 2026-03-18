@@ -10,24 +10,30 @@ const workspaceMeta = {
   manual: {
     title: '수동 배포 Workspace',
     description:
-      'Infrastructure Guide를 따라 실습용 AWS 환경을 직접 구성하고, 같은 공간에서 공격 시뮬레이션으로 결과를 비교합니다.',
+      'Infrastructure Guide를 따라 실습용 AWS 환경을 직접 구성하고, 같은 화면에서 Attack Simulator로 결과를 비교합니다.',
     setupLabel: '수동 환경 구축',
     setupHref: '/manual',
     attackHref: `/manual/attack/${defaultAttackScenario}`,
-    accent: 'from-red-50 via-white to-slate-50',
+    accent: 'from-sky-50 via-white to-slate-50',
     badge: 'MANUAL',
-    setupDescription: 'Infrastructure Guide 기반으로 AWS 환경을 직접 단계별 구성합니다.',
+    badgeTone: 'border-sky-200 bg-sky-50 text-sky-700',
+    activeTone: 'border-sky-200 bg-sky-50 text-sky-700',
+    activeSoftTone: 'border-sky-200 bg-sky-50 text-sky-800',
+    setupDescription: 'Infrastructure Guide를 기준으로 AWS 환경을 직접 단계별로 구축합니다.',
   },
   auto: {
     title: '자동 배포 Workspace',
     description:
-      'Terraform 기반 인프라 자동 배포를 실행하고, 이어서 동일한 공격 시나리오를 통해 보호 효과를 비교합니다.',
+      'Terraform 기반 자동 배포를 실행하고, 이어서 같은 공격 시나리오로 보호 효과를 비교합니다.',
     setupLabel: '자동 환경 구축',
     setupHref: '/auto',
     attackHref: `/auto/attack/${defaultAttackScenario}`,
-    accent: 'from-emerald-50 via-white to-slate-50',
+    accent: 'from-amber-50 via-white to-slate-50',
     badge: 'AUTO',
-    setupDescription: 'Terraform으로 실습용 AWS 환경을 자동 배포하거나 삭제합니다.',
+    badgeTone: 'border-amber-200 bg-amber-50 text-amber-700',
+    activeTone: 'border-amber-200 bg-amber-50 text-amber-700',
+    activeSoftTone: 'border-amber-200 bg-amber-50 text-amber-800',
+    setupDescription: 'Terraform으로 AWS 환경을 자동 배포하거나 삭제합니다.',
   },
 } as const;
 
@@ -51,14 +57,12 @@ export function WorkspaceShell({
         <aside className="lg:sticky lg:top-6">
           <div className="rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
             <div className="space-y-2">
-              <div className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
-                Workspace
-              </div>
+              <div className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">Workspace</div>
               <Link
                 href={meta.setupHref}
                 className={`block rounded-xl border px-4 py-3 transition-colors ${
                   setupActive
-                    ? 'border-slate-300 bg-slate-50 text-slate-900'
+                    ? meta.activeSoftTone
                     : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900'
                 }`}
               >
@@ -68,9 +72,7 @@ export function WorkspaceShell({
             </div>
 
             <div className="mt-6 space-y-2">
-              <div className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
-                Attack Simulator
-              </div>
+              <div className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">Attack Simulator</div>
               {attackScenarioConfigs.map((scenario) => {
                 const href = `${attackRoot}/${scenario.key}`;
                 const active = pathname === href;
@@ -81,7 +83,7 @@ export function WorkspaceShell({
                     href={href}
                     className={`block rounded-xl border px-4 py-3 transition-colors ${
                       active
-                        ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                        ? meta.activeSoftTone
                         : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900'
                     }`}
                   >
@@ -98,12 +100,14 @@ export function WorkspaceShell({
           </div>
         </aside>
 
-        <section className={`overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br ${meta.accent} shadow-[0_18px_50px_rgba(15,23,42,0.06)]`}>
+        <section
+          className={`overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br ${meta.accent} shadow-[0_18px_50px_rgba(15,23,42,0.06)]`}
+        >
           <div className="border-b border-slate-200 px-6 py-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
-                  <span className="rounded-full border border-slate-200 bg-white px-3 py-1 font-mono text-[11px] tracking-[0.22em] text-slate-600">
+                  <span className={`rounded-full border px-3 py-1 font-mono text-[11px] tracking-[0.22em] ${meta.badgeTone}`}>
                     {meta.badge}
                   </span>
                   <Link href="/" className="text-sm text-slate-500 transition-colors hover:text-slate-700">
@@ -121,7 +125,7 @@ export function WorkspaceShell({
                   href={meta.setupHref}
                   className={`rounded-xl border px-4 py-2 text-sm transition-colors ${
                     setupActive
-                      ? 'border-slate-300 bg-white text-slate-900'
+                      ? meta.activeTone
                       : 'border-slate-200 bg-white/80 text-slate-600 hover:border-slate-300 hover:text-slate-900'
                   }`}
                 >
@@ -131,7 +135,7 @@ export function WorkspaceShell({
                   href={meta.attackHref}
                   className={`rounded-xl border px-4 py-2 text-sm transition-colors ${
                     isAttackPage
-                      ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                      ? meta.activeTone
                       : 'border-slate-200 bg-white/80 text-slate-600 hover:border-slate-300 hover:text-slate-900'
                   }`}
                 >

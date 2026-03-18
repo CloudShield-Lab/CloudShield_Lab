@@ -25,14 +25,14 @@ export default function GuidePage() {
   return (
     <div className="max-w-6xl mx-auto w-full px-4 py-8 space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-slate-100">Infrastructure Guide</h1>
+        <h1 className="text-2xl font-bold text-slate-900">Infrastructure Guide</h1>
         <p className="text-slate-500 mt-1 text-sm">
           동일한 Sentinel Share 코드를 취약 환경과 보안 환경 두 가지 AWS 인프라로 구성하고 차이를 비교하는 가이드입니다.
         </p>
       </div>
 
-      <div className="rounded-xl border border-slate-800 bg-[#0d1117] p-6">
-        <h2 className="text-slate-300 font-semibold mb-4 flex items-center gap-2">
+      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
+        <h2 className="text-slate-800 font-semibold mb-4 flex items-center gap-2">
           <span className="text-slate-600">□</span>
           전체 아키텍처 개요
         </h2>
@@ -73,24 +73,24 @@ export default function GuidePage() {
           </div>
         </div>
 
-        <div className="mt-4 pt-4 border-t border-slate-800 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+        <div className="mt-4 pt-4 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
           <div className="text-slate-500">
-            <span className="text-slate-300 font-medium block mb-1">동일 코드</span>
+            <span className="text-slate-700 font-medium block mb-1">동일 코드</span>
             백엔드와 프론트 코드는 동일하고, 차이는 인프라 공개 범위와 보호 계층에 있습니다.
           </div>
           <div className="text-slate-500">
-            <span className="text-slate-300 font-medium block mb-1">인프라 보호 계층 차이</span>
+            <span className="text-slate-700 font-medium block mb-1">인프라 보호 계층 차이</span>
             취약 환경은 CloudFront와 WAF가 없고, 보안 환경은 앞단 보호 계층으로 공격 노출면을 줄입니다.
           </div>
           <div className="text-slate-500">
-            <span className="text-slate-300 font-medium block mb-1">S3 접근 방식 차이</span>
+            <span className="text-slate-700 font-medium block mb-1">S3 접근 방식 차이</span>
             취약 환경은 공개 S3 객체에 직접 접근 가능하고, 보안 환경은 제한된 경로를 통해서만 접근합니다.
           </div>
         </div>
       </div>
 
-      <div className="rounded-xl border border-slate-800 bg-[#0d1117] p-6">
-        <h2 className="text-slate-300 font-semibold mb-4 flex items-center gap-2">
+      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
+        <h2 className="text-slate-800 font-semibold mb-4 flex items-center gap-2">
           <span className="text-slate-600">□</span>
           사전 준비
         </h2>
@@ -101,10 +101,10 @@ export default function GuidePage() {
             { name: 'Node.js 20+', desc: '프론트/백엔드 빌드', cmd: 'node --version' },
             { name: 'psql', desc: 'PostgreSQL 확인용', cmd: 'psql --version' },
           ].map((item) => (
-            <div key={item.name} className="rounded-lg border border-slate-800 bg-slate-900/50 p-3 space-y-1">
-              <div className="text-slate-200 font-medium text-sm">{item.name}</div>
+            <div key={item.name} className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-1">
+              <div className="text-slate-900 font-medium text-sm">{item.name}</div>
               <div className="text-slate-500 text-xs">{item.desc}</div>
-              <div className="text-emerald-500 text-xs font-mono bg-slate-900 rounded px-2 py-1 mt-2">
+              <div className="text-emerald-700 text-xs font-mono bg-white rounded border border-emerald-100 px-2 py-1 mt-2">
                 $ {item.cmd}
               </div>
             </div>
@@ -113,14 +113,14 @@ export default function GuidePage() {
       </div>
 
       <div>
-        <h2 className="text-slate-300 font-semibold mb-4">구성 단계</h2>
+        <h2 className="text-slate-800 font-semibold mb-4">구성 단계</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {phases.map((phase) => {
             const colorStyles = {
               red: {
                 border: 'border-red-900/40',
                 bg: 'bg-red-950/10',
-                badge: 'bg-red-950 text-red-400 border-red-900',
+                badge: 'bg-white text-red-700 border-red-200',
                 text: 'text-red-400',
                 hover: 'hover:border-red-700/60',
                 bullet: 'text-red-600',
@@ -128,7 +128,7 @@ export default function GuidePage() {
               emerald: {
                 border: 'border-emerald-900/40',
                 bg: 'bg-emerald-950/10',
-                badge: 'bg-emerald-950 text-emerald-400 border-emerald-900',
+                badge: 'bg-white text-emerald-700 border-emerald-200',
                 text: 'text-emerald-400',
                 hover: 'hover:border-emerald-700/60',
                 bullet: 'text-emerald-600',
@@ -144,7 +144,7 @@ export default function GuidePage() {
               >
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-3">
-                    <span className={`w-8 h-8 rounded-full bg-slate-900 border border-slate-700 flex items-center justify-center text-sm font-mono font-bold ${colorMap.text}`}>
+                    <span className={`w-8 h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center text-sm font-mono font-bold ${colorMap.text}`}>
                       {phase.number}
                     </span>
                     <div>
@@ -173,8 +173,8 @@ export default function GuidePage() {
         </div>
       </div>
 
-      <div className="rounded-xl border border-slate-800 bg-[#0d1117] p-6">
-        <h2 className="text-slate-300 font-semibold mb-3 flex items-center gap-2">
+      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
+        <h2 className="text-slate-800 font-semibold mb-3 flex items-center gap-2">
           <span className="text-slate-600">□</span>
           공통 AWS 리소스
         </h2>
@@ -185,9 +185,9 @@ export default function GuidePage() {
             { label: 'Frontend Deploy', value: 'deploy-frontend.yml', note: '취약/보안 프론트 배포' },
             { label: 'OIDC Role', value: 'CloudShield-Role', note: 'GitHub Actions AWS 인증' },
           ].map((item) => (
-            <div key={item.label} className="rounded-lg border border-slate-800 bg-slate-900/50 p-3">
+            <div key={item.label} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
               <div className="text-slate-400 text-xs mb-1">{item.label}</div>
-              <div className="text-slate-200 font-mono text-sm">{item.value}</div>
+              <div className="text-slate-800 font-mono text-sm">{item.value}</div>
               <div className="text-slate-600 text-xs mt-1">{item.note}</div>
             </div>
           ))}

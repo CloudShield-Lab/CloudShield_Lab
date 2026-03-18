@@ -14,17 +14,17 @@ export default function VulnerableGuidePage() {
                 ← Infrastructure Guide
               </Link>
             </div>
-            <h1 className="text-2xl font-bold text-slate-100">취약 환경 구성</h1>
+            <h1 className="text-2xl font-bold text-slate-900">취약 환경 구성</h1>
             <p className="text-slate-500 mt-1 text-sm">
               CloudFront 없음 · WAF 없음 · 공개 S3 · 직접 노출 EC2 — 보호 계층 없이 외부 요청이 바로 도달하는 환경
             </p>
           </div>
-          <span className="flex-shrink-0 px-3 py-1 rounded border border-red-900 bg-red-950 text-red-400 text-xs font-mono uppercase tracking-widest">
+          <span className="flex-shrink-0 rounded border border-red-200 bg-red-50 px-3 py-1 text-xs font-mono uppercase tracking-widest text-red-700">
             Vulnerable
           </span>
         </div>
 
-        <div className="rounded-lg border border-red-900/40 bg-red-950/10 p-4 text-sm">
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
               { label: 'WAF', value: '없음' },
@@ -387,21 +387,21 @@ Build & Deploy → Vulnerable (S3 Direct)`} />
           </ConsoleContent>
         </StepCard>
 
-        <div className="rounded-xl border border-slate-700 bg-slate-900/50 p-6">
-          <h3 className="text-slate-300 font-semibold mb-2">다음 단계</h3>
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
+          <h3 className="text-slate-900 font-semibold mb-2">다음 단계</h3>
           <p className="text-slate-500 text-sm mb-4">
             취약 환경 구성이 완료되었습니다. 이제 보안 환경을 구성하고 Attack Simulator에서 두 환경을 비교해보세요.
           </p>
           <div className="flex gap-3">
             <Link
               href="/manual/secure"
-              className="px-4 py-2 rounded-lg border border-emerald-700 bg-emerald-950 text-emerald-400 text-sm font-medium hover:bg-emerald-900 transition-colors"
+              className="px-4 py-2 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 text-sm font-medium transition-colors hover:bg-emerald-100"
             >
               보안 환경 구성 →
             </Link>
             <Link
               href="/manual/attack/bruteforce"
-              className="px-4 py-2 rounded-lg border border-slate-700 text-slate-400 text-sm hover:text-slate-200 hover:border-slate-600 transition-colors"
+              className="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 text-sm transition-colors hover:border-slate-300 hover:text-slate-900"
             >
               Attack Simulator로 이동
             </Link>

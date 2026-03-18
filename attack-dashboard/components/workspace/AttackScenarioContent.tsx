@@ -23,7 +23,7 @@ export function AttackScenarioContent({ scenario }: { scenario: AttackEndpoint }
                 <span className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-slate-50 font-mono text-xs text-slate-500">
                   {config.index}
                 </span>
-                <span className="rounded-full border border-red-200 bg-red-50 px-3 py-1 font-mono text-[11px] tracking-[0.18em] text-red-600">
+                <span className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 font-mono text-[11px] tracking-[0.18em] text-sky-700">
                   ATTACK FLOW
                 </span>
               </div>

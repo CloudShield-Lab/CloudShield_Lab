@@ -149,7 +149,7 @@ export function AttackCard({
             </span>
             <span className="ml-1 font-mono text-xs text-slate-400">No Protection</span>
           </div>
-          <p className="text-xs text-slate-500">{vulnNote}</p>
+          <p className="min-h-[44px] text-xs leading-5 text-slate-500">{vulnNote}</p>
           <RequestLog results={vulnResults} env="vulnerable" />
           <MetricsPanel
             results={vulnResults}
@@ -167,7 +167,7 @@ export function AttackCard({
             </span>
             <span className="ml-1 font-mono text-xs text-slate-400">WAF + CloudFront</span>
           </div>
-          <p className="text-xs text-slate-500">{awsNote}</p>
+          <p className="min-h-[44px] text-xs leading-5 text-slate-500">{awsNote}</p>
           <RequestLog results={awsResults} env="aws" />
           <MetricsPanel
             results={awsResults}

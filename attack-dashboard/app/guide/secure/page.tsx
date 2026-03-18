@@ -23,18 +23,18 @@ export default function SecureGuidePage() {
                 ← Infrastructure Guide
               </Link>
             </div>
-            <h1 className="text-2xl font-bold text-slate-100">보안 환경 구성</h1>
+            <h1 className="text-2xl font-bold text-slate-900">보안 환경 구성</h1>
             <p className="text-slate-500 mt-1 text-sm">
               CloudFront + WAF · S3 프라이빗 · Security Group CloudFront IP 제한 — 동일 코드, 다른 인프라
             </p>
           </div>
-          <span className="flex-shrink-0 px-3 py-1 rounded border border-emerald-900 bg-emerald-950 text-emerald-400 text-xs font-mono uppercase tracking-widest">
+          <span className="flex-shrink-0 rounded border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-mono uppercase tracking-widest text-emerald-700">
             Secure
           </span>
         </div>
 
         {/* 구성 요약 */}
-        <div className="rounded-lg border border-emerald-900/40 bg-emerald-950/10 p-4 text-sm">
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
               { label: 'WAF', value: 'Rate-based + OWASP' },
@@ -54,13 +54,13 @@ export default function SecureGuidePage() {
         <MethodToggle />
 
         <PdfContent>
-          <section className="rounded-2xl border border-emerald-900/40 bg-emerald-950/10 p-6">
+          <section className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <div className="text-xs font-mono uppercase tracking-[0.2em] text-emerald-300">
                   Secure Guide PDF
                 </div>
-                <h2 className="mt-3 text-2xl font-semibold text-slate-100">
+                <h2 className="mt-3 text-2xl font-semibold text-slate-900">
                   보안 환경 구축 가이드북 다운로드
                 </h2>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
@@ -72,7 +72,7 @@ export default function SecureGuidePage() {
               <a
                 href="/guides/aws-secure-guide.pdf"
                 download="AWS_secure_guide.pdf"
-                className="inline-flex items-center justify-center rounded-xl border border-emerald-700 bg-emerald-950 px-5 py-3 text-sm font-medium text-emerald-300 transition-colors hover:bg-emerald-900"
+                className="inline-flex items-center justify-center rounded-xl border border-emerald-200 bg-white px-5 py-3 text-sm font-medium text-emerald-700 transition-colors hover:bg-emerald-50"
               >
                 PDF 다운로드
               </a>
@@ -81,15 +81,15 @@ export default function SecureGuidePage() {
             <a
               href="/guides/aws-secure-guide.pdf"
               download="AWS_secure_guide.pdf"
-              className="mt-6 flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-950/80 px-5 py-4 transition-colors hover:border-emerald-700/60"
+              className="mt-6 flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-5 py-4 transition-colors hover:border-emerald-300"
             >
               <div>
-                <div className="text-base font-semibold text-slate-100">AWS Secure Guide</div>
+                <div className="text-base font-semibold text-slate-900">AWS Secure Guide</div>
                 <div className="mt-1 text-sm text-slate-500">
                   CloudFront + WAF + Private S3 기반 보안 환경 구축 가이드
                 </div>
               </div>
-              <span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 font-mono text-xs text-slate-300">
+              <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 font-mono text-xs text-slate-600">
                 DOWNLOAD
               </span>
             </a>
@@ -695,7 +695,7 @@ Build & Deploy → Secure (S3 + CloudFront)`} />
         </StepCard>
 
         {/* 검증 */}
-        <div className="rounded-xl border border-emerald-900/40 bg-emerald-950/10 p-6">
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-6">
           <h3 className="text-emerald-400 font-semibold mb-3">설정 검증</h3>
           <div className="space-y-2 text-sm">
             {[
@@ -715,21 +715,21 @@ Build & Deploy → Secure (S3 + CloudFront)`} />
         </div>
 
         {/* 완료 */}
-        <div className="rounded-xl border border-slate-700 bg-slate-900/50 p-6">
-          <h3 className="text-slate-300 font-semibold mb-2">모든 구성 완료</h3>
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
+          <h3 className="text-slate-900 font-semibold mb-2">모든 구성 완료</h3>
           <p className="text-slate-500 text-sm mb-4">
             취약/보안 두 환경이 모두 준비되었습니다. Attack Simulator에서 공격을 실행하고 결과를 비교해보세요.
           </p>
           <div className="flex gap-3">
             <Link
               href="/manual/attack/bruteforce"
-              className="px-4 py-2 rounded-lg border border-red-700 bg-red-950 text-red-400 text-sm font-medium hover:bg-red-900 transition-colors"
+              className="px-4 py-2 rounded-lg border border-red-200 bg-red-50 text-red-700 text-sm font-medium transition-colors hover:bg-red-100"
             >
               ▶ Attack Simulator 실행
             </Link>
             <Link
               href="/manual/vulnerable"
-              className="px-4 py-2 rounded-lg border border-slate-700 text-slate-400 text-sm hover:text-slate-200 hover:border-slate-600 transition-colors"
+              className="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 text-sm transition-colors hover:border-slate-300 hover:text-slate-900"
             >
               ← 취약 환경 가이드
             </Link>

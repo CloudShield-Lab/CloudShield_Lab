@@ -8,8 +8,8 @@ const workspaceTabs = [
     description:
       'Infrastructure Guide를 따라 직접 실습용 AWS 환경을 구축하고 공격 시뮬레이션으로 결과를 비교합니다.',
     points: ['Infrastructure Guide 중심 실습', '직접 구성한 환경 검증', 'Attack Simulator 연계'],
-    accent: 'border-red-200 bg-red-50/70 hover:border-red-300',
-    badgeTone: 'border-red-200 bg-white text-red-600',
+    accent: 'border-sky-200 bg-sky-50/70 hover:border-sky-300',
+    badgeTone: 'border-sky-200 bg-white text-sky-700',
   },
   {
     href: '/auto',
@@ -18,15 +18,15 @@ const workspaceTabs = [
     description:
       'Terraform을 통해 실습용 AWS 환경을 자동으로 배포하거나 삭제하고, 배포 직후 공격 시뮬레이션으로 차이를 확인합니다.',
     points: ['Terraform 기반 자동 구축', '배포/삭제 상태 확인', 'Attack Simulator 연계'],
-    accent: 'border-emerald-200 bg-emerald-50/70 hover:border-emerald-300',
-    badgeTone: 'border-emerald-200 bg-white text-emerald-600',
+    accent: 'border-amber-200 bg-amber-50/70 hover:border-amber-300',
+    badgeTone: 'border-amber-200 bg-white text-amber-700',
   },
 ];
 
 export default function DashboardPage() {
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-10 sm:px-6 lg:py-14">
-      <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(248,113,113,0.12),_transparent_34%),radial-gradient(circle_at_top_right,_rgba(16,185,129,0.1),_transparent_30%),linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] px-6 py-10 shadow-[0_20px_60px_rgba(15,23,42,0.06)] sm:px-10">
+      <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.12),_transparent_34%),radial-gradient(circle_at_top_right,_rgba(245,158,11,0.12),_transparent_30%),linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] px-6 py-10 shadow-[0_20px_60px_rgba(15,23,42,0.06)] sm:px-10">
         <div className="mx-auto max-w-4xl text-center">
           <span className="rounded-full border border-slate-200 bg-white px-4 py-1.5 font-mono text-[11px] tracking-[0.24em] text-slate-600">
             CLOUDSHIELD LAB
