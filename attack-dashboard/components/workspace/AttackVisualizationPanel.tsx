@@ -18,7 +18,7 @@ type VisualizationTab = 'architecture' | 'timeline';
 
 export function AttackVisualizationPanel() {
   const [activeTab, setActiveTab] = useState<VisualizationTab>('architecture');
-  const { scenario, phase, timeline, nodeStates } = useArchitectureVisualization();
+  const { phase, timeline, nodeStates } = useArchitectureVisualization();
   const lastVulnerableEvent = [...timeline].reverse().find((event) => event.env === 'vulnerable');
   const lastSecureEvent = [...timeline].reverse().find((event) => event.env === 'secure');
 
@@ -60,9 +60,6 @@ export function AttackVisualizationPanel() {
             </button>
           </div>
 
-          <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 font-mono text-[11px] tracking-[0.18em] text-slate-500">
-            {scenario.name}
-          </span>
           <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 font-mono text-[11px] tracking-[0.18em] text-emerald-700">
             {phaseLabel[phase]}
           </span>

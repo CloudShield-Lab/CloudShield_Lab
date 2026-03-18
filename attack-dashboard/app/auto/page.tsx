@@ -8,7 +8,7 @@ export default function AutoWorkspacePage() {
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_14px_36px_rgba(15,23,42,0.05)]">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 font-mono text-[11px] tracking-[0.18em] text-amber-700">
+              <span className="rounded-full border border-violet-200 bg-violet-50 px-3 py-1 font-mono text-[11px] tracking-[0.18em] text-violet-700">
                 TERRAFORM
               </span>
               <h2 className="mt-4 text-2xl font-semibold text-slate-900">인프라 자동 배포/삭제</h2>
@@ -18,7 +18,7 @@ export default function AutoWorkspacePage() {
               </p>
             </div>
 
-            <div className="rounded-2xl border border-amber-100 bg-amber-50/70 px-4 py-3 text-sm text-slate-600">
+            <div className="rounded-2xl border border-violet-100 bg-[linear-gradient(135deg,rgba(245,243,255,0.88),rgba(240,249,255,0.92))] px-4 py-3 text-sm text-slate-600">
               자동 배포가 끝나면 좌측 Attack Simulator 항목에서 시나리오를 바로 실행할 수 있습니다.
             </div>
           </div>
