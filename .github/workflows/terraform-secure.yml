@@ -193,4 +193,6 @@ jobs:
     with:
       artifact_name: prowler-report-secure
       fail_on_findings: true
+      environment_tag: secure
+      managed_by_tag: terraform
     secrets: inherit

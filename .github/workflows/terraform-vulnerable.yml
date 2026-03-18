@@ -189,4 +189,6 @@ jobs:
     with:
       artifact_name: prowler-report-vulnerable
       fail_on_findings: false
+      environment_tag: vul
+      managed_by_tag: terraform
     secrets: inherit
