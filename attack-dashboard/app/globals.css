@@ -104,3 +104,84 @@ body {
   width: 10px !important;
   height: 10px !important;
 }
+
+/* Minimal React Flow base styles kept local to avoid package CSS resolution issues. */
+.react-flow {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.react-flow__renderer,
+.react-flow__container,
+.react-flow__pane,
+.react-flow__viewport,
+.react-flow__nodes,
+.react-flow__edges,
+.react-flow__edgelabel-renderer {
+  position: absolute;
+  inset: 0;
+}
+
+.react-flow__viewport {
+  transform-origin: 0 0;
+}
+
+.react-flow__pane {
+  cursor: grab;
+}
+
+.react-flow__pane.draggable:active {
+  cursor: grabbing;
+}
+
+.react-flow__nodes,
+.react-flow__edges {
+  pointer-events: none;
+}
+
+.react-flow__node,
+.react-flow__edge {
+  pointer-events: all;
+}
+
+.react-flow__node {
+  position: absolute;
+  transform-origin: 0 0;
+}
+
+.react-flow__edge-path,
+.react-flow__connection-path {
+  fill: none;
+  stroke: inherit;
+  stroke-width: inherit;
+}
+
+.react-flow__background {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.react-flow__handle {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  min-width: 6px;
+  min-height: 6px;
+  border-radius: 9999px;
+  pointer-events: none;
+}
+
+.react-flow__handle-left {
+  top: 50%;
+  left: 0;
+  transform: translate(-50%, -50%);
+}
+
+.react-flow__handle-right {
+  top: 50%;
+  right: 0;
+  transform: translate(50%, -50%);
+}
