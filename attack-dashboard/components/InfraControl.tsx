@@ -133,22 +133,26 @@ export function InfraControl() {
     [setEnvState]
   );
 
-  // 양쪽 배포 완료 시 tfstate에서 URL 자동 읽기
-  const bothApplied =
-    vulnerable.phase === 'complete' &&
-    vulnerable.action === 'apply' &&
-    secure.phase === 'complete' &&
-    secure.action === 'apply';
-
+  // 어느 한 환경이라도 완료되면 tfstate 재조회
   useEffect(() => {
-    if (!bothApplied) return;
+    if (vulnerable.phase !== 'complete') return;
     setLoadingOutputs(true);
     fetch('/api/terraform-outputs', { method: 'POST' })
       .then((r) => r.json())
       .then((data: TerraformOutputs) => setTfOutputs(data))
       .catch(() => {})
       .finally(() => setLoadingOutputs(false));
-  }, [bothApplied]);
+  }, [vulnerable.phase]);
+
+  useEffect(() => {
+    if (secure.phase !== 'complete') return;
+    setLoadingOutputs(true);
+    fetch('/api/terraform-outputs', { method: 'POST' })
+      .then((r) => r.json())
+      .then((data: TerraformOutputs) => setTfOutputs(data))
+      .catch(() => {})
+      .finally(() => setLoadingOutputs(false));
+  }, [secure.phase]);
 
   // 마운트 시 기존 tfstate 확인
   useEffect(() => {
