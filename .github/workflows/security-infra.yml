@@ -11,6 +11,13 @@ on:
         required: false
         type: boolean
         default: true
+      environment_tag:
+        required: true
+        type: string
+      managed_by_tag:
+        required: false
+        type: string
+        default: terraform
   workflow_dispatch:
 
 env:
@@ -52,6 +59,7 @@ jobs:
             toniblyx/prowler:stable \
             aws \
             --region "${{ env.AWS_REGION }}" \
+            --resource-tags "Environment=${{ inputs.environment_tag }}" "ManagedBy=${{ inputs.managed_by_tag }}" \
             --output-modes json-ocsf html csv
 
       - name: Upload Prowler report artifacts
