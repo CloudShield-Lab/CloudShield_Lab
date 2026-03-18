@@ -107,3 +107,39 @@ export type ArchitectureScenario = {
 };
 
 export type AttackEndpoint = 'bruteforce' | 's3-access' | 'ratelimit' | 'header-scan';
+
+export interface SessionMetrics {
+  blocked: number;
+  total: number;
+  avgLatency: number;
+}
+
+export interface WazuhAlert {
+  id: string;
+  timestamp: string;
+  rule: { id: string; level: number; description: string };
+  agent: { name: string };
+  full_log?: string;
+}
+
+export interface AnalysisSession {
+  sessionId: string;
+  timestamp: string;
+  mode: WorkspaceMode;
+  scenario: string;
+  scenarioTitle: string;
+  vulnResults: AttackResult[];
+  secureResults: AttackResult[];
+  stages: AttackEvent[];
+  metrics: { vuln: SessionMetrics; secure: SessionMetrics };
+  wazuhAlerts?: WazuhAlert[];
+}
+
+export interface SessionMeta {
+  sessionId: string;
+  timestamp: string;
+  scenario: string;
+  scenarioTitle: string;
+  mode: string;
+  s3Key: string;
+}

@@ -15,3 +15,9 @@ variable "jwt_secret" {
   type        = string
   sensitive   = true
 }
+
+variable "wazuh_manager_ip" {
+  description = "Wazuh 매니저 서버 IP (비어있으면 에이전트 미설치)"
+  type        = string
+  default     = ""
+}

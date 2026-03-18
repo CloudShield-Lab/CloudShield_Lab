@@ -161,5 +161,34 @@ else
   echo "Could not obtain victim JWT — skipping file upload"
 fi
 
+# ─── Step 11: Wazuh Agent 설치 (wazuh_manager_ip 설정된 경우만) ───
+%{ if wazuh_manager_ip != "" }
+echo "=== Installing Wazuh Agent ==="
+
+apt-get install -y gnupg
+
+curl -s https://packages.wazuh.com/key/GPG-KEY-WAZUH \
+  | gpg --no-default-keyring \
+        --keyring gnupg-ring:/usr/share/keyrings/wazuh.gpg \
+        --import
+
+chmod 644 /usr/share/keyrings/wazuh.gpg
+
+echo "deb [signed-by=/usr/share/keyrings/wazuh.gpg] https://packages.wazuh.com/4.x/apt/ stable main" \
+  | tee /etc/apt/sources.list.d/wazuh.list
+
+DEBIAN_FRONTEND=noninteractive apt-get update -q
+
+WAZUH_MANAGER="${wazuh_manager_ip}" \
+  WAZUH_AGENT_NAME="$(hostname)-${env_type}" \
+  DEBIAN_FRONTEND=noninteractive apt-get install -y wazuh-agent
+
+systemctl daemon-reload
+systemctl enable wazuh-agent
+systemctl start wazuh-agent
+
+echo "Wazuh agent installed and started"
+%{ endif }
+
 echo "=== SentinelShare EC2 Init Complete ==="
 touch /var/log/user-data-complete

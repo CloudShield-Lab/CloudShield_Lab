@@ -3,10 +3,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useArchitectureVisualization } from '@/hooks/useArchitectureVisualization';
 import { DEFAULT_CREDENTIALS, type Credential } from '@/lib/default-credentials';
-import type { AttackEvent, AttackPhase, AttackResult, WorkspaceMode } from '@/types';
+import type { AttackEvent, AttackPhase, AttackResult, SessionMetrics, WorkspaceMode } from '@/types';
 import { CredentialEditor } from './CredentialEditor';
 import { MetricsPanel } from './MetricsPanel';
 import { RequestLog } from './RequestLog';
+
+function computeMetrics(results: AttackResult[]): SessionMetrics {
+  const total = results.length;
+  const blocked = results.filter((r) => r.blocked).length;
+  const avgLatency = total > 0 ? Math.round(results.reduce((sum, r) => sum + r.latency, 0) / total) : 0;
+  return { blocked, total, avgLatency };
+}
 
 interface Props {
   index: number;
@@ -34,6 +41,7 @@ export function BruteforceAttackCard({
   const [credentials, setCredentials] = useState<Credential[]>(DEFAULT_CREDENTIALS);
   const [capturedAccounts, setCapturedAccounts] = useState<Credential[]>([]);
   const [vulnFrontendUrl, setVulnFrontendUrl] = useState('');
+  const [savedToast, setSavedToast] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -60,6 +68,37 @@ export function BruteforceAttackCard({
 
     const controller = new AbortController();
     abortRef.current = controller;
+
+    const localVulnResults: AttackResult[] = [];
+    const localAwsResults: AttackResult[] = [];
+
+    const doSave = () => {
+      void (async () => {
+        try {
+          const sessionId = crypto.randomUUID();
+          await fetch('/api/analysis/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              sessionId,
+              timestamp: new Date().toISOString(),
+              mode,
+              scenario: 'bruteforce',
+              scenarioTitle: title,
+              vulnResults: localVulnResults,
+              secureResults: localAwsResults,
+              stages: [],
+              metrics: {
+                vuln: computeMetrics(localVulnResults),
+                secure: computeMetrics(localAwsResults),
+              },
+            }),
+          });
+          setSavedToast(true);
+          setTimeout(() => setSavedToast(false), 3000);
+        } catch {}
+      })();
+    };
 
     try {
       const response = await fetch('/api/attack/bruteforce', {
@@ -111,6 +150,7 @@ export function BruteforceAttackCard({
 
             if (event.env === 'vulnerable') {
               setVulnResults((prev) => [...prev, result]);
+              localVulnResults.push(result);
               if (event.status === 200 && event.email && event.password) {
                 setCapturedAccounts((prev) => {
                   const next = [...prev, { email: event.email!, password: event.password! }];
@@ -122,9 +162,11 @@ export function BruteforceAttackCard({
               }
             } else {
               setAwsResults((prev) => [...prev, result]);
+              localAwsResults.push(result);
             }
           } else if (event.type === 'complete') {
             setPhase('complete');
+            doSave();
             return;
           } else if (event.type === 'error') {
             setPhase('error');
@@ -134,11 +176,12 @@ export function BruteforceAttackCard({
       }
 
       setPhase('complete');
+      doSave();
     } catch (e: unknown) {
       if (e instanceof Error && e.name === 'AbortError') return;
       setPhase('error');
     }
-  }, [credentials, handleAttackEvent, phase, startScenario]);
+  }, [credentials, handleAttackEvent, mode, phase, startScenario, title]);
 
   const reset = useCallback(() => {
     abortRef.current?.abort();
@@ -159,6 +202,12 @@ export function BruteforceAttackCard({
         : 'border-slate-200 bg-slate-100 text-slate-600 hover:bg-slate-200';
 
   return (
+    <>
+    {savedToast && (
+      <div className="fixed bottom-6 right-6 z-50 rounded-xl border border-emerald-300 bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white shadow-lg">
+        ✓ 세션이 저장되었습니다
+      </div>
+    )}
     <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-[0_14px_36px_rgba(15,23,42,0.05)]">
       <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-6 py-4">
         <div className="flex items-center gap-3">
@@ -273,5 +322,6 @@ export function BruteforceAttackCard({
         </div>
       </div>
     </section>
+    </>
   );
 }

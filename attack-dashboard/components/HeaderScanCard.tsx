@@ -1,7 +1,14 @@
 'use client';
 
 import { useCallback, useRef, useState } from 'react';
-import type { AttackPhase, WorkspaceMode } from '@/types';
+import type { AttackPhase, AttackResult, SessionMetrics, WorkspaceMode } from '@/types';
+
+function computeMetrics(results: AttackResult[]): SessionMetrics {
+  const total = results.length;
+  const blocked = results.filter((r) => r.blocked).length;
+  const avgLatency = total > 0 ? Math.round(results.reduce((sum, r) => sum + r.latency, 0) / total) : 0;
+  return { blocked, total, avgLatency };
+}
 
 const DANGEROUS_HEADERS = ['x-powered-by', 'server', 'via', 'x-aspnet-version', 'x-aspnetmvc-version', 'x-runtime', 'x-generator', 'x-version'];
 const SECURITY_HEADERS = ['strict-transport-security', 'x-content-type-options', 'x-frame-options', 'x-xss-protection', 'content-security-policy'];
@@ -36,13 +43,55 @@ export function HeaderScanCard({ index, title, description, vulnNote, awsNote, m
   const [phase, setPhase] = useState<AttackPhase>('idle');
   const [vulnScan, setVulnScan] = useState<ScanResult | null>(null);
   const [awsScan, setAwsScan] = useState<ScanResult | null>(null);
+  const [savedToast, setSavedToast] = useState(false);
   const esRef = useRef<EventSource | null>(null);
+  const localVulnRef = useRef<ScanResult | null>(null);
+  const localAwsRef = useRef<ScanResult | null>(null);
 
   const startScan = useCallback(() => {
     if (phase === 'running') return;
     setPhase('running');
     setVulnScan(null);
     setAwsScan(null);
+    localVulnRef.current = null;
+    localAwsRef.current = null;
+
+    const doSave = (localVuln: ScanResult | null, localAws: ScanResult | null) => {
+      void (async () => {
+        try {
+          const toResult = (scan: ScanResult | null, attempt: number): AttackResult => ({
+            attempt,
+            status: scan?.status ?? 0,
+            latency: scan?.latency ?? 0,
+            blocked: false,
+            label: scan ? `${Object.keys(scan.headers).length} headers` : undefined,
+          });
+          const vulnResults: AttackResult[] = localVuln ? [toResult(localVuln, 1)] : [];
+          const secureResults: AttackResult[] = localAws ? [toResult(localAws, 1)] : [];
+          const sessionId = crypto.randomUUID();
+          await fetch('/api/analysis/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              sessionId,
+              timestamp: new Date().toISOString(),
+              mode,
+              scenario: 'header-scan',
+              scenarioTitle: title,
+              vulnResults,
+              secureResults,
+              stages: [],
+              metrics: {
+                vuln: computeMetrics(vulnResults),
+                secure: computeMetrics(secureResults),
+              },
+            }),
+          });
+          setSavedToast(true);
+          setTimeout(() => setSavedToast(false), 3000);
+        } catch {}
+      })();
+    };
 
     const es = new EventSource(`/api/attack/header-scan?mode=${mode}`);
     esRef.current = es;
@@ -62,10 +111,16 @@ export function HeaderScanCard({ index, title, description, vulnNote, awsNote, m
           status: event.status ?? 0,
           latency: event.latency ?? 0,
         };
-        if (event.env === 'vulnerable') setVulnScan(result);
-        else setAwsScan(result);
+        if (event.env === 'vulnerable') {
+          setVulnScan(result);
+          localVulnRef.current = result;
+        } else {
+          setAwsScan(result);
+          localAwsRef.current = result;
+        }
       } else if (event.type === 'complete') {
         setPhase('complete');
+        doSave(localVulnRef.current, localAwsRef.current);
         es.close();
       } else if (event.type === 'error') {
         setPhase('error');
@@ -75,9 +130,10 @@ export function HeaderScanCard({ index, title, description, vulnNote, awsNote, m
 
     es.onerror = () => {
       setPhase('complete');
+      doSave(localVulnRef.current, localAwsRef.current);
       es.close();
     };
-  }, [mode, phase]);
+  }, [mode, phase, title]);
 
   const reset = useCallback(() => {
     esRef.current?.close();
@@ -102,6 +158,12 @@ export function HeaderScanCard({ index, title, description, vulnNote, awsNote, m
   ).sort();
 
   return (
+    <>
+    {savedToast && (
+      <div className="fixed bottom-6 right-6 z-50 rounded-xl border border-emerald-300 bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white shadow-lg">
+        ✓ 세션이 저장되었습니다
+      </div>
+    )}
     <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-[0_14px_36px_rgba(15,23,42,0.05)]">
       {/* Header */}
       <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-6 py-4">
@@ -249,5 +311,6 @@ export function HeaderScanCard({ index, title, description, vulnNote, awsNote, m
         </div>
       )}
     </section>
+    </>
   );
 }

@@ -34,6 +34,22 @@
         {
           "name": "GITHUB_REPO",
           "value": "CloudShield_Lab"
+        },
+        {
+          "name": "ANALYSIS_S3_BUCKET",
+          "value": "sentinelshare-terraform-state-833453046706-ap-northeast-2-an"
+        },
+        {
+          "name": "ANALYSIS_S3_PREFIX",
+          "value": "analysis-sessions"
+        },
+        {
+          "name": "BEDROCK_MODEL_ID",
+          "value": "anthropic.claude-3-5-haiku-20241022-v1:0"
+        },
+        {
+          "name": "BEDROCK_REGION",
+          "value": "us-east-1"
         }
       ],
       "secrets": [
