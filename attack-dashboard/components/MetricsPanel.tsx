@@ -20,6 +20,9 @@ export function MetricsPanel({ results, phase, env, totalPlanned }: Props) {
   const firstBlocked = results.find((result) => result.blocked)?.attempt ?? null;
   const progress = totalPlanned > 0 ? (total / totalPlanned) * 100 : 0;
   const isVulnerable = env === 'vulnerable';
+  const baseTone = isVulnerable
+    ? 'border-red-100 bg-red-50/40'
+    : 'border-emerald-100 bg-emerald-50/35';
 
   return (
     <div className="space-y-3 border-t border-slate-200 pt-3">
@@ -48,7 +51,7 @@ export function MetricsPanel({ results, phase, env, totalPlanned }: Props) {
       <div className="grid grid-cols-2 gap-2">
         <div
           className={`rounded-lg border p-3 ${
-            blocked > 0 ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200 bg-slate-50'
+            blocked > 0 ? 'border-emerald-200 bg-emerald-50' : baseTone
           }`}
         >
           <div className="mb-1 text-xs text-slate-500">차단 수</div>
@@ -60,7 +63,7 @@ export function MetricsPanel({ results, phase, env, totalPlanned }: Props) {
 
         <div
           className={`rounded-lg border p-3 ${
-            reached > 0 && isVulnerable ? 'border-red-200 bg-red-50' : 'border-slate-200 bg-slate-50'
+            reached > 0 && isVulnerable ? 'border-red-200 bg-red-50' : baseTone
           }`}
         >
           <div className="mb-1 text-xs text-slate-500">도달 수</div>

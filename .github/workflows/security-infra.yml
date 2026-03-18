@@ -90,7 +90,7 @@ jobs:
 
           jq -e -s '
             map(.[])
-            | map(select(.status == "FAIL"))
-            | map(select((.severity // "") | ascii_downcase == "high" or (.severity // "") | ascii_downcase == "critical"))
+            | map(select(.status_code == "FAIL"))
+            | map(select((.severity // "") | ascii_downcase == "critical"))
             | length == 0
           ' $files

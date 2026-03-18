@@ -2,14 +2,7 @@
 
 import 'reactflow/dist/style.css';
 import { useMemo } from 'react';
-import ReactFlow, {
-  Background,
-  Edge,
-  MarkerType,
-  Node,
-  Panel,
-  useReactFlow,
-} from 'reactflow';
+import ReactFlow, { Background, Edge, MarkerType, Node, Panel, useReactFlow } from 'reactflow';
 import { STAGE_DESCRIPTIONS, STAGE_LABELS } from '@/lib/attack-simulation';
 import type {
   ArchitectureEnvironment,
@@ -24,13 +17,13 @@ const nodeTypes = {
 };
 
 const positions: Record<ArchitectureStage, { x: number; y: number }> = {
-  attacker: { x: 0, y: 8 },
-  cloudfront: { x: 250, y: 8 },
-  waf: { x: 500, y: 8 },
+  attacker: { x: 0, y: 12 },
+  cloudfront: { x: 220, y: 12 },
+  waf: { x: 440, y: 12 },
   alb: { x: 0, y: 0 },
-  ecs: { x: 250, y: 140 },
-  app: { x: 500, y: 140 },
-  s3: { x: 750, y: 140 },
+  ecs: { x: 220, y: 126 },
+  app: { x: 440, y: 126 },
+  s3: { x: 660, y: 126 },
   rds: { x: 0, y: 0 },
   redis: { x: 0, y: 0 },
 };
@@ -49,7 +42,7 @@ const secureEdges: Edge[] = [
   target,
   type: 'smoothstep',
   markerEnd: { type: MarkerType.ArrowClosed, color: '#64748b' },
-  style: { stroke: '#94a3b8', strokeWidth: 1.7 },
+  style: { stroke: '#64748b', strokeWidth: 2.1 },
 }));
 
 const vulnerableEdges: Edge[] = [
@@ -62,19 +55,19 @@ const vulnerableEdges: Edge[] = [
   target,
   type: 'smoothstep',
   markerEnd: { type: MarkerType.ArrowClosed, color: '#64748b' },
-  style: { stroke: '#94a3b8', strokeWidth: 1.8 },
+  style: { stroke: '#64748b', strokeWidth: 2.1 },
 }));
 
 const envMeta: Record<ArchitectureEnvironment, { label: string; accent: string; panel: string }> = {
   vulnerable: {
     label: '취약 환경',
     accent: 'text-red-600',
-    panel: 'border-red-200 bg-red-50/50',
+    panel: 'border-red-200 bg-[linear-gradient(180deg,rgba(254,242,242,0.86),rgba(255,255,255,0.96))]',
   },
   secure: {
     label: '보안 환경',
-    accent: 'text-emerald-600',
-    panel: 'border-emerald-200 bg-emerald-50/50',
+    accent: 'text-emerald-700',
+    panel: 'border-emerald-200 bg-[linear-gradient(180deg,rgba(236,253,245,0.86),rgba(255,255,255,0.96))]',
   },
 };
 
@@ -88,12 +81,12 @@ function CompactControls() {
   const { zoomIn, zoomOut, fitView } = useReactFlow();
 
   return (
-    <Panel position="bottom-right" className="!bottom-2 !right-2">
-      <div className="flex items-center overflow-hidden rounded-md border border-slate-200 bg-white/95 shadow-[0_2px_12px_rgba(15,23,42,0.1)]">
+    <Panel position="bottom-right" className="!bottom-3 !right-3">
+      <div className="flex items-center overflow-hidden rounded-lg border border-slate-300 bg-white/95 shadow-[0_10px_24px_rgba(15,23,42,0.08)] backdrop-blur">
         <button
           type="button"
           onClick={() => zoomIn()}
-          className="h-6 w-6 border-r border-slate-200 text-xs font-bold text-slate-700 transition hover:bg-slate-50"
+          className="h-8 w-8 border-r border-slate-300 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
           title="확대"
         >
           +
@@ -101,15 +94,15 @@ function CompactControls() {
         <button
           type="button"
           onClick={() => zoomOut()}
-          className="h-6 w-6 border-r border-slate-200 text-xs font-bold text-slate-700 transition hover:bg-slate-50"
+          className="h-8 w-8 border-r border-slate-300 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
           title="축소"
         >
           -
         </button>
         <button
           type="button"
-          onClick={() => fitView({ padding: 0.18, minZoom: 0.45, maxZoom: 1.1 })}
-          className="h-6 w-6 text-[11px] font-bold text-slate-700 transition hover:bg-slate-50"
+          onClick={() => fitView({ padding: 0.08, minZoom: 0.55, maxZoom: 1.18 })}
+          className="h-8 w-8 text-[11px] font-bold text-slate-700 transition hover:bg-slate-50"
           title="화면 맞춤"
         >
           □
@@ -146,34 +139,34 @@ export function ArchitectureGraph({ env, nodes, lastEvent }: Props) {
             selectable: false,
           };
         }),
-    [env, nodes],
+    [env, nodes]
   );
 
   const edges = env === 'vulnerable' ? vulnerableEdges : secureEdges;
 
   return (
-    <section className={`rounded-xl border p-3 ${envMeta[env].panel}`}>
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <div className={`text-sm font-semibold ${envMeta[env].accent}`}>{envMeta[env].label}</div>
-        <div className="rounded-lg border border-slate-200 bg-white/90 px-2.5 py-1 text-[11px] text-slate-600">
+    <section className={`rounded-2xl border p-4 shadow-[0_14px_34px_rgba(15,23,42,0.05)] ${envMeta[env].panel}`}>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div className={`text-2xl font-semibold ${envMeta[env].accent}`}>{envMeta[env].label}</div>
+        <div className="rounded-xl border border-slate-300 bg-white/90 px-3 py-1.5 text-sm text-slate-600 shadow-sm">
           {lastEvent ? `${lastEvent.timestampLabel} · ${lastEvent.title}` : '이벤트 대기 중'}
         </div>
       </div>
 
-      <div className="h-[268px] overflow-hidden rounded-xl border border-slate-200 bg-[radial-gradient(circle_at_top,_rgba(241,245,249,0.9),_rgba(255,255,255,0.98))]">
+      <div className="h-[288px] overflow-hidden rounded-2xl border border-slate-300 bg-[linear-gradient(180deg,rgba(248,250,252,0.96),rgba(255,255,255,1)),radial-gradient(circle_at_top,rgba(226,232,240,0.65),transparent_58%)] shadow-inner">
         <ReactFlow
           nodes={graphNodes}
           edges={edges}
           nodeTypes={nodeTypes}
           fitView
-          fitViewOptions={{ padding: 0.18, minZoom: 0.45, maxZoom: 1.1 }}
-          defaultViewport={{ x: 0, y: 0, zoom: 0.68 }}
+          fitViewOptions={{ padding: 0.08, minZoom: 0.55, maxZoom: 1.18 }}
+          defaultViewport={{ x: 0, y: 0, zoom: 0.84 }}
           nodesDraggable={false}
           nodesConnectable={false}
           elementsSelectable={false}
           proOptions={{ hideAttribution: true }}
         >
-          <Background color="#dbe3ef" gap={24} />
+          <Background color="#d8e1ec" gap={22} />
           <CompactControls />
         </ReactFlow>
       </div>

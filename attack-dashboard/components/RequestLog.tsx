@@ -20,7 +20,7 @@ function statusColor(status: number, blocked: boolean): string {
 function rowBg(blocked: boolean, env: Environment): string {
   if (blocked) return 'border-l-2 border-emerald-400 bg-emerald-50';
   if (env === 'vulnerable') return 'border-l-2 border-red-300 bg-red-50';
-  return 'border-l-2 border-slate-300 bg-slate-50';
+  return 'border-l-2 border-emerald-200 bg-emerald-50/45';
 }
 
 export function RequestLog({ results, env }: Props) {
@@ -49,7 +49,7 @@ export function RequestLog({ results, env }: Props) {
         >
           <span
             className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${
-              result.blocked ? 'bg-emerald-500' : env === 'vulnerable' ? 'bg-red-500' : 'bg-slate-500'
+              result.blocked ? 'bg-emerald-500' : env === 'vulnerable' ? 'bg-red-500' : 'bg-emerald-400'
             }`}
           />
           <span className="w-8 flex-shrink-0 text-right text-slate-500">#{result.attempt}</span>
@@ -65,7 +65,7 @@ export function RequestLog({ results, env }: Props) {
                 ? 'font-semibold text-emerald-700'
                 : env === 'vulnerable'
                   ? 'text-red-600'
-                  : 'text-slate-600'
+                  : 'text-emerald-700'
             }`}
           >
             {result.label || '응답 수신'}

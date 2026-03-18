@@ -125,7 +125,7 @@ export async function GET(request: NextRequest) {
       await new Promise((r) => setTimeout(r, 3000));
 
       // 최대 10분간 상태 폴링
-      const maxAttempts = 60;
+      const maxAttempts = 90;
       let vpcReady = false;
 
       for (let i = 0; i < maxAttempts; i++) {
@@ -177,7 +177,7 @@ export async function GET(request: NextRequest) {
 
       await send({
         type: 'timeout',
-        message: '타임아웃: 워크플로우가 10분 이내에 완료되지 않았습니다. GitHub Actions에서 직접 확인하세요.',
+        message: '타임아웃: 워크플로우가 15분 이내에 완료되지 않았습니다. GitHub Actions에서 직접 확인하세요.',
       });
     } catch (e) {
       await send({ type: 'error', message: String(e) });
