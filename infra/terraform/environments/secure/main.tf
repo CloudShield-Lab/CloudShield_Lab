@@ -38,11 +38,11 @@ module "s3" {
 }
 
 module "waf" {
-  source    = "../../modules/waf"
+  source = "../../modules/waf"
   providers = {
     aws.us_east_1 = aws.us_east_1
   }
-  env_name  = "secure"
+  env_name = "secure"
 }
 
 module "cloudfront" {
