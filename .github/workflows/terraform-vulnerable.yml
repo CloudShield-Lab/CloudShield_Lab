@@ -182,7 +182,7 @@ jobs:
         if: github.event.inputs.action == 'apply'
         working-directory: sentinel-share-frontend
         run: |
-          EIP=$(terraform -chdir="${{ env.TF_WORKING_DIR }}" output -raw elastic_ip)
+          EIP=$(terraform -chdir="${{ github.workspace }}/${{ env.TF_WORKING_DIR }}" output -raw elastic_ip)
           STATIC_EXPORT=true \
           NEXT_PUBLIC_API_URL="http://${EIP}:3000/api" \
           NEXT_PUBLIC_ENV_TYPE=vulnerable \
