@@ -26,7 +26,7 @@ async function triggerWorkflow(env: Environment, action: Action): Promise<{ ok: 
       'X-GitHub-Api-Version': '2022-11-28',
     },
     body: JSON.stringify({
-      ref: 'feat/terraform-infra',
+      ref: 'dev',
       inputs: { action },
     }),
   });

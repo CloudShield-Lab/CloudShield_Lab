@@ -30,7 +30,7 @@
 파일 공유 서비스(SentinelShare)를 동일한 앱 코드로 취약/보안 두 AWS 환경에 배포한 뒤,
 공격 시뮬레이터 대시보드에서 실제 공격을 수행하고 결과를 나란히 비교한다.
 
-**현재 상태:** 취약/보안 EC2 Docker 배포 완료. 프론트엔드 S3 정적 배포 + CloudFront 보안 환경 구성 완료. Terraform 인프라 자동화(4단계) 완료 + S3 backend 상태 관리 + apply 실패 시 auto-destroy + GitHub Secrets 자동 주입 구현 완료 (2026-03-17 기준). InfraControl 대시보드 통합 완료 — `feat/terraform-infra` 브랜치에서 관리 중.
+**현재 상태:** 취약/보안 EC2 Docker 배포 완료. 프론트엔드 S3 정적 배포 + CloudFront 보안 환경 구성 완료. Terraform 인프라 자동화(4단계) 완료 + S3 backend 상태 관리 + apply 실패 시 auto-destroy + GitHub Secrets 자동 주입 구현 완료 (2026-03-17 기준). InfraControl 대시보드 통합 완료 (취약/보안 동시 배포 + 각 환경 독립 SSE 스트림) — `feat/terraform-infra` 브랜치에서 관리 중.
 
 ---
 
@@ -75,7 +75,7 @@
 - `infra/terraform/scripts/user_data.sh.tpl` — EC2 자동 초기화 (Docker, AWS CLI, PostgreSQL, 앱 기동, 마이그레이션)
 - `.github/workflows/terraform-vulnerable.yml` + `terraform-secure.yml` — workflow_dispatch (apply/destroy) + **apply 실패 시 auto-destroy** + **apply 완료 후 GitHub Secrets 자동 주입**
 - `infra/terraform/environments/*/main.tf` — **S3 backend** (`sentinelshare-terraform-state-833453046706-ap-northeast-2-an`) 로 state 영구 저장
-- Attack Dashboard `InfraControl` 컴포넌트 — 대시보드에서 Terraform apply/destroy 버튼 + SSE 로그 스트리밍 (`feat/terraform-infra` 브랜치)
+- Attack Dashboard `InfraControl` 컴포넌트 — 취약/보안 환경 **동시 배포/삭제** 지원, 각 환경 독립 SSE 스트림 + 로그 나란히 표시 (`feat/terraform-infra` 브랜치)
 - `attack-dashboard/app/api/infra/deploy/route.ts` — GitHub Actions workflow_dispatch + 상태 폴링 SSE (`ref: 'feat/terraform-infra'`)
 - `deploy-frontend.yml` — `NEXT_PUBLIC_ENV_TYPE` 환경변수 추가 + **Terraform 환경 배포 job** (`deploy-tf-vulnerable`, `deploy-tf-secure`) workflow_dispatch 수동 선택 시 실행
 - `sentinel-share-frontend/app/layout.tsx` — 환경별 배경색 (취약: bg-red-50, 보안: bg-green-50)
@@ -141,13 +141,13 @@ SentinelShare/
 - **NEXT_PUBLIC_API_URL에 /api suffix 포함** — `https://domain.com/api` 형태로 설정. 프론트 코드는 `/auth/login` 등 상대 경로만 붙임. `/health` 엔드포인트는 `/api` prefix 없음 (헬스체크 전용).
 - **CloudFront prefix list (ap-northeast-2)** — `pl-22a6434b`. 보안 EC2 Security Group 및 Terraform modules/ec2 SG에 이 값으로 설정됨.
 - **Docker 컨테이너 로그 볼륨 마운트 권한** — `-v /opt/app/logs:/opt/app/logs` 사용 시 호스트 디렉토리를 `chmod 777`로 설정 필수. Dockerfile 내 `chown appuser`는 호스트 마운트 시 덮어씌워짐.
-- **마이그레이션 전략** — Dockerfile에 `migrations/` 포함. Terraform user_data.sh.tpl에서 컨테이너 기동 후 `docker exec psql`로 자동 실행 (완료).
+- **마이그레이션 전략** — Dockerfile에 `migrations/` 포함. Terraform workflow의 SSM 커맨드에서 `docker cp`로 파일을 EC2 호스트로 복사 후 EC2 호스트의 psql로 실행. (`docker exec psql` 방식은 Node.js 컨테이너에 psql 없어서 실패 — `PGPASSWORD=$DB_PASS psql` 방식으로 수정 완료). `|| echo MIGRATION_ALREADY_DONE`으로 재실행 시 에러 무시.
 - **Terraform 리소스 이름 규칙** — `sentinelshare-tf-{환경}-{리소스}` 형태로 기존 수동 환경과 구분. 예: `sentinelshare-tf-vul-ec2`, `sentinelshare-tf-secure-files`.
 - **Terraform state S3 backend** — S3 버킷 `sentinelshare-terraform-state-833453046706-ap-northeast-2-an`에 state 저장. `vulnerable/terraform.tfstate`, `secure/terraform.tfstate`로 분리. apply 실패 후 retry/destroy가 올바르게 동작하기 위해 필수. `*.tfstate`는 `.gitignore` 처리.
 - **Terraform 민감 변수 전달** — `db_password`, `jwt_secret`은 `terraform.tfvars`에 기재 금지. `TF_VAR_db_password`, `TF_VAR_jwt_secret` 환경변수로 전달 (GitHub Secrets: `TF_DB_PASSWORD`, `TF_JWT_SECRET`).
 - **WAF scope CLOUDFRONT → us-east-1 필수** — CloudFront에 붙이는 WAF WebACL은 반드시 us-east-1에 생성해야 함. `environments/secure/main.tf`에 `provider alias aws.us_east_1` 선언 + waf 모듈에 `providers` 블록으로 전달.
-- **InfraControl workflow_dispatch ref** — `api/infra/deploy/route.ts`에서 `ref: 'feat/terraform-infra'`로 고정. Secrets 자동 주입 등 최신 워크플로우 변경이 이 브랜치에 있음. dev merge 후 `ref: 'dev'`로 변경 필요.
-- **InfraControl `feat/terraform-infra` 브랜치 관리** — 팀원 `DashboardHome` 컴포넌트 위에 `InfraControl` 통합 완료. 기능 검증 후 dev 브랜치에 PR merge 예정.
+- **InfraControl workflow_dispatch ref** — `api/infra/deploy/route.ts`에서 `ref: 'dev'`로 고정. dev 브랜치 머지 후 변경 완료.
+- **InfraControl 브랜치 관리** — `feat/terraform-infra`에서 개발 완료 후 dev 브랜치에 PR merge 완료. 팀원 `DashboardHome` 컴포넌트 위에 `InfraControl` 통합. 취약/보안 독립 패널로 동시 배포 지원. 초기화 버튼은 SSE만 끊고 GitHub Actions는 계속 실행됨 (의도적 — Terraform 중간 취소 시 리소스 상태 꼬임 방지).
 - **NEXT_PUBLIC_ENV_TYPE 빌드타임 고정** — `deploy-frontend.yml`에서 취약 빌드 시 `vulnerable`, 보안 빌드 시 `secure` 주입. `layout.tsx`에서 배경색 분기 (bg-red-50 / bg-green-50). 런타임 분기 없음.
 
 ---

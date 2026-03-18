@@ -120,7 +120,7 @@ jobs:
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids "$EC2_ID" \
             --document-name "AWS-RunShellScript" \
-            --parameters 'commands=["DB_PASS=$(grep ^DB_PASSWORD= /opt/app/.env | cut -d= -f2); docker exec sentinelshare-backend psql postgresql://sentinelshare:${DB_PASS}@127.0.0.1:5432/sentinelshare -f /app/migrations/001_initial_schema.sql 2>&1 || echo MIGRATION_ALREADY_DONE"]' \
+            --parameters 'commands=["docker cp sentinelshare-backend:/app/migrations/001_initial_schema.sql /tmp/migration.sql && DB_PASS=$(grep ^DB_PASSWORD= /opt/app/.env | cut -d= -f2) && PGPASSWORD=$DB_PASS psql -h 127.0.0.1 -U sentinelshare -d sentinelshare -f /tmp/migration.sql 2>&1 || echo MIGRATION_ALREADY_DONE"]' \
             --query "Command.CommandId" \
             --output text)
 

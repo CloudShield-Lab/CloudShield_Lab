@@ -2,7 +2,6 @@
 
 import { useState, useRef, useCallback } from 'react';
 
-type Environment = 'vulnerable' | 'secure';
 type Action = 'apply' | 'destroy';
 type Phase = 'idle' | 'running' | 'complete' | 'error';
 
@@ -15,91 +14,212 @@ interface LogEntry {
   success?: boolean;
 }
 
+interface EnvState {
+  phase: Phase;
+  action: Action;
+  logs: LogEntry[];
+  resultUrl: string | null;
+}
+
+const initialEnvState = (): EnvState => ({
+  phase: 'idle',
+  action: 'apply',
+  logs: [],
+  resultUrl: null,
+});
+
 export function InfraControl() {
-  const [phase, setPhase] = useState<Phase>('idle');
-  const [selectedEnv, setSelectedEnv] = useState<Environment>('vulnerable');
-  const [selectedAction, setSelectedAction] = useState<Action>('apply');
-  const [logs, setLogs] = useState<LogEntry[]>([]);
-  const [resultUrl, setResultUrl] = useState<string | null>(null);
-  const esRef = useRef<EventSource | null>(null);
-  const logsEndRef = useRef<HTMLDivElement>(null);
+  const [vulnerable, setVulnerable] = useState<EnvState>(initialEnvState());
+  const [secure, setSecure] = useState<EnvState>(initialEnvState());
 
-  const appendLog = useCallback((entry: LogEntry) => {
-    setLogs((prev) => [...prev, entry]);
-    setTimeout(() => {
-      logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, 50);
-  }, []);
+  const vulnEsRef = useRef<EventSource | null>(null);
+  const secureEsRef = useRef<EventSource | null>(null);
+  const vulnLogsEndRef = useRef<HTMLDivElement>(null);
+  const secureLogsEndRef = useRef<HTMLDivElement>(null);
 
-  const startDeploy = useCallback(() => {
-    if (phase !== 'idle') return;
+  const setEnvState = useCallback(
+    (env: 'vulnerable' | 'secure', updater: (prev: EnvState) => EnvState) => {
+      if (env === 'vulnerable') setVulnerable(updater);
+      else setSecure(updater);
+    },
+    []
+  );
 
-    setPhase('running');
-    setLogs([]);
-    setResultUrl(null);
+  const appendLog = useCallback(
+    (env: 'vulnerable' | 'secure', entry: LogEntry) => {
+      setEnvState(env, (prev) => ({ ...prev, logs: [...prev.logs, entry] }));
+      setTimeout(() => {
+        if (env === 'vulnerable') vulnLogsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        else secureLogsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 50);
+    },
+    [setEnvState]
+  );
 
-    const es = new EventSource(
-      `/api/infra/deploy?env=${selectedEnv}&action=${selectedAction}`
-    );
-    esRef.current = es;
+  const startDeploy = useCallback(
+    (env: 'vulnerable' | 'secure') => {
+      const state = env === 'vulnerable' ? vulnerable : secure;
+      if (state.phase !== 'idle') return;
 
-    es.onmessage = (e) => {
-      let event: LogEntry;
-      try {
-        event = JSON.parse(e.data);
-      } catch {
-        return;
-      }
+      const { action } = state;
+      const esRef = env === 'vulnerable' ? vulnEsRef : secureEsRef;
 
-      appendLog(event);
+      setEnvState(env, (prev) => ({ ...prev, phase: 'running', logs: [], resultUrl: null }));
 
-      if (event.type === 'complete' || event.type === 'timeout') {
-        setPhase(event.type === 'complete' && event.success ? 'complete' : 'error');
-        if (event.html_url) setResultUrl(event.html_url);
+      const es = new EventSource(`/api/infra/deploy?env=${env}&action=${action}`);
+      esRef.current = es;
+
+      es.onmessage = (e) => {
+        let event: LogEntry;
+        try {
+          event = JSON.parse(e.data);
+        } catch {
+          return;
+        }
+
+        appendLog(env, event);
+
+        if (event.type === 'complete' || event.type === 'timeout') {
+          const success = event.type === 'complete' && event.success;
+          setEnvState(env, (prev) => ({
+            ...prev,
+            phase: success ? 'complete' : 'error',
+            resultUrl: event.html_url ?? prev.resultUrl,
+          }));
+          es.close();
+        } else if (event.type === 'error') {
+          setEnvState(env, (prev) => ({ ...prev, phase: 'error' }));
+          es.close();
+        }
+      };
+
+      es.onerror = () => {
+        setEnvState(env, (prev) => ({ ...prev, phase: 'error' }));
         es.close();
-      } else if (event.type === 'error') {
-        setPhase('error');
-        es.close();
-      }
-    };
+      };
+    },
+    [vulnerable, secure, setEnvState, appendLog]
+  );
 
-    es.onerror = () => {
-      setPhase('error');
-      es.close();
-    };
-  }, [phase, selectedEnv, selectedAction, appendLog]);
+  const reset = useCallback(
+    (env: 'vulnerable' | 'secure') => {
+      const esRef = env === 'vulnerable' ? vulnEsRef : secureEsRef;
+      esRef.current?.close();
+      setEnvState(env, () => initialEnvState());
+    },
+    [setEnvState]
+  );
 
-  const reset = useCallback(() => {
-    esRef.current?.close();
-    setPhase('idle');
-    setLogs([]);
-    setResultUrl(null);
-  }, []);
-
-  const actionLabel = selectedAction === 'apply' ? '배포 (Apply)' : '삭제 (Destroy)';
-  const actionColor = selectedAction === 'apply' ? 'emerald' : 'red';
+  const setAction = useCallback(
+    (env: 'vulnerable' | 'secure', action: Action) => {
+      setEnvState(env, (prev) => (prev.phase === 'idle' ? { ...prev, action } : prev));
+    },
+    [setEnvState]
+  );
 
   return (
     <div className="rounded-xl border border-slate-800 bg-[#0d1117] overflow-hidden">
       {/* 헤더 */}
-      <div className="flex items-start justify-between gap-4 px-6 py-4 border-b border-slate-800">
-        <div className="flex items-center gap-3">
-          <span className="flex-shrink-0 w-7 h-7 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-xs font-mono text-slate-400">
-            ⚙
-          </span>
-          <div>
-            <h2 className="text-slate-100 font-semibold tracking-wide">인프라 자동 배포/삭제</h2>
-            <p className="text-slate-500 text-sm mt-0.5">
-              Terraform으로 취약/보안 환경을 한 번에 배포하거나 삭제합니다.
-            </p>
-          </div>
+      <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-800">
+        <span className="flex-shrink-0 w-7 h-7 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-xs font-mono text-slate-400">
+          ⚙
+        </span>
+        <div>
+          <h2 className="text-slate-100 font-semibold tracking-wide">인프라 자동 배포/삭제</h2>
+          <p className="text-slate-500 text-sm mt-0.5">
+            Terraform으로 취약/보안 환경을 독립적으로 배포하거나 삭제합니다.
+          </p>
         </div>
+      </div>
 
-        <div className="flex items-center gap-2 flex-shrink-0">
+      {/* 두 환경 나란히 */}
+      <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-slate-800">
+        <EnvPanel
+          label="취약 환경"
+          env="vulnerable"
+          state={vulnerable}
+          onStart={() => startDeploy('vulnerable')}
+          onReset={() => reset('vulnerable')}
+          onSetAction={(a) => setAction('vulnerable', a)}
+          logsEndRef={vulnLogsEndRef}
+          accentColor="red"
+        />
+        <EnvPanel
+          label="보안 환경"
+          env="secure"
+          state={secure}
+          onStart={() => startDeploy('secure')}
+          onReset={() => reset('secure')}
+          onSetAction={(a) => setAction('secure', a)}
+          logsEndRef={secureLogsEndRef}
+          accentColor="emerald"
+        />
+      </div>
+    </div>
+  );
+}
+
+interface EnvPanelProps {
+  label: string;
+  env: 'vulnerable' | 'secure';
+  state: EnvState;
+  onStart: () => void;
+  onReset: () => void;
+  onSetAction: (a: Action) => void;
+  logsEndRef: React.RefObject<HTMLDivElement | null>;
+  accentColor: 'red' | 'emerald';
+}
+
+function EnvPanel({
+  label,
+  state,
+  onStart,
+  onReset,
+  onSetAction,
+  logsEndRef,
+  accentColor,
+}: EnvPanelProps) {
+  const { phase, action, logs, resultUrl } = state;
+  const isRed = accentColor === 'red';
+
+  const headerBg = isRed
+    ? 'bg-red-950/30 border-b border-red-900/40'
+    : 'bg-emerald-950/30 border-b border-emerald-900/40';
+  const headerText = isRed ? 'text-red-300' : 'text-emerald-300';
+  const dot = isRed ? 'bg-red-500' : 'bg-emerald-500';
+
+  const phaseColor =
+    phase === 'complete'
+      ? 'text-emerald-400'
+      : phase === 'error'
+      ? 'text-red-400'
+      : phase === 'running'
+      ? 'text-yellow-400'
+      : 'text-slate-500';
+
+  const phaseLabel =
+    phase === 'idle'
+      ? '대기'
+      : phase === 'running'
+      ? '실행 중'
+      : phase === 'complete'
+      ? '완료'
+      : '오류';
+
+  return (
+    <div className="flex flex-col">
+      {/* 환경 헤더 */}
+      <div className={`flex items-center justify-between px-5 py-3 ${headerBg}`}>
+        <div className="flex items-center gap-2">
+          <span className={`w-2 h-2 rounded-full ${dot}`} />
+          <span className={`text-sm font-semibold ${headerText}`}>{label}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className={`text-xs font-mono ${phaseColor}`}>{phaseLabel}</span>
           {phase !== 'idle' && (
             <button
-              onClick={reset}
-              className="px-3 py-1.5 rounded-lg text-xs border border-slate-700 text-slate-400 hover:text-slate-200 hover:border-slate-600 transition-colors"
+              onClick={onReset}
+              className="px-2 py-1 rounded text-xs border border-slate-700 text-slate-400 hover:text-slate-200 hover:border-slate-600 transition-colors"
             >
               초기화
             </button>
@@ -107,88 +227,60 @@ export function InfraControl() {
         </div>
       </div>
 
-      {/* 컨트롤 패널 */}
-      <div className="p-6 space-y-4">
-        <div className="flex flex-wrap gap-4">
-          {/* 환경 선택 */}
-          <div className="space-y-1.5">
-            <label className="text-xs text-slate-500 uppercase tracking-wider font-medium">환경</label>
-            <div className="flex gap-2">
-              {(['vulnerable', 'secure'] as Environment[]).map((env) => (
-                <button
-                  key={env}
-                  onClick={() => phase === 'idle' && setSelectedEnv(env)}
-                  disabled={phase !== 'idle'}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
-                    selectedEnv === env
-                      ? env === 'vulnerable'
-                        ? 'bg-red-900/50 border-red-700 text-red-300'
-                        : 'bg-emerald-900/50 border-emerald-700 text-emerald-300'
-                      : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-600'
-                  } ${phase !== 'idle' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                >
-                  {env === 'vulnerable' ? '취약 환경' : '보안 환경'}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* 액션 선택 */}
-          <div className="space-y-1.5">
-            <label className="text-xs text-slate-500 uppercase tracking-wider font-medium">액션</label>
-            <div className="flex gap-2">
-              {(['apply', 'destroy'] as Action[]).map((action) => (
-                <button
-                  key={action}
-                  onClick={() => phase === 'idle' && setSelectedAction(action)}
-                  disabled={phase !== 'idle'}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
-                    selectedAction === action
-                      ? action === 'apply'
-                        ? 'bg-emerald-900/50 border-emerald-700 text-emerald-300'
-                        : 'bg-red-900/50 border-red-700 text-red-300'
-                      : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-600'
-                  } ${phase !== 'idle' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                >
-                  {action === 'apply' ? '▲ Apply (배포)' : '▼ Destroy (삭제)'}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* 실행 버튼 */}
-          <div className="space-y-1.5">
-            <label className="text-xs text-slate-500 uppercase tracking-wider font-medium invisible">실행</label>
-            <button
-              onClick={startDeploy}
-              disabled={phase !== 'idle'}
-              className={`px-5 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
-                phase === 'idle'
-                  ? selectedAction === 'apply'
-                    ? 'bg-emerald-700 hover:bg-emerald-600 border-emerald-600 text-white cursor-pointer'
-                    : 'bg-red-700 hover:bg-red-600 border-red-600 text-white cursor-pointer'
-                  : 'bg-slate-800 border-slate-700 text-slate-500 cursor-not-allowed'
-              }`}
-            >
-              {phase === 'idle' && `▶ ${actionLabel}`}
-              {phase === 'running' && (
-                <span className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 bg-yellow-400 rounded-full animate-pulse" />
-                  실행 중...
-                </span>
-              )}
-              {phase === 'complete' && '✓ 완료'}
-              {phase === 'error' && '✗ 오류'}
-            </button>
+      {/* 컨트롤 */}
+      <div className="p-5 space-y-4 flex-1">
+        {/* 액션 선택 */}
+        <div className="space-y-1.5">
+          <label className="text-xs text-slate-500 uppercase tracking-wider font-medium">액션</label>
+          <div className="flex gap-2">
+            {(['apply', 'destroy'] as Action[]).map((a) => (
+              <button
+                key={a}
+                onClick={() => onSetAction(a)}
+                disabled={phase !== 'idle'}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                  action === a
+                    ? a === 'apply'
+                      ? 'bg-emerald-900/50 border-emerald-700 text-emerald-300'
+                      : 'bg-red-900/50 border-red-700 text-red-300'
+                    : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-600'
+                } ${phase !== 'idle' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+              >
+                {a === 'apply' ? '▲ Apply (배포)' : '▼ Destroy (삭제)'}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* 경고 메시지 */}
-        {selectedAction === 'destroy' && phase === 'idle' && (
+        {/* 실행 버튼 */}
+        <button
+          onClick={onStart}
+          disabled={phase !== 'idle'}
+          className={`w-full py-2 rounded-lg text-xs font-semibold border transition-colors ${
+            phase === 'idle'
+              ? action === 'apply'
+                ? 'bg-emerald-700 hover:bg-emerald-600 border-emerald-600 text-white cursor-pointer'
+                : 'bg-red-700 hover:bg-red-600 border-red-600 text-white cursor-pointer'
+              : 'bg-slate-800 border-slate-700 text-slate-500 cursor-not-allowed'
+          }`}
+        >
+          {phase === 'idle' && `▶ ${action === 'apply' ? '배포 (Apply)' : '삭제 (Destroy)'}`}
+          {phase === 'running' && (
+            <span className="flex items-center justify-center gap-1.5">
+              <span className="w-1.5 h-1.5 bg-yellow-400 rounded-full animate-pulse" />
+              실행 중...
+            </span>
+          )}
+          {phase === 'complete' && '✓ 완료'}
+          {phase === 'error' && '✗ 오류'}
+        </button>
+
+        {/* destroy 경고 */}
+        {action === 'destroy' && phase === 'idle' && (
           <div className="rounded-lg border border-red-900/50 bg-red-950/20 px-4 py-2.5 text-xs text-red-300/80 flex items-start gap-2">
             <span className="flex-shrink-0 mt-0.5">⚠</span>
             <span>
-              Destroy를 실행하면 선택한 환경의 <strong>모든 AWS 리소스가 삭제</strong>됩니다.
+              Destroy를 실행하면 <strong>모든 AWS 리소스가 삭제</strong>됩니다.
               EC2, S3 버킷(파일 포함), EIP, VPC 등이 제거됩니다.
             </span>
           </div>
@@ -196,7 +288,7 @@ export function InfraControl() {
 
         {/* 로그 패널 */}
         {logs.length > 0 && (
-          <div className="rounded-lg bg-slate-900 border border-slate-800 p-4 font-mono text-xs space-y-1 max-h-64 overflow-y-auto">
+          <div className="rounded-lg bg-slate-900 border border-slate-800 p-3 font-mono text-xs space-y-1 max-h-56 overflow-y-auto">
             {logs.map((log, i) => (
               <div
                 key={i}
@@ -246,12 +338,12 @@ export function InfraControl() {
         {/* 결과 링크 */}
         {resultUrl && (
           <div className="flex items-center gap-2 text-xs">
-            <span className="text-slate-500">GitHub Actions 실행 결과:</span>
+            <span className="text-slate-500">Actions:</span>
             <a
               href={resultUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-400 hover:text-blue-300 underline"
+              className="text-blue-400 hover:text-blue-300 underline truncate"
             >
               {resultUrl}
             </a>
