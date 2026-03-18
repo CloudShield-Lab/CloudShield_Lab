@@ -30,18 +30,18 @@
 파일 공유 서비스(SentinelShare)를 동일한 앱 코드로 취약/보안 두 AWS 환경에 배포한 뒤,
 공격 시뮬레이터 대시보드에서 실제 공격을 수행하고 결과를 나란히 비교한다.
 
-**현재 상태:** 취약/보안 EC2 Docker 배포 완료. 프론트엔드 S3 정적 배포 + CloudFront 보안 환경 구성 완료 (2026-03-16 기준). Terraform 인프라 자동화(4단계) 진행 예정.
+**현재 상태:** 취약/보안 EC2 Docker 배포 완료. 프론트엔드 S3 정적 배포 + CloudFront 보안 환경 구성 완료. Terraform 인프라 자동화(4단계) 코드 작성 완료 (2026-03-17 기준).
 
 ---
 
-## 구현 로드맵 <!-- LAST_UPDATED: 2026-03-16 -->
+## 구현 로드맵 <!-- LAST_UPDATED: 2026-03-17 -->
 
 | 단계 | 내용 | STATUS |
 |---|---|---|
 | 1단계 | Attack Dashboard 플랫폼 확장 + AWS 배포 (Dockerfile + CI/CD) | [완료] |
 | 2단계 | 백엔드 EC2 Docker 전환 + 프론트 S3 배포 + CloudFront 구성 | [완료] |
 | 3단계 | Wazuh 연동 + CI/CD 보안 스캔 강화 (Trivy, Prowler) | [계획] |
-| 4단계 | Terraform 인프라 자동화 (EC2 + PostgreSQL + S3 + WAF + CloudFront) | [진행중] |
+| 4단계 | Terraform 인프라 자동화 (EC2 + PostgreSQL + S3 + WAF + CloudFront) | [완료] |
 | 5단계 | SIEM 스택 구축 (Prometheus + Grafana + Loki) | [계획] |
 
 **1단계 완료 항목:**
@@ -64,9 +64,25 @@
 - Dockerfile에 `migrations/` 디렉토리 포함 — `docker cp` + psql로 EC2 마이그레이션 실행
 - docs/ec2-setup-guide.md 작성 완료 — EC2 초기 셋업 전체 절차 문서화
 
+**4단계 완료 항목:**
+- `infra/terraform/modules/network/` — VPC, Subnet, IGW, Route Table
+- `infra/terraform/modules/ec2/` — EC2, IAM Role(SSM+ECR+S3), Security Group(취약/보안 분기), EIP, user_data 자동화
+- `infra/terraform/modules/s3/` — 파일버킷 + 프론트엔드버킷 (Block Public Access 분기)
+- `infra/terraform/modules/waf/` — WAF WebACL (scope: CLOUDFRONT, us-east-1, rate-limit 20req/5min + Managed Rules)
+- `infra/terraform/modules/cloudfront/` — CloudFront + OAC + S3/EC2 Origin + Custom Error Response
+- `infra/terraform/environments/vulnerable/` — 취약 환경 (WAF/CloudFront 없음, SG 전체공개)
+- `infra/terraform/environments/secure/` — 보안 환경 (WAF+CloudFront, SG CloudFront prefix list)
+- `infra/terraform/scripts/user_data.sh.tpl` — EC2 자동 초기화 (Docker, AWS CLI, PostgreSQL, 앱 기동, 마이그레이션)
+- `.github/workflows/terraform-vulnerable.yml` + `terraform-secure.yml` — workflow_dispatch (apply/destroy)
+- Attack Dashboard `InfraControl` 컴포넌트 — 대시보드에서 Terraform apply/destroy 버튼 + SSE 로그 스트리밍
+- `attack-dashboard/app/api/infra/deploy/route.ts` — GitHub Actions workflow_dispatch + 상태 폴링 SSE
+- `deploy-frontend.yml` — `NEXT_PUBLIC_ENV_TYPE` 환경변수 추가 (취약: vulnerable, 보안: secure)
+- `sentinel-share-frontend/app/layout.tsx` — 환경별 배경색 (취약: bg-red-50, 보안: bg-green-50)
+- `.gitignore` — `*.tfstate`, `.terraform/` 추가
+
 ---
 
-## Monorepo Structure <!-- LAST_UPDATED: 2026-03-12 -->
+## Monorepo Structure <!-- LAST_UPDATED: 2026-03-17 -->
 
 ```
 SentinelShare/
@@ -76,7 +92,10 @@ SentinelShare/
 ├── docs/
 │   └── ec2-setup-guide.md    취약/보안 EC2 초기 셋업 절차 (완료)
 ├── infra/
-│   ├── terraform/            취약/보안 환경 IaC (작성 예정 — 4단계)
+│   ├── terraform/            취약/보안 환경 IaC (완료 — 4단계)
+│   │   ├── modules/          network, ec2, s3, waf, cloudfront
+│   │   ├── environments/     vulnerable/, secure/
+│   │   └── scripts/          user_data.sh.tpl
 │   └── monitoring/           Prometheus + Grafana + Loki (작성 예정 — 5단계)
 └── .github/workflows/        GitHub Actions CI/CD
 ```
@@ -97,7 +116,7 @@ SentinelShare/
 | CI/CD | GitHub Actions | [완료] — Trivy/Prowler는 2단계 |
 | Security Scan | Trivy (이미지), Prowler (AWS 포스처) | [계획] — 2단계 |
 | Monitoring | Prometheus + Grafana + Loki | [계획] — 3단계 |
-| IaC | Terraform | [계획] — 4단계 |
+| IaC | Terraform | [완료] — 4단계 |
 | Local dev | Docker Compose (PostgreSQL 17.9 + LocalStack 3) | [완료] |
 
 ---

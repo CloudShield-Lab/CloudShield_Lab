@@ -13,7 +13,7 @@ const { log } = require('../config/logger');
  */
 const apiLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 200,
+  max: 1000,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests, please try again later' },

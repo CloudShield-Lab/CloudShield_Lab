@@ -6,7 +6,12 @@ on:
     paths:
       - 'sentinel-share-frontend/**'
       - '.github/workflows/deploy-frontend.yml'
-  workflow_dispatch:  # 수동 실행 허용
+  workflow_dispatch:
+    inputs:
+      deploy_tf_envs:
+        description: 'Terraform 환경(sentinelshare-tf-*)에도 배포'
+        type: boolean
+        default: false
 
 env:
   AWS_REGION: ap-northeast-2
@@ -43,6 +48,7 @@ jobs:
         env:
           STATIC_EXPORT: 'true'
           NEXT_PUBLIC_API_URL: ${{ secrets.VULN_API_URL }}
+          NEXT_PUBLIC_ENV_TYPE: 'vulnerable'
         run: npm run build
 
       - name: Configure AWS credentials (OIDC)
@@ -86,6 +92,7 @@ jobs:
         env:
           STATIC_EXPORT: 'true'
           NEXT_PUBLIC_API_URL: https://dyfs11nls1dwb.cloudfront.net/api
+          NEXT_PUBLIC_ENV_TYPE: 'secure'
         run: npm run build
 
       - name: Configure AWS credentials (OIDC)
@@ -102,4 +109,100 @@ jobs:
         run: |
           aws cloudfront create-invalidation \
             --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
+            --paths "/*"
+
+  # ──────────────────────────────────────────────────────────────
+  # 3. Terraform 취약 환경 빌드 & S3 배포
+  # ──────────────────────────────────────────────────────────────
+  deploy-tf-vulnerable:
+    name: Build & Deploy → TF Vulnerable (S3 Direct)
+    if: github.event.inputs.deploy_tf_envs == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    environment: vulnerable
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: sentinel-share-frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: sentinel-share-frontend
+        run: npm ci
+
+      - name: Build static export (TF Vulnerable)
+        working-directory: sentinel-share-frontend
+        env:
+          STATIC_EXPORT: 'true'
+          NEXT_PUBLIC_API_URL: ${{ secrets.TF_VULN_API_URL }}
+          NEXT_PUBLIC_ENV_TYPE: 'vulnerable'
+        run: npm run build
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy to S3 (TF Vulnerable)
+        run: |
+          aws s3 sync sentinel-share-frontend/out/ s3://sentinelshare-tf-vul-frontend/ --delete
+
+  # ──────────────────────────────────────────────────────────────
+  # 4. Terraform 보안 환경 빌드 & S3 배포 + CloudFront 캐시 무효화
+  # ──────────────────────────────────────────────────────────────
+  deploy-tf-secure:
+    name: Build & Deploy → TF Secure (S3 + CloudFront)
+    if: github.event.inputs.deploy_tf_envs == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    environment: secure
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: sentinel-share-frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: sentinel-share-frontend
+        run: npm ci
+
+      - name: Build static export (TF Secure)
+        working-directory: sentinel-share-frontend
+        env:
+          STATIC_EXPORT: 'true'
+          NEXT_PUBLIC_API_URL: ${{ secrets.TF_SECURE_CF_URL }}/api
+          NEXT_PUBLIC_ENV_TYPE: 'secure'
+        run: npm run build
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy to S3 (TF Secure)
+        run: |
+          aws s3 sync sentinel-share-frontend/out/ s3://sentinelshare-tf-secure-frontend/ --delete
+
+      - name: Invalidate CloudFront cache (TF Secure)
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ secrets.TF_SECURE_CF_DIST_ID }} \
             --paths "/*"

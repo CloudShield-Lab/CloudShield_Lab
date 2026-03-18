@@ -131,6 +131,7 @@ export default function DashboardPage() {
 |---|---|---|
 | `NEXT_PUBLIC_API_URL` | ✅ | 백엔드 베이스 URL — **/api suffix 포함** |
 | `STATIC_EXPORT` | 빌드 시 | `true` 설정 시 `output: 'export'` 활성화 (S3 배포용) |
+| `NEXT_PUBLIC_ENV_TYPE` | 빌드 시 | `vulnerable` 또는 `secure` — `app/layout.tsx` 배경색 분기 (bg-red-50 / bg-green-50) |
 
 **환경별 NEXT_PUBLIC_API_URL 값:**
 - 로컬 개발: `http://localhost:3000/api`
