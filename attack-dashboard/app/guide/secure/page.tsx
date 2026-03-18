@@ -1,18 +1,25 @@
 ﻿import Link from 'next/link';
 import { StepCard } from '@/components/StepCard';
 import { CodeBlock } from '@/components/CodeBlock';
-import { MethodProvider, MethodToggle, CliContent, ConsoleContent } from '@/components/MethodTabs';
+import {
+  MethodProvider,
+  MethodToggle,
+  MethodView,
+  CliContent,
+  ConsoleContent,
+  PdfContent,
+} from '@/components/MethodTabs';
 
 export default function SecureGuidePage() {
   return (
-    <MethodProvider>
+    <MethodProvider methods={['cli', 'console', 'pdf']}>
       <div className="max-w-4xl mx-auto w-full px-4 py-8 space-y-6">
 
         {/* 헤더 */}
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="flex items-center gap-3 mb-1">
-              <Link href="/guide" className="text-slate-600 hover:text-slate-400 text-sm transition-colors">
+              <Link href="/manual" className="text-slate-600 hover:text-slate-400 text-sm transition-colors">
                 ← Infrastructure Guide
               </Link>
             </div>
@@ -45,6 +52,51 @@ export default function SecureGuidePage() {
 
         {/* CLI / Console 탭 토글 */}
         <MethodToggle />
+
+        <PdfContent>
+          <section className="rounded-2xl border border-emerald-900/40 bg-emerald-950/10 p-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <div className="text-xs font-mono uppercase tracking-[0.2em] text-emerald-300">
+                  Secure Guide PDF
+                </div>
+                <h2 className="mt-3 text-2xl font-semibold text-slate-100">
+                  보안 환경 구축 가이드북 다운로드
+                </h2>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
+                  노션에서 정리한 보안 환경 구축 가이드를 PDF로 바로 내려받을 수 있습니다.
+                  아래 제목 또는 다운로드 버튼을 클릭하면 즉시 다운로드됩니다.
+                </p>
+              </div>
+
+              <a
+                href="/guides/aws-secure-guide.pdf"
+                download="AWS_secure_guide.pdf"
+                className="inline-flex items-center justify-center rounded-xl border border-emerald-700 bg-emerald-950 px-5 py-3 text-sm font-medium text-emerald-300 transition-colors hover:bg-emerald-900"
+              >
+                PDF 다운로드
+              </a>
+            </div>
+
+            <a
+              href="/guides/aws-secure-guide.pdf"
+              download="AWS_secure_guide.pdf"
+              className="mt-6 flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-950/80 px-5 py-4 transition-colors hover:border-emerald-700/60"
+            >
+              <div>
+                <div className="text-base font-semibold text-slate-100">AWS Secure Guide</div>
+                <div className="mt-1 text-sm text-slate-500">
+                  CloudFront + WAF + Private S3 기반 보안 환경 구축 가이드
+                </div>
+              </div>
+              <span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 font-mono text-xs text-slate-300">
+                DOWNLOAD
+              </span>
+            </a>
+          </section>
+        </PdfContent>
+
+        <MethodView methods={['cli', 'console']}>
 
         {/* Step 1: S3 버킷 — 프라이빗 */}
         <StepCard
@@ -670,19 +722,20 @@ Build & Deploy → Secure (S3 + CloudFront)`} />
           </p>
           <div className="flex gap-3">
             <Link
-              href="/"
+              href="/manual/attack/bruteforce"
               className="px-4 py-2 rounded-lg border border-red-700 bg-red-950 text-red-400 text-sm font-medium hover:bg-red-900 transition-colors"
             >
               ▶ Attack Simulator 실행
             </Link>
             <Link
-              href="/guide/vulnerable"
+              href="/manual/vulnerable"
               className="px-4 py-2 rounded-lg border border-slate-700 text-slate-400 text-sm hover:text-slate-200 hover:border-slate-600 transition-colors"
             >
               ← 취약 환경 가이드
             </Link>
           </div>
         </div>
+        </MethodView>
 
       </div>
     </MethodProvider>

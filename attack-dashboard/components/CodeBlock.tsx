@@ -22,26 +22,24 @@ export function CodeBlock({ code, language = 'bash', filename }: Props) {
   };
 
   return (
-    <div className="rounded-lg border border-slate-800 overflow-hidden">
-      {/* 상단 바 */}
-      <div className="flex items-center justify-between px-4 py-2 bg-slate-900 border-b border-slate-800">
+    <div className="overflow-hidden rounded-lg border border-slate-200">
+      <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-2">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-mono text-slate-600">{filename ?? language}</span>
+          <span className="text-xs font-mono text-slate-500">{filename ?? language}</span>
         </div>
         <button
           onClick={handleCopy}
-          className={`text-xs font-mono px-2 py-1 rounded transition-colors ${
+          className={`rounded border px-2 py-1 text-xs font-mono transition-colors ${
             copied
-              ? 'text-emerald-400 bg-emerald-950 border border-emerald-900'
-              : 'text-slate-500 hover:text-slate-300 border border-slate-700 hover:border-slate-600'
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+              : 'border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-700'
           }`}
         >
-          {copied ? '✓ 복사됨' : '복사'}
+          {copied ? '복사됨' : '복사'}
         </button>
       </div>
 
-      {/* 코드 */}
-      <pre className="bg-[#080c14] p-4 overflow-x-auto text-sm font-mono text-slate-300 leading-relaxed">
+      <pre className="overflow-x-auto bg-white p-4 text-sm font-mono leading-relaxed text-slate-700">
         <code>{code.trim()}</code>
       </pre>
     </div>

@@ -4,20 +4,20 @@ import { Navbar } from '@/components/Navbar';
 import { EnvironmentStatus } from '@/components/EnvironmentStatus';
 
 export const metadata: Metadata = {
-  title: 'CloudShield Lab | Architecture Compare Dashboard',
+  title: 'CloudShield Lab | AWS Security Attack Simulator',
   description:
-    'Security architecture comparison dashboard that visualizes how identical attacks traverse vulnerable and protected AWS stacks.',
+    'Practice dashboard for manual or automated AWS deployment and attack-path comparison between vulnerable and protected environments.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ko">
-      <body className="flex min-h-screen flex-col bg-[#080c14] text-slate-100 antialiased">
+      <body className="flex min-h-screen flex-col bg-slate-50 text-slate-900 antialiased">
         <Navbar />
         <EnvironmentStatus />
         <main className="flex-1">{children}</main>
-        <footer className="border-t border-slate-800 px-6 py-3 text-center font-mono text-xs text-slate-600">
-          CloudShield Lab | Architecture visualization MVP for attack path comparison
+        <footer className="border-t border-slate-200 bg-white/90 px-6 py-3 text-center font-mono text-xs text-slate-500">
+          CloudShield Lab | Manual and automated AWS deployment workspace with attack path comparison
         </footer>
       </body>
     </html>

@@ -95,20 +95,20 @@ export function AttackCard({
 
   const buttonClass =
     phase === 'idle'
-      ? 'border-red-600 bg-red-700 text-white hover:bg-red-600'
+      ? 'border-red-500 bg-red-500 text-white hover:bg-red-600'
       : phase === 'running'
-        ? 'cursor-not-allowed border-slate-700 bg-slate-800 text-slate-500'
-        : 'border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700';
+        ? 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400'
+        : 'border-slate-200 bg-slate-100 text-slate-600 hover:bg-slate-200';
 
   return (
-    <section className="overflow-hidden rounded-xl border border-slate-800 bg-[#0d1117]">
-      <div className="flex items-start justify-between gap-4 border-b border-slate-800 px-6 py-4">
+    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-[0_14px_36px_rgba(15,23,42,0.05)]">
+      <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-6 py-4">
         <div className="flex items-center gap-3">
-          <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-slate-700 bg-slate-800 font-mono text-xs text-slate-400">
+          <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-50 font-mono text-xs text-slate-500">
             {index}
           </span>
           <div>
-            <h2 className="font-semibold tracking-wide text-slate-100">{title}</h2>
+            <h2 className="font-semibold tracking-wide text-slate-900">{title}</h2>
             <p className="mt-0.5 text-sm text-slate-500">{description}</p>
           </div>
         </div>
@@ -117,7 +117,7 @@ export function AttackCard({
           {phase !== 'idle' && (
             <button
               onClick={reset}
-              className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-400 transition-colors hover:border-slate-600 hover:text-slate-200"
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-500 transition-colors hover:border-slate-300 hover:text-slate-800"
             >
               초기화
             </button>
@@ -130,7 +130,7 @@ export function AttackCard({
             {phase === 'idle' && '공격 실행'}
             {phase === 'running' && (
               <span className="flex items-center gap-1.5">
-                <span className="h-1.5 w-1.5 rounded-full bg-yellow-400" />
+                <span className="h-1.5 w-1.5 rounded-full bg-yellow-500" />
                 실행 중
               </span>
             )}
@@ -140,14 +140,14 @@ export function AttackCard({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 divide-slate-800 lg:grid-cols-2 lg:divide-x">
+      <div className="grid grid-cols-1 divide-slate-200 lg:grid-cols-2 lg:divide-x">
         <div className="space-y-3 p-4">
           <div className="flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-red-500" />
-            <span className="text-xs font-semibold uppercase tracking-wider text-red-400">
+            <span className="text-xs font-semibold uppercase tracking-wider text-red-600">
               취약 환경
             </span>
-            <span className="ml-1 font-mono text-xs text-slate-600">No Protection</span>
+            <span className="ml-1 font-mono text-xs text-slate-400">No Protection</span>
           </div>
           <p className="text-xs text-slate-500">{vulnNote}</p>
           <RequestLog results={vulnResults} env="vulnerable" />
@@ -159,13 +159,13 @@ export function AttackCard({
           />
         </div>
 
-        <div className="space-y-3 border-t border-slate-800 p-4 lg:border-t-0">
+        <div className="space-y-3 border-t border-slate-200 p-4 lg:border-t-0">
           <div className="flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-emerald-500" />
-            <span className="text-xs font-semibold uppercase tracking-wider text-emerald-400">
+            <span className="text-xs font-semibold uppercase tracking-wider text-emerald-600">
               보안 환경
             </span>
-            <span className="ml-1 font-mono text-xs text-slate-600">WAF + CloudFront</span>
+            <span className="ml-1 font-mono text-xs text-slate-400">WAF + CloudFront</span>
           </div>
           <p className="text-xs text-slate-500">{awsNote}</p>
           <RequestLog results={awsResults} env="aws" />
