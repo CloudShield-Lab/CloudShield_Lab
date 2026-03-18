@@ -22,6 +22,7 @@ jobs:
   # ──────────────────────────────────────────────────────────────
   deploy-vulnerable:
     name: Build & Deploy → Vulnerable (S3 Direct)
+    if: github.event.inputs.deploy_tf_envs != 'true'
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -66,6 +67,7 @@ jobs:
   # ──────────────────────────────────────────────────────────────
   deploy-secure:
     name: Build & Deploy → Secure (S3 + CloudFront)
+    if: github.event.inputs.deploy_tf_envs != 'true'
     runs-on: ubuntu-latest
     permissions:
       id-token: write
