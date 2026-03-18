@@ -1,17 +1,16 @@
 name: PR CI Infra
 
 on:
-  # terraform 디렉터리 변경을 PR 단계에서 먼저 검증한다.
   pull_request:
     types: [opened, synchronize, reopened]
     branches: [master, dev]
     paths:
-      - 'terraform/**'
+      - 'infra/**'
       - '.github/workflows/ci-infra.yml'
 
 env:
   TERRAFORM_VERSION: '1.9.8'
-  TF_WORKING_DIR: terraform
+  TF_ROOT_DIR: infra/terraform
 
 jobs:
   detect-terraform:
@@ -26,25 +25,32 @@ jobs:
 
       - name: Detect .tf files
         id: detect
+        shell: bash
         run: |
-          if find terraform -type f -name "*.tf" | grep -q .; then
+          if find "${TF_ROOT_DIR}" -type f -name "*.tf" | grep -q .; then
             echo "has_tf=true" >> "$GITHUB_OUTPUT"
           else
             echo "has_tf=false" >> "$GITHUB_OUTPUT"
           fi
 
   terraform-ci:
-    name: Terraform Checks
+    name: Terraform Checks (${{ matrix.environment }})
     needs: detect-terraform
     runs-on: ubuntu-latest
-    # 실제 Terraform 파일이 있을 때만 검사를 실행한다.
     if: ${{ needs.detect-terraform.outputs.has_tf == 'true' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - environment: secure
+            working_directory: infra/terraform/environments/secure
+          - environment: vulnerable
+            working_directory: infra/terraform/environments/vulnerable
 
     defaults:
       run:
         shell: bash
-        # 모든 terraform 명령은 루트의 terraform/ 디렉터리 기준으로 실행한다.
-        working-directory: ${{ env.TF_WORKING_DIR }}
+        working-directory: ${{ matrix.working_directory }}
 
     steps:
       - name: Checkout repository
@@ -56,30 +62,27 @@ jobs:
           terraform_version: ${{ env.TERRAFORM_VERSION }}
 
       - name: Check Terraform formatting
-        # 하위 디렉터리까지 포함해 포맷 표준을 검사한다.
-        run: terraform fmt -check -recursive
+        shell: bash
+        working-directory: .
+        run: terraform fmt -check -recursive "${TF_ROOT_DIR}"
 
       - name: Initialize Terraform without backend
-        # backend가 아직 없어도 validate가 가능하도록 backend 연결은 끈다.
         run: terraform init -backend=false
 
       - name: Validate Terraform configuration
-        # provider/schema 기준으로 기본 구성 오류를 조기에 잡는다.
         run: terraform validate
 
       - name: Trivy Terraform config scan
-        # IaC 설정 자체의 보안 문제를 검사한다.
         uses: aquasecurity/trivy-action@0.24.0
         with:
           scan-type: config
-          scan-ref: ./terraform
+          scan-ref: ${{ matrix.working_directory }}
           exit-code: '1'
 
       - name: Trivy Terraform secret scan
-        # terraform 디렉터리에 실수로 커밋된 비밀값이 없는지 확인한다.
         uses: aquasecurity/trivy-action@0.24.0
         with:
           scan-type: fs
-          scan-ref: ./terraform
+          scan-ref: ${{ matrix.working_directory }}
           scanners: secret
           exit-code: '1'

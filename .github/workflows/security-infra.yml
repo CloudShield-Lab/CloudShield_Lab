@@ -1,12 +1,16 @@
 name: Security Infra Verification
 
 on:
-  # Terraform 배포 워크플로우가 성공적으로 끝난 뒤 후속 검증을 실행한다.
-  workflow_run:
-    workflows: ['Deploy Infra']
-    types: [completed]
-
-  # 운영 중 특정 시점에 보안 점검만 다시 돌리고 싶을 때 수동 실행한다.
+  workflow_call:
+    inputs:
+      artifact_name:
+        required: false
+        type: string
+        default: prowler-report
+      fail_on_findings:
+        required: false
+        type: boolean
+        default: true
   workflow_dispatch:
 
 env:
@@ -23,19 +27,11 @@ jobs:
       contents: read
       actions: read
 
-    # workflow_run으로 들어온 경우에는 선행 워크플로우가 성공했을 때만 실행한다.
-    if: >
-      ${{
-        github.event_name == 'workflow_dispatch' ||
-        github.event.workflow_run.conclusion == 'success'
-      }}
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Configure AWS credentials (OIDC)
-        # 배포 role과 분리된 읽기 전용 보안 점검 role을 쓰는 편이 안전하다.
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_PROWLER_ROLE_ARN }}
@@ -45,8 +41,6 @@ jobs:
         run: mkdir -p "${{ env.PROWLER_OUTPUT_DIR }}"
 
       - name: Run Prowler against AWS account
-        # Prowler는 앱 코드가 아니라 AWS 인프라 구성을 검사한다.
-        # 처음에는 전체 계정을 넓게 검사하고, 이후 필요하면 서비스/체크 단위로 좁힌다.
         run: |
           docker run --rm \
             -e AWS_ACCESS_KEY_ID \
@@ -60,15 +54,14 @@ jobs:
             --output-modes json-ocsf html csv
 
       - name: Upload Prowler report artifacts
-        # HTML/CSV/JSON 결과를 남겨야 어떤 항목에서 실패했는지 추적하기 쉽다.
         uses: actions/upload-artifact@v4
         with:
-          name: prowler-report
+          name: ${{ inputs.artifact_name || 'prowler-report' }}
           path: ${{ env.PROWLER_OUTPUT_DIR }}
 
       - name: Fail on high or critical findings
-        # secure 환경에서는 높은 심각도의 FAIL만 배포 차단 기준으로 삼는 예시다.
-        # vulnerable 환경을 함께 운영한다면 별도 workflow/job로 분리하거나 예외 규칙을 둬야 한다.
+        if: ${{ inputs.fail_on_findings != false }}
+        shell: bash
         run: |
           files=$(find "${{ env.PROWLER_OUTPUT_DIR }}" -name "*.ocsf.json")
 
