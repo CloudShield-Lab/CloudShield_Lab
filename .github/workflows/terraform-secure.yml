@@ -185,6 +185,10 @@ jobs:
     name: Security Verification (Secure Apply Only)
     needs: terraform
     if: ${{ needs.terraform.result == 'success' && github.event.inputs.action == 'apply' }}
+    permissions:
+      id-token: write
+      contents: read
+      actions: read
     uses: ./.github/workflows/security-infra.yml
     with:
       artifact_name: prowler-report-secure
