@@ -79,14 +79,14 @@ jobs:
         run: terraform validate
 
       - name: Trivy Terraform config scan
-        uses: aquasecurity/trivy-action@0.24.0
+        uses: aquasecurity/trivy-action@0.33.1
         with:
           scan-type: config
           scan-ref: ${{ matrix.working_directory }}
           exit-code: ${{ matrix.fail_on_findings && '1' || '0' }}
 
       - name: Trivy Terraform secret scan
-        uses: aquasecurity/trivy-action@0.24.0
+        uses: aquasecurity/trivy-action@0.33.1
         with:
           scan-type: fs
           scan-ref: ${{ matrix.working_directory }}
