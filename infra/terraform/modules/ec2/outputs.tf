@@ -8,6 +8,11 @@ output "elastic_ip" {
   value       = aws_eip.main.public_ip
 }
 
+output "elastic_ip_dns" {
+  description = "Elastic IP DNS hostname (for CloudFront origin)"
+  value       = "ec2-${replace(aws_eip.main.public_ip, ".", "-")}.${var.aws_region}.compute.amazonaws.com"
+}
+
 output "public_dns" {
   description = "EC2 public DNS"
   value       = aws_instance.main.public_dns
