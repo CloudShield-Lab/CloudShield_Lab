@@ -112,7 +112,7 @@ docker run -d \
 
 echo "Container started"
 
-# ─── Step 8: 컨테이너 기동 대기 후 마이그레이션 ───
+# ─── Step 8: 컨테이너 기동 대기 ───
 sleep 15
 
 # 헬스체크 대기 (최대 120초)
@@ -125,9 +125,5 @@ for i in $(seq 1 24); do
   sleep 5
 done
 
-# 마이그레이션 실행 (최초 1회 — 이미 실행된 경우 멱등성 보장)
-docker exec sentinelshare-backend \
-  psql "postgresql://sentinelshare:${db_password}@127.0.0.1:5432/sentinelshare" \
-  -f /app/migrations/001_initial_schema.sql || true
-
 echo "=== SentinelShare EC2 Init Complete ==="
+touch /var/log/user-data-complete

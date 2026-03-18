@@ -26,6 +26,14 @@
         {
           "name": "NODE_ENV",
           "value": "production"
+        },
+        {
+          "name": "GITHUB_OWNER",
+          "value": "CloudShield-Lab"
+        },
+        {
+          "name": "GITHUB_REPO",
+          "value": "CloudShield_Lab"
         }
       ],
       "secrets": [
@@ -44,6 +52,10 @@
         {
           "name": "AWS_S3_BUCKET",
           "valueFrom": "arn:aws:secretsmanager:ap-northeast-2:833453046706:secret:cloudshield/dashboard/aws-s3-bucket-W9Eizp"
+        },
+        {
+          "name": "GITHUB_TOKEN",
+          "valueFrom": "arn:aws:secretsmanager:ap-northeast-2:833453046706:secret:GITHUB_TOKEN-dCjhzq:GITHUB_TOKEN::"
         }
       ],
       "logConfiguration": {

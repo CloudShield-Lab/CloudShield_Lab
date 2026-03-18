@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 type Action = 'apply' | 'destroy';
 type Phase = 'idle' | 'running' | 'complete' | 'error';
@@ -19,6 +19,7 @@ interface EnvState {
   action: Action;
   logs: LogEntry[];
   resultUrl: string | null;
+  vpcReady: boolean;
 }
 
 const initialEnvState = (): EnvState => ({
@@ -26,6 +27,7 @@ const initialEnvState = (): EnvState => ({
   action: 'apply',
   logs: [],
   resultUrl: null,
+  vpcReady: false,
 });
 
 export function InfraControl() {
@@ -64,7 +66,13 @@ export function InfraControl() {
       const { action } = state;
       const esRef = env === 'vulnerable' ? vulnEsRef : secureEsRef;
 
-      setEnvState(env, (prev) => ({ ...prev, phase: 'running', logs: [], resultUrl: null }));
+      setEnvState(env, (prev) => ({
+        ...prev,
+        phase: 'running',
+        logs: [],
+        resultUrl: null,
+        vpcReady: false,
+      }));
 
       const es = new EventSource(`/api/infra/deploy?env=${env}&action=${action}`);
       esRef.current = es;
@@ -75,6 +83,10 @@ export function InfraControl() {
           event = JSON.parse(e.data);
         } catch {
           return;
+        }
+
+        if (event.type === 'vpc_ready') {
+          setEnvState(env, (prev) => ({ ...prev, vpcReady: true }));
         }
 
         appendLog(env, event);
@@ -98,7 +110,7 @@ export function InfraControl() {
         es.close();
       };
     },
-    [vulnerable, secure, setEnvState, appendLog]
+    [appendLog, secure, setEnvState, vulnerable]
   );
 
   const reset = useCallback(
@@ -116,6 +128,11 @@ export function InfraControl() {
     },
     [setEnvState]
   );
+
+  const vulnApplyLocked =
+    secure.phase === 'running' && secure.action === 'apply' && !secure.vpcReady;
+  const secureApplyLocked =
+    vulnerable.phase === 'running' && vulnerable.action === 'apply' && !vulnerable.vpcReady;
 
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-[0_14px_36px_rgba(15,23,42,0.05)]">
@@ -141,6 +158,7 @@ export function InfraControl() {
           onSetAction={(a) => setAction('vulnerable', a)}
           logsEndRef={vulnLogsEndRef}
           accentColor="red"
+          applyLocked={vulnApplyLocked}
         />
         <EnvPanel
           label="보안 환경"
@@ -151,6 +169,7 @@ export function InfraControl() {
           onSetAction={(a) => setAction('secure', a)}
           logsEndRef={secureLogsEndRef}
           accentColor="emerald"
+          applyLocked={secureApplyLocked}
         />
       </div>
     </div>
@@ -166,6 +185,7 @@ interface EnvPanelProps {
   onSetAction: (a: Action) => void;
   logsEndRef: React.RefObject<HTMLDivElement>;
   accentColor: 'red' | 'emerald';
+  applyLocked: boolean;
 }
 
 function EnvPanel({
@@ -176,6 +196,7 @@ function EnvPanel({
   onSetAction,
   logsEndRef,
   accentColor,
+  applyLocked,
 }: EnvPanelProps) {
   const { phase, action, logs, resultUrl } = state;
   const isRed = accentColor === 'red';
@@ -183,16 +204,16 @@ function EnvPanel({
   const headerBg = isRed
     ? 'bg-red-50 border-b border-red-100'
     : 'bg-emerald-50 border-b border-emerald-100';
-  const headerText = isRed ? 'text-red-600' : 'text-emerald-600';
+  const headerText = isRed ? 'text-red-700' : 'text-emerald-700';
   const dot = isRed ? 'bg-red-500' : 'bg-emerald-500';
 
   const phaseColor =
     phase === 'complete'
-      ? 'text-emerald-600'
+      ? 'text-emerald-700'
       : phase === 'error'
-        ? 'text-red-600'
+        ? 'text-red-700'
         : phase === 'running'
-          ? 'text-amber-600'
+          ? 'text-amber-700'
           : 'text-slate-500';
 
   const phaseLabel =
@@ -203,6 +224,8 @@ function EnvPanel({
         : phase === 'complete'
           ? '완료'
           : '오류';
+
+  const isApplyDisabled = phase !== 'idle' || (action === 'apply' && applyLocked);
 
   return (
     <div className="flex flex-col">
@@ -216,7 +239,7 @@ function EnvPanel({
           {phase !== 'idle' && (
             <button
               onClick={onReset}
-              className="rounded border border-slate-200 px-2 py-1 text-xs text-slate-500 transition-colors hover:border-slate-300 hover:text-slate-800"
+              className="rounded border border-slate-200 px-2 py-1 text-xs text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-900"
             >
               초기화
             </button>
@@ -238,7 +261,7 @@ function EnvPanel({
                     ? a === 'apply'
                       ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
                       : 'border-red-300 bg-red-50 text-red-700'
-                    : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'
+                    : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
                 } ${phase !== 'idle' ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
               >
                 {a === 'apply' ? 'Apply' : 'Destroy'}
@@ -247,18 +270,27 @@ function EnvPanel({
           </div>
         </div>
 
+        {action === 'apply' && applyLocked && phase === 'idle' && (
+          <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-800">
+            <span className="mt-0.5 flex-shrink-0">!</span>
+            <span>다른 환경의 VPC 생성이 끝나면 이 환경의 배포 버튼이 활성화됩니다.</span>
+          </div>
+        )}
+
         <button
           onClick={onStart}
-          disabled={phase !== 'idle'}
+          disabled={isApplyDisabled}
           className={`w-full rounded-lg border py-2 text-xs font-semibold transition-colors ${
-            phase === 'idle'
+            !isApplyDisabled
               ? action === 'apply'
                 ? 'border-emerald-500 bg-emerald-500 text-white hover:bg-emerald-600'
                 : 'border-red-500 bg-red-500 text-white hover:bg-red-600'
               : 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400'
           }`}
         >
-          {phase === 'idle' && `${action === 'apply' ? '배포' : '삭제'} 실행`}
+          {phase === 'idle' && action === 'apply' && applyLocked && 'VPC 생성 대기 중'}
+          {phase === 'idle' && !(action === 'apply' && applyLocked) &&
+            `${action === 'apply' ? '배포' : '삭제'} 실행`}
           {phase === 'running' && (
             <span className="flex items-center justify-center gap-1.5">
               <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
@@ -285,18 +317,20 @@ function EnvPanel({
                 key={i}
                 className={
                   log.type === 'error'
-                    ? 'text-red-600'
-                    : log.type === 'complete' && log.success
-                      ? 'text-emerald-600'
-                      : log.type === 'complete'
-                        ? 'text-red-600'
-                        : log.type === 'status'
-                          ? log.conclusion === 'success'
-                            ? 'text-emerald-600'
-                            : log.conclusion === 'failure'
-                              ? 'text-red-600'
-                              : 'text-amber-600'
-                          : 'text-slate-600'
+                    ? 'text-red-700'
+                    : log.type === 'vpc_ready'
+                      ? 'text-amber-700'
+                      : log.type === 'complete' && log.success
+                        ? 'text-emerald-700'
+                        : log.type === 'complete'
+                          ? 'text-red-700'
+                          : log.type === 'status'
+                            ? log.conclusion === 'success'
+                              ? 'text-emerald-700'
+                              : log.conclusion === 'failure'
+                                ? 'text-red-700'
+                                : 'text-amber-700'
+                            : 'text-slate-700'
                 }
               >
                 {log.type === 'status' ? (
@@ -308,7 +342,7 @@ function EnvPanel({
                         href={log.html_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="ml-2 text-blue-600 underline hover:text-blue-700"
+                        className="ml-2 text-blue-700 underline hover:text-blue-800"
                       >
                         [Actions 보기]
                       </a>
@@ -333,7 +367,7 @@ function EnvPanel({
               href={resultUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="truncate text-blue-600 underline hover:text-blue-700"
+              className="truncate text-blue-700 underline hover:text-blue-800"
             >
               {resultUrl}
             </a>

@@ -128,14 +128,14 @@ resource "aws_instance" "main" {
   iam_instance_profile   = aws_iam_instance_profile.ec2.name
 
   user_data = templatefile("${path.module}/../../scripts/user_data.sh.tpl", {
-    aws_region        = var.aws_region
-    aws_account_id    = data.aws_caller_identity.current.account_id
-    ecr_registry      = "${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.aws_region}.amazonaws.com"
-    db_password       = var.db_password
-    jwt_secret        = var.jwt_secret
-    s3_bucket_name    = var.files_bucket_name
-    cors_origin       = var.cors_origin
-    env_type          = var.env_type
+    aws_region     = var.aws_region
+    aws_account_id = data.aws_caller_identity.current.account_id
+    ecr_registry   = "${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.aws_region}.amazonaws.com"
+    db_password    = var.db_password
+    jwt_secret     = var.jwt_secret
+    s3_bucket_name = var.files_bucket_name
+    cors_origin    = var.cors_origin
+    env_type       = var.env_type
   })
 
   root_block_device {

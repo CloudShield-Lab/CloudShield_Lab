@@ -15,6 +15,10 @@ env:
   AWS_REGION: ap-northeast-2
   TF_WORKING_DIR: infra/terraform/environments/secure
 
+concurrency:
+  group: terraform-secure
+  cancel-in-progress: false
+
 jobs:
   terraform:
     name: Terraform ${{ github.event.inputs.action }} (Secure)
@@ -114,8 +118,40 @@ jobs:
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
           EC2_ID=$(terraform output -raw ec2_instance_id)
-          echo "EC2 ID: $EC2_ID — user_data 완료 대기 중 (5분)..."
-          sleep 300
+          echo "EC2 ID: $EC2_ID — user_data 완료 대기 중..."
+
+          for i in $(seq 1 40); do
+            echo "[$i/40] 상태 확인 중..."
+
+            COMMAND_ID=$(aws ssm send-command \
+              --instance-ids "$EC2_ID" \
+              --document-name "AWS-RunShellScript" \
+              --parameters 'commands=["test -f /var/log/user-data-complete && echo DONE || echo WAIT"]' \
+              --query "Command.CommandId" \
+              --output text 2>/dev/null) || true
+
+            if [ -z "$COMMAND_ID" ] || [ "$COMMAND_ID" = "None" ]; then
+              echo "  → SSM 미준비, 15초 후 재시도..."
+              sleep 15
+              continue
+            fi
+
+            sleep 10
+
+            RESULT=$(aws ssm get-command-invocation \
+              --command-id "$COMMAND_ID" \
+              --instance-id "$EC2_ID" \
+              --query "StandardOutputContent" \
+              --output text 2>/dev/null || echo "PENDING")
+
+            if echo "$RESULT" | grep -q "DONE"; then
+              echo "✅ user_data 완료 확인!"
+              break
+            fi
+
+            echo "  → 진행 중... (${RESULT:-PENDING})"
+            sleep 15
+          done
 
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids "$EC2_ID" \
@@ -148,3 +184,19 @@ jobs:
         if: github.event.inputs.action == 'apply'
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform output -json
+
+  security-verification:
+    name: Security Verification (Secure Apply Only)
+    needs: terraform
+    if: ${{ needs.terraform.result == 'success' && github.event.inputs.action == 'apply' }}
+    permissions:
+      id-token: write
+      contents: read
+      actions: read
+    uses: ./.github/workflows/security-infra.yml
+    with:
+      artifact_name: prowler-report-secure
+      fail_on_findings: true
+      environment_tag: secure
+      managed_by_tag: terraform
+    secrets: inherit

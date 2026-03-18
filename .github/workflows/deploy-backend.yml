@@ -76,7 +76,20 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Check instance ID
+        id: check
+        env:
+          INSTANCE_ID: ${{ secrets.VULN_EC2_INSTANCE_ID }}
+        run: |
+          if [[ "$INSTANCE_ID" =~ ^i-[a-f0-9]{8,17}$ ]]; then
+            echo "valid=true" >> $GITHUB_OUTPUT
+          else
+            echo "valid=false" >> $GITHUB_OUTPUT
+            echo "⚠️ VULN_EC2_INSTANCE_ID가 유효하지 않습니다 (값: ${INSTANCE_ID}). Terraform 배포 후 자동 반영됩니다."
+          fi
+
       - name: Deploy to EC2 via SSM
+        if: steps.check.outputs.valid == 'true'
         env:
           ECR_REGISTRY: ${{ needs.build.outputs.ecr-registry }}
           INSTANCE_ID: ${{ secrets.VULN_EC2_INSTANCE_ID }}
@@ -139,7 +152,20 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Check instance ID
+        id: check
+        env:
+          INSTANCE_ID: ${{ secrets.SECURE_EC2_INSTANCE_ID }}
+        run: |
+          if [[ "$INSTANCE_ID" =~ ^i-[a-f0-9]{8,17}$ ]]; then
+            echo "valid=true" >> $GITHUB_OUTPUT
+          else
+            echo "valid=false" >> $GITHUB_OUTPUT
+            echo "⚠️ SECURE_EC2_INSTANCE_ID가 유효하지 않습니다 (값: ${INSTANCE_ID}). Terraform 배포 후 자동 반영됩니다."
+          fi
+
       - name: Deploy to EC2 via SSM
+        if: steps.check.outputs.valid == 'true'
         env:
           ECR_REGISTRY: ${{ needs.build.outputs.ecr-registry }}
           INSTANCE_ID: ${{ secrets.SECURE_EC2_INSTANCE_ID }}
