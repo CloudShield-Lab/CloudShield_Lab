@@ -72,13 +72,16 @@ resource "aws_security_group" "ec2" {
   description = "Security group for SentinelShare ${var.env_name} EC2"
   vpc_id      = var.vpc_id
 
-  # SSH (관리용 — 운영 시 제거 권장)
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-    description = "SSH"
+  # SSH (취약 환경만 오픈 — 보안 환경은 SSM Session Manager 사용)
+  dynamic "ingress" {
+    for_each = var.allow_public_access ? [1] : []
+    content {
+      from_port   = 22
+      to_port     = 22
+      protocol    = "tcp"
+      cidr_blocks = ["0.0.0.0/0"]
+      description = "SSH - vulnerable env only"
+    }
   }
 
   # 취약 환경: 포트 3000을 전체 공개 / 보안 환경: CloudFront prefix list만
@@ -137,6 +140,13 @@ resource "aws_instance" "main" {
     cors_origin    = var.cors_origin
     env_type       = var.env_type
   })
+
+  # IMDSv2 강제 (보안 환경) / hop_limit=2: Docker 컨테이너 내 AWS SDK가 IMDS 접근 가능하도록
+  metadata_options {
+    http_endpoint               = "enabled"
+    http_tokens                 = var.allow_public_access ? "optional" : "required"
+    http_put_response_hop_limit = var.allow_public_access ? 1 : 2
+  }
 
   root_block_device {
     volume_type = "gp3"
