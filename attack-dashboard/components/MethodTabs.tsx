@@ -53,8 +53,8 @@ export function MethodToggle() {
             onClick={() => setMethod(m)}
             className={`rounded-md px-4 py-1.5 text-sm font-mono transition-colors ${
               method === m
-                ? 'bg-slate-900 text-white'
-                : 'text-slate-500 hover:text-slate-700'
+                ? 'border border-emerald-200 bg-emerald-50 text-emerald-700 shadow-sm'
+                : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
             }`}
           >
             {methodLabels[m]}

@@ -17,7 +17,7 @@ interface Props {
 
 export function EventTimeline({ events, compact = false }: Props) {
   return (
-    <section className={`rounded-2xl border border-slate-200 bg-white ${compact ? 'p-3' : 'p-5'}`}>
+    <section className={`rounded-2xl border border-slate-200 bg-white ${compact ? 'p-3' : 'p-5'} shadow-[0_14px_36px_rgba(15,23,42,0.05)]`}>
       <div className={`flex items-center justify-between ${compact ? 'mb-3' : 'mb-4'}`}>
         <div>
           <h2 className="text-lg font-semibold text-slate-900">이벤트 타임라인</h2>
@@ -41,10 +41,10 @@ export function EventTimeline({ events, compact = false }: Props) {
                 >
                   {event.severity}
                 </span>
-                <span className="rounded-full border border-slate-200 px-2 py-0.5 text-[10px] uppercase tracking-[0.18em] text-slate-500">
+                <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] uppercase tracking-[0.18em] text-slate-500">
                   {event.env}
                 </span>
-                <span className="rounded-full border border-slate-200 px-2 py-0.5 text-[10px] uppercase tracking-[0.18em] text-slate-500">
+                <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] uppercase tracking-[0.18em] text-slate-500">
                   {STAGE_LABELS[event.stage]}
                 </span>
               </div>

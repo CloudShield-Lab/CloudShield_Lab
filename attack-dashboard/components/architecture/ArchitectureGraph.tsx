@@ -2,14 +2,7 @@
 
 import 'reactflow/dist/style.css';
 import { useMemo } from 'react';
-import ReactFlow, {
-  Background,
-  Edge,
-  MarkerType,
-  Node,
-  Panel,
-  useReactFlow,
-} from 'reactflow';
+import ReactFlow, { Background, Edge, MarkerType, Node, Panel, useReactFlow } from 'reactflow';
 import { STAGE_DESCRIPTIONS, STAGE_LABELS } from '@/lib/attack-simulation';
 import type {
   ArchitectureEnvironment,
@@ -48,7 +41,7 @@ const secureEdges: Edge[] = [
   source,
   target,
   type: 'smoothstep',
-  markerEnd: { type: MarkerType.ArrowClosed, color: '#64748b' },
+  markerEnd: { type: MarkerType.ArrowClosed, color: '#94a3b8' },
   style: { stroke: '#94a3b8', strokeWidth: 1.7 },
 }));
 
@@ -61,7 +54,7 @@ const vulnerableEdges: Edge[] = [
   source,
   target,
   type: 'smoothstep',
-  markerEnd: { type: MarkerType.ArrowClosed, color: '#64748b' },
+  markerEnd: { type: MarkerType.ArrowClosed, color: '#94a3b8' },
   style: { stroke: '#94a3b8', strokeWidth: 1.8 },
 }));
 
@@ -69,12 +62,12 @@ const envMeta: Record<ArchitectureEnvironment, { label: string; accent: string; 
   vulnerable: {
     label: '취약 환경',
     accent: 'text-red-600',
-    panel: 'border-red-200 bg-red-50/50',
+    panel: 'border-red-200 bg-red-50/40',
   },
   secure: {
     label: '보안 환경',
     accent: 'text-emerald-600',
-    panel: 'border-emerald-200 bg-emerald-50/50',
+    panel: 'border-emerald-200 bg-emerald-50/40',
   },
 };
 
@@ -88,12 +81,12 @@ function CompactControls() {
   const { zoomIn, zoomOut, fitView } = useReactFlow();
 
   return (
-    <Panel position="bottom-right" className="!bottom-2 !right-2">
-      <div className="flex items-center overflow-hidden rounded-md border border-slate-200 bg-white/95 shadow-[0_2px_12px_rgba(15,23,42,0.1)]">
+    <Panel position="bottom-right" className="!bottom-3 !right-3">
+      <div className="flex items-center overflow-hidden rounded-lg border border-slate-200 bg-white shadow-[0_8px_20px_rgba(15,23,42,0.08)]">
         <button
           type="button"
           onClick={() => zoomIn()}
-          className="h-6 w-6 border-r border-slate-200 text-xs font-bold text-slate-700 transition hover:bg-slate-50"
+          className="h-8 w-8 border-r border-slate-200 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
           title="확대"
         >
           +
@@ -101,15 +94,15 @@ function CompactControls() {
         <button
           type="button"
           onClick={() => zoomOut()}
-          className="h-6 w-6 border-r border-slate-200 text-xs font-bold text-slate-700 transition hover:bg-slate-50"
+          className="h-8 w-8 border-r border-slate-200 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
           title="축소"
         >
           -
         </button>
         <button
           type="button"
-          onClick={() => fitView({ padding: 0.18, minZoom: 0.45, maxZoom: 1.1 })}
-          className="h-6 w-6 text-[11px] font-bold text-slate-700 transition hover:bg-slate-50"
+          onClick={() => fitView({ padding: 0.16, minZoom: 0.45, maxZoom: 1.1 })}
+          className="h-8 w-8 text-[11px] font-bold text-slate-700 transition hover:bg-slate-50"
           title="화면 맞춤"
         >
           □
@@ -146,34 +139,34 @@ export function ArchitectureGraph({ env, nodes, lastEvent }: Props) {
             selectable: false,
           };
         }),
-    [env, nodes],
+    [env, nodes]
   );
 
   const edges = env === 'vulnerable' ? vulnerableEdges : secureEdges;
 
   return (
-    <section className={`rounded-xl border p-3 ${envMeta[env].panel}`}>
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <div className={`text-sm font-semibold ${envMeta[env].accent}`}>{envMeta[env].label}</div>
-        <div className="rounded-lg border border-slate-200 bg-white/90 px-2.5 py-1 text-[11px] text-slate-600">
+    <section className={`rounded-2xl border p-4 ${envMeta[env].panel}`}>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div className={`text-2xl font-semibold ${envMeta[env].accent}`}>{envMeta[env].label}</div>
+        <div className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-500 shadow-sm">
           {lastEvent ? `${lastEvent.timestampLabel} · ${lastEvent.title}` : '이벤트 대기 중'}
         </div>
       </div>
 
-      <div className="h-[268px] overflow-hidden rounded-xl border border-slate-200 bg-[radial-gradient(circle_at_top,_rgba(241,245,249,0.9),_rgba(255,255,255,0.98))]">
+      <div className="h-[330px] overflow-hidden rounded-2xl border border-slate-200 bg-[radial-gradient(circle_at_top,_rgba(248,250,252,0.98),_rgba(255,255,255,1))]">
         <ReactFlow
           nodes={graphNodes}
           edges={edges}
           nodeTypes={nodeTypes}
           fitView
-          fitViewOptions={{ padding: 0.18, minZoom: 0.45, maxZoom: 1.1 }}
-          defaultViewport={{ x: 0, y: 0, zoom: 0.68 }}
+          fitViewOptions={{ padding: 0.16, minZoom: 0.45, maxZoom: 1.1 }}
+          defaultViewport={{ x: 0, y: 0, zoom: 0.7 }}
           nodesDraggable={false}
           nodesConnectable={false}
           elementsSelectable={false}
           proOptions={{ hideAttribution: true }}
         >
-          <Background color="#dbe3ef" gap={24} />
+          <Background color="#e5edf6" gap={24} />
           <CompactControls />
         </ReactFlow>
       </div>
