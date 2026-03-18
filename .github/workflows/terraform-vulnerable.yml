@@ -165,16 +165,32 @@ jobs:
             --query "StandardOutputContent" \
             --output text
 
-      - name: Deploy Frontend to TF Vulnerable S3
+      - name: Setup Node.js for frontend deploy
         if: github.event.inputs.action == 'apply'
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
-        run: |
-          gh workflow run deploy-frontend.yml \
-            --ref feat/terraform-infra \
-            --field deploy_tf_envs=true
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: sentinel-share-frontend/package-lock.json
 
-          echo "✅ deploy-frontend 워크플로우 트리거 완료"
+      - name: Install frontend dependencies
+        if: github.event.inputs.action == 'apply'
+        working-directory: sentinel-share-frontend
+        run: npm ci
+
+      - name: Build frontend for TF Vulnerable
+        if: github.event.inputs.action == 'apply'
+        working-directory: sentinel-share-frontend
+        run: |
+          EIP=$(terraform -chdir="${{ env.TF_WORKING_DIR }}" output -raw elastic_ip)
+          STATIC_EXPORT=true \
+          NEXT_PUBLIC_API_URL="http://${EIP}:3000/api" \
+          NEXT_PUBLIC_ENV_TYPE=vulnerable \
+          npm run build
+
+      - name: Deploy frontend to TF Vulnerable S3
+        if: github.event.inputs.action == 'apply'
+        run: aws s3 sync sentinel-share-frontend/out/ s3://sentinelshare-tf-vul-frontend/ --delete
 
       - name: Output Results
         if: github.event.inputs.action == 'apply'
