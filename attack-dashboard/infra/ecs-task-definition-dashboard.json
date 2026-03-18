@@ -55,7 +55,7 @@
         },
         {
           "name": "GITHUB_TOKEN",
-          "valueFrom": "arn:aws:secretsmanager:ap-northeast-2:833453046706:secret:cloudshield/dashboard/github-token"
+          "valueFrom": "arn:aws:secretsmanager:ap-northeast-2:833453046706:secret:GITHUB_TOKEN-dCjhzq:GITHUB_TOKEN::"
         }
       ],
       "logConfiguration": {
