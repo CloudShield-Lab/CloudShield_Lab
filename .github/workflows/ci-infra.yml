@@ -78,32 +78,16 @@ jobs:
         run: terraform validate
 
       - name: Trivy Terraform config scan
-        shell: bash
-        working-directory: .
-        run: |
-          docker run --rm \
-            -v "${PWD}:/work" \
-            -w /work \
-            aquasec/trivy:0.62.1 \
-            config \
-            --format table \
-            --severity UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL \
-            --ignorefile .github/workflows/.trivyignore.yaml \
-            --exit-code ${{ matrix.fail_on_findings && '1' || '0' }} \
-            "${{ matrix.working_directory }}"
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          scan-type: config
+          scan-ref: ${{ matrix.working_directory }}
+          exit-code: ${{ matrix.fail_on_findings && '1' || '0' }}
 
       - name: Trivy Terraform secret scan
-        shell: bash
-        working-directory: .
-        run: |
-          docker run --rm \
-            -v "${PWD}:/work" \
-            -w /work \
-            aquasec/trivy:0.62.1 \
-            filesystem \
-            --format table \
-            --severity UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL \
-            --scanners secret \
-            --ignorefile .github/workflows/.trivyignore.yaml \
-            --exit-code ${{ matrix.fail_on_findings && '1' || '0' }} \
-            "${{ matrix.working_directory }}"
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          scan-type: fs
+          scan-ref: ${{ matrix.working_directory }}
+          scanners: secret
+          exit-code: ${{ matrix.fail_on_findings && '1' || '0' }}
