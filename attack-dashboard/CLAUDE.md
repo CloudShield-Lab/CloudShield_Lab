@@ -7,52 +7,95 @@
 
 ## File Map
 ```
-app/layout.tsx                      Navbar + EnvironmentStatus 전역 마운트
-app/page.tsx                        InfraControl + 팀원 DashboardHome + AttackCard들
-app/guide/page.tsx                  인프라 가이드 홈
-app/guide/vulnerable/page.tsx       취약 환경 구성 가이드
-app/guide/secure/page.tsx           보안 환경 구성 가이드
-app/api/config/route.ts             GET → 환경 설정 반환 (ECS 헬스체크 겸용)
-app/api/infra/deploy/route.ts       SSE: GitHub Actions workflow_dispatch + 상태 폴링
-                                    ref: 'dev', GITHUB_TOKEN 환경변수 필요
-app/api/attack/bruteforce/route.ts  SSE: 30회 병렬 로그인 시도
-app/api/attack/s3-access/route.ts   SSE: S3 버킷 열거 + 파일 직접 접근 시도
-app/api/attack/ratelimit/route.ts   SSE: 60회 연속 API 요청
-components/InfraControl.tsx         취약/보안 독립 패널 동시 배포/삭제 — 각 환경 별도 SSE
-components/AttackCard.tsx           공격 카드 — 취약 결과 / AWS 결과 나란히 비교
-components/Navbar.tsx               Attack Simulator / Infrastructure Guide 탭
-components/EnvironmentStatus.tsx    취약/보안 연결 상태 표시줄
-components/CodeBlock.tsx            복사 버튼 있는 코드블록 (가이드용)
-components/StepCard.tsx             번호+제목+경고 step 카드 (가이드용)
+app/layout.tsx                          Navbar + EnvironmentStatus 전역 마운트
+app/page.tsx                            InfraControl + DashboardHome
+app/auto/attack/[scenario]/page.tsx     자동 배포 모드 공격 시나리오 (mode="auto")
+app/manual/attack/[scenario]/page.tsx   수동 구성 모드 공격 시나리오 (mode="manual")
+app/guide/                              인프라 구성 가이드 페이지들
+app/api/config/route.ts                 GET → 환경 설정 반환 + tfstate fallback (ECS 헬스체크 겸용)
+app/api/terraform-outputs/route.ts      GET/POST → S3 tfstate 읽기, POST는 캐시 무효화
+app/api/infra/deploy/route.ts           SSE: GitHub Actions workflow_dispatch + 폴링
+                                        ref: 'dev', GITHUB_TOKEN 환경변수 필요
+app/api/attack/bruteforce/route.ts      POST: 크리덴셜 스터핑 (credentials[] + mode)
+app/api/attack/s3-access/route.ts       GET: S3 버킷 열거 (?mode=)
+app/api/attack/ratelimit/route.ts       GET: 고빈도 요청 (?mode=)
+components/InfraControl.tsx             취약/보안 독립 패널 배포/삭제 + 배포 완료 후 URL 자동 표시
+components/AttackCard.tsx               공격 카드 (s3-access, ratelimit용) — mode prop 필수
+components/BruteforceAttackCard.tsx     브루트포스 전용 카드 — CredentialEditor + 탈취 계정 누적 표시
+components/CredentialEditor.tsx         100쌍 크리덴셜 인라인 편집 (토글형 테이블)
+components/EnvironmentStatus.tsx        pathname 기반 mode 감지 → 취약/보안 URL 표시
+components/workspace/AttackScenarioContent.tsx  bruteforce → BruteforceAttackCard, 나머지 → AttackCard
+                                                auto 미배포 시 amber 배너
+lib/default-credentials.ts             기본 100쌍 크리덴셜 (77번: victim@demo.com / Demo1234!)
+lib/terraform-state.ts                 S3 tfstate 읽기 + 30초 인메모리 캐시
+lib/url-utils.ts                        normalizeApiBaseUrl() — /api suffix 자동 제거
+lib/attack-scenarios.ts                 3개 시나리오 설정값
+types/index.ts                          WorkspaceMode, DashboardConfig(autoVulnerable/autoAws 포함)
 ```
 
-## SSE 스트리밍 패턴
+## 수동/자동 모드 분리 아키텍처
+- `WorkspaceMode = 'manual' | 'auto'`
+- page → `AttackScenarioContent(mode)` → `AttackCard(mode)` / `BruteforceAttackCard(mode)` → API route(`?mode=` or body)
+- attack API route: `URL_MAP = { manual: { vulnerable, aws }, auto: { vulnerable, aws } }`
+- `EnvironmentStatus`: pathname `/auto/*` → autoVulnerable/autoAws, 나머지 → vulnerable/aws
+
+## CloudFront 오탐 방지 (중요)
+보안 환경 CloudFront는 WAF 403을 `custom_error_response`로 200+HTML(SPA index.html)로 변환함.
+→ attack route에서 `200 && Content-Type != application/json` 이면 실제 상태를 403(WAF BLOCKED)으로 재판정.
+브루트포스(`tryLogin`)와 ratelimit(`floodRequest`) 모두 적용. 새 시나리오 추가 시도 동일하게 처리할 것.
+
+## URL 정규화 (중요)
+`AUTO_AWS_API_URL`은 `/api` suffix 포함 형태로 입력될 수 있음 (`https://xxx.cloudfront.net/api`).
+attack route에서는 반드시 `normalizeApiBaseUrl(url)` 적용 후 `/api/...` 경로 붙일 것.
+
+## SSE 스트리밍 패턴 (GET 시나리오용)
 ```typescript
-// Route Handler
-export async function GET() {
-  const encoder = new TextEncoder()
-  const { readable, writable } = new TransformStream()
-  const writer = writable.getWriter()
-  const send = async (data: object) =>
-    writer.write(encoder.encode(`data: ${JSON.stringify(data)}\n\n`))
-
-  ;(async () => {
-    try { await send({ type: 'log', message: '...' }) }
-    finally { writer.close() }
-  })()
-
-  return new Response(readable, {
-    headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' }
-  })
+export async function GET(request: NextRequest) {
+  const url = new URL(request.url)
+  const mode = url.searchParams.get('mode') === 'auto' ? 'auto' : 'manual'
+  const VULNERABLE_URL = URL_MAP[mode].vulnerable || 'http://localhost:3000'
+  const AWS_URL = URL_MAP[mode].aws
+  // ...TransformStream SSE 패턴
 }
-
-// Client
-const es = new EventSource('/api/attack/bruteforce')
-es.onmessage = (e) => { const data = JSON.parse(e.data) }
-es.onerror = () => es.close()
 ```
+
+## POST 스트리밍 패턴 (bruteforce용)
+```typescript
+// Route: POST, body: { credentials: Credential[], mode: 'manual'|'auto' }
+// Client: fetch POST + response.body.getReader() 수동 파싱 ("data: {...}\n\n")
+```
+
+## Terraform tfstate 자동 읽기
+- S3 버킷: `sentinelshare-terraform-state-833453046706-ap-northeast-2-an`
+- vulnerable 키: `vulnerable/terraform.tfstate`, secure 키: `secure/terraform.tfstate`
+- `/api/config`에서 AUTO_* env var 없으면 tfstate fallback 자동 적용
+- ECS 동작 조건: `cloudshield-dashboard-task-role`에 해당 S3 버킷 `GetObject` 권한 필요
 
 ## 환경변수
-- `VULNERABLE_API_URL`, `VULNERABLE_S3_BUCKET`, `AWS_API_URL`, `AWS_S3_BUCKET`
-- `GITHUB_OWNER`, `GITHUB_REPO`, `GITHUB_TOKEN` — InfraControl workflow_dispatch용
-- ECS 배포 시 Secrets Manager에서 주입
+```
+# 수동 구성
+VULNERABLE_API_URL, VULNERABLE_FRONTEND_URL, VULNERABLE_S3_BUCKET
+AWS_API_URL, AWS_S3_BUCKET, AWS_REGION
+
+# 자동 배포 (Terraform) — 없으면 tfstate에서 자동 읽기
+AUTO_VULNERABLE_API_URL, AUTO_VULNERABLE_FRONTEND_URL, AUTO_VULNERABLE_S3_BUCKET
+AUTO_AWS_API_URL, AUTO_AWS_S3_BUCKET
+
+# 기타
+GITHUB_OWNER, GITHUB_REPO, GITHUB_TOKEN   — InfraControl workflow_dispatch용
+LOCALSTACK_URL                             — 로컬 S3 테스트용
+```
+- ECS 배포 시 `secrets` 항목은 Secrets Manager ARN으로 주입 (ecs-task-definition-dashboard.json 참조)
+
+## 시나리오 현황
+| key | 컴포넌트 | 상태 |
+|-----|---------|------|
+| bruteforce | BruteforceAttackCard | 완료 — 크리덴셜 스터핑, 탈취 계정 표시 |
+| s3-access | AttackCard (GET) | 기존 유지 |
+| ratelimit | AttackCard (GET) | 기존 유지 |
+
+새 시나리오 추가 시:
+1. `lib/attack-scenarios.ts`에 config 추가
+2. `app/api/attack/<key>/route.ts` 생성 (URL_MAP + normalizeApiBaseUrl + CF 오탐 방지)
+3. 필요 시 전용 카드 컴포넌트 생성, 아니면 AttackCard 재사용
+4. `AttackScenarioContent.tsx`에 조건 추가
