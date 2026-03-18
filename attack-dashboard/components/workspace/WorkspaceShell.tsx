@@ -9,6 +9,7 @@ type WorkspaceMode = 'manual' | 'auto';
 const workspaceMeta = {
   manual: {
     title: '수동 배포 Workspace',
+    titleTone: 'text-sky-950',
     description:
       'Infrastructure Guide를 따라 실습용 AWS 환경을 직접 구성하고, 같은 화면에서 Attack Simulator로 결과를 비교합니다.',
     setupLabel: '수동 환경 구축',
@@ -23,16 +24,17 @@ const workspaceMeta = {
   },
   auto: {
     title: '자동 배포 Workspace',
+    titleTone: 'text-violet-950',
     description:
       'Terraform 기반 자동 배포를 실행하고, 이어서 같은 공격 시나리오로 보호 효과를 비교합니다.',
     setupLabel: '자동 환경 구축',
     setupHref: '/auto',
     attackHref: `/auto/attack/${defaultAttackScenario}`,
-    accent: 'from-amber-50 via-white to-slate-50',
+    accent: 'from-violet-50 via-sky-50 to-white',
     badge: 'AUTO',
-    badgeTone: 'border-amber-200 bg-amber-50 text-amber-700',
-    activeTone: 'border-amber-200 bg-amber-50 text-amber-700',
-    activeSoftTone: 'border-amber-200 bg-amber-50 text-amber-800',
+    badgeTone: 'border-violet-200 bg-violet-50 text-violet-700',
+    activeTone: 'border-violet-200 bg-violet-50 text-violet-700',
+    activeSoftTone: 'border-violet-200 bg-violet-50 text-violet-800',
     setupDescription: 'Terraform으로 AWS 환경을 자동 배포하거나 삭제합니다.',
   },
 } as const;
@@ -115,15 +117,15 @@ export function WorkspaceShell({
                   </Link>
                 </div>
                 <div>
-                  <h1 className="text-2xl font-semibold text-slate-900">{meta.title}</h1>
-                  <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">{meta.description}</p>
+                  <h1 className={`text-2xl font-semibold ${meta.titleTone}`}>{meta.title}</h1>
+                  <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">{meta.description}</p>
                 </div>
               </div>
 
               <div className="flex flex-wrap gap-2">
                 <Link
                   href={meta.setupHref}
-                  className={`rounded-xl border px-4 py-2 text-sm transition-colors ${
+                  className={`rounded-xl border px-4 py-2 text-sm font-medium transition-colors ${
                     setupActive
                       ? meta.activeTone
                       : 'border-slate-200 bg-white/80 text-slate-600 hover:border-slate-300 hover:text-slate-900'
@@ -133,7 +135,7 @@ export function WorkspaceShell({
                 </Link>
                 <Link
                   href={meta.attackHref}
-                  className={`rounded-xl border px-4 py-2 text-sm transition-colors ${
+                  className={`rounded-xl border px-4 py-2 text-sm font-medium transition-colors ${
                     isAttackPage
                       ? meta.activeTone
                       : 'border-slate-200 bg-white/80 text-slate-600 hover:border-slate-300 hover:text-slate-900'

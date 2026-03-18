@@ -37,8 +37,8 @@ export default function GuidePage() {
           전체 아키텍처 개요
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="rounded-lg border border-red-900/40 bg-red-950/10 p-4">
-            <div className="text-xs font-mono text-red-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+          <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+            <div className="text-xs font-mono text-red-600 uppercase tracking-widest mb-3 flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-red-500" />
               취약 환경 (Vulnerable)
             </div>
@@ -53,8 +53,8 @@ export default function GuidePage() {
             </pre>
           </div>
 
-          <div className="rounded-lg border border-emerald-900/40 bg-emerald-950/10 p-4">
-            <div className="text-xs font-mono text-emerald-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+            <div className="text-xs font-mono text-emerald-600 uppercase tracking-widest mb-3 flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-emerald-500" />
               보안 환경 (Secure)
             </div>
@@ -73,18 +73,36 @@ export default function GuidePage() {
           </div>
         </div>
 
-        <div className="mt-4 pt-4 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-          <div className="text-slate-500">
-            <span className="text-slate-700 font-medium block mb-1">동일 코드</span>
-            백엔드와 프론트 코드는 동일하고, 차이는 인프라 공개 범위와 보호 계층에 있습니다.
-          </div>
-          <div className="text-slate-500">
-            <span className="text-slate-700 font-medium block mb-1">인프라 보호 계층 차이</span>
-            취약 환경은 CloudFront와 WAF가 없고, 보안 환경은 앞단 보호 계층으로 공격 노출면을 줄입니다.
-          </div>
-          <div className="text-slate-500">
-            <span className="text-slate-700 font-medium block mb-1">S3 접근 방식 차이</span>
-            취약 환경은 공개 S3 객체에 직접 접근 가능하고, 보안 환경은 제한된 경로를 통해서만 접근합니다.
+        <div className="mt-4 border-t border-slate-200 pt-4">
+          <div className="flex flex-col gap-4 text-xs md:flex-row md:items-start md:gap-0">
+            <div className="flex-1 text-slate-500">
+              <span className="mb-1 block text-base font-bold tracking-tight text-black">동일 코드</span>
+              백엔드와 프론트 코드는 동일하고, 차이는 인프라 공개 범위와 보호 계층에 있습니다.
+            </div>
+
+            <div
+              aria-hidden="true"
+              className="hidden px-4 text-lg font-light leading-none text-slate-300 md:flex"
+            >
+              |
+            </div>
+
+            <div className="flex-1 border-t border-slate-200 pt-4 text-slate-500 md:border-t-0 md:pt-0">
+              <span className="mb-1 block text-base font-bold tracking-tight text-black">인프라 보호 계층 차이</span>
+              취약 환경은 CloudFront와 WAF가 없고, 보안 환경은 앞단 보호 계층으로 공격 노출면을 줄입니다.
+            </div>
+
+            <div
+              aria-hidden="true"
+              className="hidden px-4 text-lg font-light leading-none text-slate-300 md:flex"
+            >
+              |
+            </div>
+
+            <div className="flex-1 border-t border-slate-200 pt-4 text-slate-500 md:border-t-0 md:pt-0">
+              <span className="mb-1 block text-base font-bold tracking-tight text-black">S3 접근 방식 차이</span>
+              취약 환경은 공개 S3 객체에 직접 접근 가능하고, 보안 환경은 제한된 경로를 통해서만 접근합니다.
+            </div>
           </div>
         </div>
       </div>
@@ -118,19 +136,19 @@ export default function GuidePage() {
           {phases.map((phase) => {
             const colorStyles = {
               red: {
-                border: 'border-red-900/40',
-                bg: 'bg-red-950/10',
+                border: 'border-red-200',
+                bg: 'bg-red-50',
                 badge: 'bg-white text-red-700 border-red-200',
-                text: 'text-red-400',
-                hover: 'hover:border-red-700/60',
+                text: 'text-red-700',
+                hover: 'hover:border-red-300',
                 bullet: 'text-red-600',
               },
               emerald: {
-                border: 'border-emerald-900/40',
-                bg: 'bg-emerald-950/10',
+                border: 'border-emerald-200',
+                bg: 'bg-emerald-50',
                 badge: 'bg-white text-emerald-700 border-emerald-200',
-                text: 'text-emerald-400',
-                hover: 'hover:border-emerald-700/60',
+                text: 'text-emerald-700',
+                hover: 'hover:border-emerald-300',
                 bullet: 'text-emerald-600',
               },
             } as const;
