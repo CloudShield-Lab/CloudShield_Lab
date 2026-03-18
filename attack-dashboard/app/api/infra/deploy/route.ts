@@ -9,6 +9,13 @@ const GITHUB_TOKEN = process.env.GITHUB_TOKEN || '';
 type Environment = 'vulnerable' | 'secure';
 type Action = 'apply' | 'destroy';
 
+const GH_HEADERS = {
+  Authorization: `Bearer ${GITHUB_TOKEN}`,
+  Accept: 'application/vnd.github+json',
+  'Content-Type': 'application/json',
+  'X-GitHub-Api-Version': '2022-11-28',
+};
+
 async function triggerWorkflow(env: Environment, action: Action): Promise<{ ok: boolean; error?: string }> {
   if (!GITHUB_TOKEN) {
     return { ok: false, error: 'GITHUB_TOKEN 환경변수가 설정되지 않았습니다.' };
@@ -19,16 +26,8 @@ async function triggerWorkflow(env: Environment, action: Action): Promise<{ ok: 
 
   const res = await fetch(url, {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${GITHUB_TOKEN}`,
-      Accept: 'application/vnd.github+json',
-      'Content-Type': 'application/json',
-      'X-GitHub-Api-Version': '2022-11-28',
-    },
-    body: JSON.stringify({
-      ref: 'dev',
-      inputs: { action },
-    }),
+    headers: GH_HEADERS,
+    body: JSON.stringify({ ref: 'dev', inputs: { action } }),
   });
 
   if (!res.ok) {
@@ -39,21 +38,19 @@ async function triggerWorkflow(env: Environment, action: Action): Promise<{ ok: 
   return { ok: true };
 }
 
-async function getLatestRunStatus(env: Environment): Promise<{ status: string; conclusion: string | null; html_url: string } | null> {
+async function getLatestRunStatus(env: Environment): Promise<{
+  id: number;
+  status: string;
+  conclusion: string | null;
+  html_url: string;
+} | null> {
   if (!GITHUB_TOKEN) return null;
 
   const workflow = env === 'vulnerable' ? 'terraform-vulnerable.yml' : 'terraform-secure.yml';
   const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/actions/workflows/${workflow}/runs?per_page=1`;
 
   try {
-    const res = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${GITHUB_TOKEN}`,
-        Accept: 'application/vnd.github+json',
-        'X-GitHub-Api-Version': '2022-11-28',
-      },
-    });
-
+    const res = await fetch(url, { headers: GH_HEADERS });
     if (!res.ok) return null;
 
     const data = await res.json();
@@ -61,12 +58,35 @@ async function getLatestRunStatus(env: Environment): Promise<{ status: string; c
     if (!run) return null;
 
     return {
+      id: run.id,
       status: run.status,
       conclusion: run.conclusion,
       html_url: run.html_url,
     };
   } catch {
     return null;
+  }
+}
+
+// "Terraform Apply" step이 시작됐는지 확인 → VPC 생성 완료 신호
+async function isTerraformApplyStepStarted(runId: number): Promise<boolean> {
+  const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/actions/runs/${runId}/jobs`;
+
+  try {
+    const res = await fetch(url, { headers: GH_HEADERS });
+    if (!res.ok) return false;
+
+    const data = await res.json();
+    const job = data.jobs?.[0];
+    if (!job) return false;
+
+    const applyStep = job.steps?.find(
+      (s: { name: string; status: string }) => s.name === 'Terraform Apply'
+    );
+
+    return applyStep?.status === 'in_progress' || applyStep?.status === 'completed';
+  } catch {
+    return false;
   }
 }
 
@@ -106,6 +126,8 @@ export async function GET(request: NextRequest) {
 
       // 최대 10분간 상태 폴링
       const maxAttempts = 60;
+      let vpcReady = false;
+
       for (let i = 0; i < maxAttempts; i++) {
         const runStatus = await getLatestRunStatus(env);
 
@@ -123,6 +145,18 @@ export async function GET(request: NextRequest) {
             html_url: runStatus.html_url,
             message: statusMsg,
           });
+
+          // apply 중이고 아직 vpc_ready를 보내지 않았다면 Terraform Apply step 확인
+          if (action === 'apply' && runStatus.status === 'in_progress' && !vpcReady) {
+            const applyStarted = await isTerraformApplyStepStarted(runStatus.id);
+            if (applyStarted) {
+              vpcReady = true;
+              await send({
+                type: 'vpc_ready',
+                message: 'Terraform Apply 시작 확인 — VPC 생성 완료, 다른 환경 배포 가능',
+              });
+            }
+          }
 
           if (runStatus.status === 'completed') {
             const success = runStatus.conclusion === 'success';

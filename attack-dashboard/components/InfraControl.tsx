@@ -19,6 +19,7 @@ interface EnvState {
   action: Action;
   logs: LogEntry[];
   resultUrl: string | null;
+  vpcReady: boolean;
 }
 
 const initialEnvState = (): EnvState => ({
@@ -26,6 +27,7 @@ const initialEnvState = (): EnvState => ({
   action: 'apply',
   logs: [],
   resultUrl: null,
+  vpcReady: false,
 });
 
 export function InfraControl() {
@@ -64,7 +66,7 @@ export function InfraControl() {
       const { action } = state;
       const esRef = env === 'vulnerable' ? vulnEsRef : secureEsRef;
 
-      setEnvState(env, (prev) => ({ ...prev, phase: 'running', logs: [], resultUrl: null }));
+      setEnvState(env, (prev) => ({ ...prev, phase: 'running', logs: [], resultUrl: null, vpcReady: false }));
 
       const es = new EventSource(`/api/infra/deploy?env=${env}&action=${action}`);
       esRef.current = es;
@@ -75,6 +77,10 @@ export function InfraControl() {
           event = JSON.parse(e.data);
         } catch {
           return;
+        }
+
+        if (event.type === 'vpc_ready') {
+          setEnvState(env, (prev) => ({ ...prev, vpcReady: true }));
         }
 
         appendLog(env, event);
@@ -117,6 +123,13 @@ export function InfraControl() {
     [setEnvState]
   );
 
+  // apply 중이고 VPC 생성 완료 전이면 상대 패널의 apply를 잠금
+  // destroy는 제한 없음
+  const vulnApplyLocked =
+    secure.phase === 'running' && secure.action === 'apply' && !secure.vpcReady;
+  const secureApplyLocked =
+    vulnerable.phase === 'running' && vulnerable.action === 'apply' && !vulnerable.vpcReady;
+
   return (
     <div className="rounded-xl border border-slate-800 bg-[#0d1117] overflow-hidden">
       {/* 헤더 */}
@@ -143,6 +156,7 @@ export function InfraControl() {
           onSetAction={(a) => setAction('vulnerable', a)}
           logsEndRef={vulnLogsEndRef}
           accentColor="red"
+          applyLocked={vulnApplyLocked}
         />
         <EnvPanel
           label="보안 환경"
@@ -153,6 +167,7 @@ export function InfraControl() {
           onSetAction={(a) => setAction('secure', a)}
           logsEndRef={secureLogsEndRef}
           accentColor="emerald"
+          applyLocked={secureApplyLocked}
         />
       </div>
     </div>
@@ -168,6 +183,7 @@ interface EnvPanelProps {
   onSetAction: (a: Action) => void;
   logsEndRef: React.RefObject<HTMLDivElement>;
   accentColor: 'red' | 'emerald';
+  applyLocked: boolean;
 }
 
 function EnvPanel({
@@ -178,6 +194,7 @@ function EnvPanel({
   onSetAction,
   logsEndRef,
   accentColor,
+  applyLocked,
 }: EnvPanelProps) {
   const { phase, action, logs, resultUrl } = state;
   const isRed = accentColor === 'red';
@@ -205,6 +222,8 @@ function EnvPanel({
       : phase === 'complete'
       ? '완료'
       : '오류';
+
+  const isApplyDisabled = phase !== 'idle' || (action === 'apply' && applyLocked);
 
   return (
     <div className="flex flex-col">
@@ -252,19 +271,36 @@ function EnvPanel({
           </div>
         </div>
 
+        {/* VPC 대기 안내 */}
+        {action === 'apply' && applyLocked && phase === 'idle' && (
+          <div className="rounded-lg border border-yellow-900/50 bg-yellow-950/20 px-4 py-2.5 text-xs text-yellow-300/80 flex items-start gap-2">
+            <span className="flex-shrink-0 mt-0.5">⏳</span>
+            <span>
+              다른 환경 배포 중 — <strong>VPC 생성 완료</strong> 후 자동으로 활성화됩니다.
+            </span>
+          </div>
+        )}
+
         {/* 실행 버튼 */}
         <button
           onClick={onStart}
-          disabled={phase !== 'idle'}
+          disabled={isApplyDisabled}
           className={`w-full py-2 rounded-lg text-xs font-semibold border transition-colors ${
-            phase === 'idle'
+            !isApplyDisabled
               ? action === 'apply'
                 ? 'bg-emerald-700 hover:bg-emerald-600 border-emerald-600 text-white cursor-pointer'
                 : 'bg-red-700 hover:bg-red-600 border-red-600 text-white cursor-pointer'
               : 'bg-slate-800 border-slate-700 text-slate-500 cursor-not-allowed'
           }`}
         >
-          {phase === 'idle' && `▶ ${action === 'apply' ? '배포 (Apply)' : '삭제 (Destroy)'}`}
+          {phase === 'idle' && action === 'apply' && applyLocked && (
+            <span className="flex items-center justify-center gap-1.5">
+              <span className="w-1.5 h-1.5 bg-yellow-500 rounded-full animate-pulse" />
+              VPC 생성 대기 중...
+            </span>
+          )}
+          {phase === 'idle' && !(action === 'apply' && applyLocked) &&
+            `▶ ${action === 'apply' ? '배포 (Apply)' : '삭제 (Destroy)'}`}
           {phase === 'running' && (
             <span className="flex items-center justify-center gap-1.5">
               <span className="w-1.5 h-1.5 bg-yellow-400 rounded-full animate-pulse" />
@@ -295,6 +331,8 @@ function EnvPanel({
                 className={
                   log.type === 'error'
                     ? 'text-red-400'
+                    : log.type === 'vpc_ready'
+                    ? 'text-yellow-300'
                     : log.type === 'complete' && log.success
                     ? 'text-emerald-400'
                     : log.type === 'complete'
