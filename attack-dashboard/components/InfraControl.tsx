@@ -1,6 +1,8 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
+import type { TerraformOutputs } from '@/lib/terraform-state';
 
 type Action = 'apply' | 'destroy';
 type Phase = 'idle' | 'running' | 'complete' | 'error';
@@ -33,6 +35,8 @@ const initialEnvState = (): EnvState => ({
 export function InfraControl() {
   const [vulnerable, setVulnerable] = useState<EnvState>(initialEnvState());
   const [secure, setSecure] = useState<EnvState>(initialEnvState());
+  const [tfOutputs, setTfOutputs] = useState<TerraformOutputs | null>(null);
+  const [loadingOutputs, setLoadingOutputs] = useState(false);
 
   const vulnEsRef = useRef<EventSource | null>(null);
   const secureEsRef = useRef<EventSource | null>(null);
@@ -129,6 +133,33 @@ export function InfraControl() {
     [setEnvState]
   );
 
+  // 양쪽 배포 완료 시 tfstate에서 URL 자동 읽기
+  const bothApplied =
+    vulnerable.phase === 'complete' &&
+    vulnerable.action === 'apply' &&
+    secure.phase === 'complete' &&
+    secure.action === 'apply';
+
+  useEffect(() => {
+    if (!bothApplied) return;
+    setLoadingOutputs(true);
+    fetch('/api/terraform-outputs', { method: 'POST' })
+      .then((r) => r.json())
+      .then((data: TerraformOutputs) => setTfOutputs(data))
+      .catch(() => {})
+      .finally(() => setLoadingOutputs(false));
+  }, [bothApplied]);
+
+  // 마운트 시 기존 tfstate 확인
+  useEffect(() => {
+    fetch('/api/terraform-outputs')
+      .then((r) => r.json())
+      .then((data: TerraformOutputs) => {
+        if (data.vulnerable || data.secure) setTfOutputs(data);
+      })
+      .catch(() => {});
+  }, []);
+
   const vulnApplyLocked =
     secure.phase === 'running' && secure.action === 'apply' && !secure.vpcReady;
   const secureApplyLocked =
@@ -172,6 +203,55 @@ export function InfraControl() {
           applyLocked={secureApplyLocked}
         />
       </div>
+
+      {/* Terraform 출력값 배너 */}
+      {(tfOutputs?.vulnerable || tfOutputs?.secure) && (
+        <div className="border-t border-slate-200 px-6 py-4">
+          <div className="mb-3 flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              배포된 인프라 주소
+            </span>
+            {loadingOutputs && (
+              <span className="text-xs text-slate-400">불러오는 중...</span>
+            )}
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {tfOutputs.vulnerable && (
+              <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-xs">
+                <div className="mb-2 font-semibold text-red-700">취약 환경</div>
+                <OutputRow label="Backend API" value={tfOutputs.vulnerable.backendUrl} />
+                <OutputRow label="Frontend" value={tfOutputs.vulnerable.frontendUrl} />
+                <OutputRow label="S3 Bucket" value={tfOutputs.vulnerable.filesBucket} />
+              </div>
+            )}
+            {tfOutputs.secure && (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-xs">
+                <div className="mb-2 font-semibold text-emerald-700">보안 환경</div>
+                <OutputRow label="Backend API" value={tfOutputs.secure.backendUrl} />
+                <OutputRow label="Frontend" value={tfOutputs.secure.frontendUrl} />
+                <OutputRow label="S3 Bucket" value={tfOutputs.secure.filesBucket} />
+              </div>
+            )}
+          </div>
+          <p className="mt-3 text-xs text-slate-400">
+            위 값이{' '}
+            <Link href="/auto/attack/bruteforce" className="underline hover:text-slate-600">
+              자동 배포 Attack Simulator
+            </Link>
+            에 자동으로 적용됩니다.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function OutputRow({ label, value }: { label: string; value: string }) {
+  if (!value) return null;
+  return (
+    <div className="flex items-start gap-2 py-0.5">
+      <span className="w-20 flex-shrink-0 text-slate-500">{label}</span>
+      <span className="break-all font-mono text-slate-700">{value}</span>
     </div>
   );
 }

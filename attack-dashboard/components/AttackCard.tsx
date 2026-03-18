@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState } from 'react';
 import { useArchitectureVisualization } from '@/hooks/useArchitectureVisualization';
-import type { AttackEndpoint, AttackEvent, AttackPhase, AttackResult } from '@/types';
+import type { AttackEndpoint, AttackEvent, AttackPhase, AttackResult, WorkspaceMode } from '@/types';
 import { MetricsPanel } from './MetricsPanel';
 import { RequestLog } from './RequestLog';
 
@@ -15,6 +15,7 @@ interface Props {
   attackParams?: string;
   vulnNote: string;
   awsNote: string;
+  mode: WorkspaceMode;
 }
 
 export function AttackCard({
@@ -26,6 +27,7 @@ export function AttackCard({
   attackParams = '',
   vulnNote,
   awsNote,
+  mode,
 }: Props) {
   const { startScenario, handleAttackEvent, resetScenario } = useArchitectureVisualization();
   const [phase, setPhase] = useState<AttackPhase>('idle');
@@ -41,7 +43,8 @@ export function AttackCard({
     setVulnResults([]);
     setAwsResults([]);
 
-    const query = attackParams ? `?${attackParams}` : '';
+    const modeParam = `mode=${mode}`;
+    const query = attackParams ? `?${attackParams}&${modeParam}` : `?${modeParam}`;
     const es = new EventSource(`/api/attack/${endpoint}${query}`);
     esRef.current = es;
 

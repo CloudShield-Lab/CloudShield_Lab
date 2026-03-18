@@ -33,12 +33,17 @@ export type AttackEvent =
       blocked: boolean;
       label?: string;
       error?: string;
+      email?: string;
+      password?: string;
     }
   | { type: 'complete' }
   | { type: 'error'; message: string };
 
+export type WorkspaceMode = 'manual' | 'auto';
+
 export type EnvConfig = {
   url: string;
+  frontendUrl?: string;
   s3Url?: string;
   configured: boolean;
 };
@@ -46,6 +51,8 @@ export type EnvConfig = {
 export type DashboardConfig = {
   vulnerable: EnvConfig;
   aws: EnvConfig;
+  autoVulnerable: EnvConfig;
+  autoAws: EnvConfig;
 };
 
 export type ArchitectureStage =

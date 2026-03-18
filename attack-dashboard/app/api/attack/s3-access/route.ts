@@ -2,8 +2,16 @@ import { NextRequest } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
-const VULNERABLE_S3_BUCKET = process.env.VULNERABLE_S3_BUCKET || '';
-const AWS_S3_BUCKET = process.env.AWS_S3_BUCKET || '';
+const BUCKET_MAP = {
+  manual: {
+    vulnerable: process.env.VULNERABLE_S3_BUCKET || '',
+    aws: process.env.AWS_S3_BUCKET || '',
+  },
+  auto: {
+    vulnerable: process.env.AUTO_VULNERABLE_S3_BUCKET || '',
+    aws: process.env.AUTO_AWS_S3_BUCKET || '',
+  },
+};
 const AWS_REGION = process.env.AWS_REGION || 'ap-northeast-2';
 
 const ATTACK_PATHS = [
@@ -99,7 +107,11 @@ async function sendStageWithDelay(
   await sleep(STAGE_STEP_MS);
 }
 
-export async function GET(_request: NextRequest) {
+export async function GET(request: NextRequest) {
+  const searchParams = new URL(request.url).searchParams;
+  const mode = searchParams.get('mode') === 'auto' ? 'auto' : 'manual';
+  const VULNERABLE_S3_BUCKET = BUCKET_MAP[mode].vulnerable;
+  const AWS_S3_BUCKET = BUCKET_MAP[mode].aws;
   const encoder = new TextEncoder();
   const { readable, writable } = new TransformStream();
   const writer = writable.getWriter();

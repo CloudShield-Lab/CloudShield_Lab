@@ -1,9 +1,18 @@
 import { NextRequest } from 'next/server';
+import { normalizeApiBaseUrl } from '@/lib/url-utils';
 
 export const dynamic = 'force-dynamic';
 
-const VULNERABLE_URL = process.env.VULNERABLE_API_URL || 'http://localhost:3000';
-const AWS_URL = process.env.AWS_API_URL || '';
+const URL_MAP = {
+  manual: {
+    vulnerable: normalizeApiBaseUrl(process.env.VULNERABLE_API_URL || 'http://localhost:3000'),
+    aws: normalizeApiBaseUrl(process.env.AWS_API_URL || ''),
+  },
+  auto: {
+    vulnerable: normalizeApiBaseUrl(process.env.AUTO_VULNERABLE_API_URL || ''),
+    aws: normalizeApiBaseUrl(process.env.AUTO_AWS_API_URL || ''),
+  },
+};
 
 function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
@@ -43,13 +52,17 @@ async function floodRequest(baseUrl: string, attempt: number) {
       signal: AbortSignal.timeout(5000),
     });
     const latency = Date.now() - start;
-    const blocked = res.status === 429 || res.status === 403;
+    // CloudFront custom_error_response: WAF 403 → 200 + text/html 감지
+    const isJson = (res.headers.get('content-type') || '').includes('application/json');
+    const effectiveStatus = (res.status === 200 && !isJson) ? 403 : res.status;
+
+    const blocked = effectiveStatus === 429 || effectiveStatus === 403;
     const label = blocked
-      ? res.status === 429 ? 'RATE LIMITED' : 'WAF BLOCKED'
-      : res.status === 200 || res.status === 401
+      ? effectiveStatus === 429 ? 'RATE LIMITED' : 'WAF BLOCKED'
+      : effectiveStatus === 200 || effectiveStatus === 401
         ? 'REACHED'
-        : `HTTP ${res.status}`;
-    return { attempt, status: res.status, latency, blocked, label };
+        : `HTTP ${effectiveStatus}`;
+    return { attempt, status: effectiveStatus, latency, blocked, label };
   } catch {
     return {
       attempt,
@@ -65,6 +78,9 @@ async function floodRequest(baseUrl: string, attempt: number) {
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const count = Math.min(parseInt(url.searchParams.get('count') || '200'), 250);
+  const mode = url.searchParams.get('mode') === 'auto' ? 'auto' : 'manual';
+  const VULNERABLE_URL = URL_MAP[mode].vulnerable || 'http://localhost:3000';
+  const AWS_URL = URL_MAP[mode].aws;
 
   const encoder = new TextEncoder();
   const { readable, writable } = new TransformStream();
