@@ -28,7 +28,7 @@ variable "ami_id" {
   description = "AMI ID for Ubuntu 22.04 LTS in ap-northeast-2"
   type        = string
   # Ubuntu 22.04 LTS ap-northeast-2 최신 (2024)
-  default     = "ami-042e76978adeb8c48"
+  default = "ami-042e76978adeb8c48"
 }
 
 variable "instance_type" {

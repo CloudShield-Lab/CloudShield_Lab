@@ -1,0 +1,17 @@
+# ============================================================
+# SentinelShare Trivy Ignore Rules
+# This project compares vulnerable and secure environments.
+# The findings below are intentionally accepted for demo scope.
+# ============================================================
+
+AVD-AWS-0010
+AVD-AWS-0028
+AVD-AWS-0104
+AVD-AWS-0107
+AVD-AWS-0131
+AVD-AWS-0164
+AVD-AWS-0178
+AVD-AWS-0088
+AVD-AWS-0090
+AVD-AWS-0132
+s3-bucket-logging

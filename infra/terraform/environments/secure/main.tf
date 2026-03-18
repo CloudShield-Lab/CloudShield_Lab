@@ -38,11 +38,11 @@ module "s3" {
 }
 
 module "waf" {
-  source    = "../../modules/waf"
+  source = "../../modules/waf"
   providers = {
     aws.us_east_1 = aws.us_east_1
   }
-  env_name  = "secure"
+  env_name = "secure"
 }
 
 module "cloudfront" {
@@ -51,7 +51,7 @@ module "cloudfront" {
   s3_bucket_name            = module.s3.frontend_bucket_name
   s3_bucket_arn             = module.s3.frontend_bucket_arn
   s3_bucket_regional_domain = "${module.s3.frontend_bucket_name}.s3.${var.aws_region}.amazonaws.com"
-  ec2_ip                    = module.ec2.elastic_ip
+  ec2_ip                    = module.ec2.elastic_ip_dns
   waf_acl_arn               = module.waf.web_acl_arn
 }
 
