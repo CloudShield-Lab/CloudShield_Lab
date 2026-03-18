@@ -6,6 +6,7 @@ on:
     branches: [master, dev]
     paths:
       - 'infra/**'
+      - '.trivyignore'
       - '.github/workflows/ci-infra.yml'
       - '.github/workflows/terraform-secure.yml'
       - '.github/workflows/terraform-vulnerable.yml'
