@@ -125,5 +125,70 @@ for i in $(seq 1 24); do
   sleep 5
 done
 
+# ─── Step 9: DB 마이그레이션 ───
+# 컨테이너 안 psql 없음 → docker cp로 SQL 추출 후 호스트 psql 실행
+docker cp sentinelshare-backend:/app/migrations/001_initial_schema.sql /tmp/schema.sql
+
+PGPASSWORD="${db_password}" psql \
+  -h 127.0.0.1 -U sentinelshare -d sentinelshare \
+  -f /tmp/schema.sql \
+  && echo "Migration complete" \
+  || echo "Migration failed or already applied (continuing)"
+
+# ─── Step 10: 시드 데이터 — victim 계정 + 데모 파일 ───
+# victim@demo.com 계정 생성 (이미 있으면 409 → 무시)
+curl -sf -X POST http://localhost:3000/api/auth/signup \
+  -H "Content-Type: application/json" \
+  -d '{"email":"victim@demo.com","password":"Demo1234!"}' \
+  && echo "victim account created" \
+  || echo "victim account already exists or signup failed (continuing)"
+
+# victim으로 로그인 → JWT 획득
+VICTIM_TOKEN=$(curl -sf -X POST http://localhost:3000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"victim@demo.com","password":"Demo1234!"}' \
+  | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('token',''))" 2>/dev/null || true)
+
+# JWT 획득 성공 시 데모 파일 업로드 (시나리오 2 S3 탈취 체인용)
+if [ -n "$VICTIM_TOKEN" ]; then
+  echo "SentinelShare Demo — confidential-report.txt" > /tmp/demo-report.txt
+  curl -sf -X POST http://localhost:3000/api/files \
+    -H "Authorization: Bearer $VICTIM_TOKEN" \
+    -F "file=@/tmp/demo-report.txt;type=text/plain" \
+    && echo "Demo file uploaded for victim account" \
+    || echo "File upload failed (non-fatal)"
+else
+  echo "Could not obtain victim JWT — skipping file upload"
+fi
+
+# ─── Step 11: Wazuh Agent 설치 (wazuh_manager_ip 설정된 경우만) ───
+%{ if wazuh_manager_ip != "" }
+echo "=== Installing Wazuh Agent ==="
+
+apt-get install -y gnupg
+
+curl -s https://packages.wazuh.com/key/GPG-KEY-WAZUH \
+  | gpg --no-default-keyring \
+        --keyring gnupg-ring:/usr/share/keyrings/wazuh.gpg \
+        --import
+
+chmod 644 /usr/share/keyrings/wazuh.gpg
+
+echo "deb [signed-by=/usr/share/keyrings/wazuh.gpg] https://packages.wazuh.com/4.x/apt/ stable main" \
+  | tee /etc/apt/sources.list.d/wazuh.list
+
+DEBIAN_FRONTEND=noninteractive apt-get update -q
+
+WAZUH_MANAGER="${wazuh_manager_ip}" \
+  WAZUH_AGENT_NAME="$(hostname)-${env_type}" \
+  DEBIAN_FRONTEND=noninteractive apt-get install -y wazuh-agent
+
+systemctl daemon-reload
+systemctl enable wazuh-agent
+systemctl start wazuh-agent
+
+echo "Wazuh agent installed and started"
+%{ endif }
+
 echo "=== SentinelShare EC2 Init Complete ==="
 touch /var/log/user-data-complete

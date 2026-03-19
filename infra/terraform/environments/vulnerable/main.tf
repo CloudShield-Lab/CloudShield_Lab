@@ -43,4 +43,5 @@ module "ec2" {
   db_password         = var.db_password
   jwt_secret          = var.jwt_secret
   cors_origin         = "http://${module.s3.frontend_website_endpoint}"
+  wazuh_manager_ip    = var.wazuh_manager_ip
 }

@@ -15,6 +15,7 @@ const workspaceMeta = {
     setupLabel: '수동 환경 구축',
     setupHref: '/manual',
     attackHref: `/manual/attack/${defaultAttackScenario}`,
+    analysisHref: '/manual/analysis',
     accent: 'from-sky-50 via-white to-slate-50',
     badge: 'MANUAL',
     badgeTone: 'border-sky-200 bg-sky-50 text-sky-700',
@@ -30,6 +31,7 @@ const workspaceMeta = {
     setupLabel: '자동 환경 구축',
     setupHref: '/auto',
     attackHref: `/auto/attack/${defaultAttackScenario}`,
+    analysisHref: '/auto/analysis',
     accent: 'from-violet-50 via-sky-50 to-white',
     badge: 'AUTO',
     badgeTone: 'border-violet-200 bg-violet-50 text-violet-700',
@@ -50,8 +52,10 @@ export function WorkspaceShell({
   const meta = workspaceMeta[mode];
   const rootPath = `/${mode}`;
   const attackRoot = `${rootPath}/attack`;
+  const analysisRoot = `${rootPath}/analysis`;
   const isAttackPage = pathname.startsWith(attackRoot);
-  const setupActive = pathname.startsWith(rootPath) && !isAttackPage;
+  const isAnalysisPage = pathname.startsWith(analysisRoot);
+  const setupActive = pathname.startsWith(rootPath) && !isAttackPage && !isAnalysisPage;
 
   return (
     <div className="w-full py-6 pr-4 sm:pr-6 lg:pr-8">
@@ -99,6 +103,25 @@ export function WorkspaceShell({
                 );
               })}
             </div>
+
+            <div className="mt-6 space-y-2">
+              <div className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">사후 분석 (Log)</div>
+              <Link
+                href={meta.analysisHref}
+                className={`block rounded-xl border px-4 py-3 transition-colors ${
+                  isAnalysisPage
+                    ? meta.activeSoftTone
+                    : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-[11px]">
+                    🤖
+                  </span>
+                  <span className="text-[13px] font-medium">AI 공격 분석</span>
+                </div>
+              </Link>
+            </div>
           </div>
         </aside>
 
@@ -142,6 +165,16 @@ export function WorkspaceShell({
                   }`}
                 >
                   Attack Simulator
+                </Link>
+                <Link
+                  href={meta.analysisHref}
+                  className={`rounded-xl border px-4 py-2 text-sm font-medium transition-colors ${
+                    isAnalysisPage
+                      ? meta.activeTone
+                      : 'border-slate-200 bg-white/80 text-slate-600 hover:border-slate-300 hover:text-slate-900'
+                  }`}
+                >
+                  AI 분석
                 </Link>
               </div>
             </div>

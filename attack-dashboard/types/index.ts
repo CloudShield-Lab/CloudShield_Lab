@@ -10,6 +10,7 @@ export type AttackResult = {
   blocked: boolean;
   label?: string;
   error?: string;
+  url?: string;
 };
 
 export type AttackEvent =
@@ -33,12 +34,18 @@ export type AttackEvent =
       blocked: boolean;
       label?: string;
       error?: string;
+      email?: string;
+      password?: string;
+      url?: string;
     }
   | { type: 'complete' }
   | { type: 'error'; message: string };
 
+export type WorkspaceMode = 'manual' | 'auto';
+
 export type EnvConfig = {
   url: string;
+  frontendUrl?: string;
   s3Url?: string;
   configured: boolean;
 };
@@ -46,6 +53,8 @@ export type EnvConfig = {
 export type DashboardConfig = {
   vulnerable: EnvConfig;
   aws: EnvConfig;
+  autoVulnerable: EnvConfig;
+  autoAws: EnvConfig;
 };
 
 export type ArchitectureStage =
@@ -97,4 +106,40 @@ export type ArchitectureScenario = {
   events: AttackSimulationEvent[];
 };
 
-export type AttackEndpoint = 'bruteforce' | 's3-access' | 'ratelimit';
+export type AttackEndpoint = 'bruteforce' | 's3-access' | 'ratelimit' | 'header-scan';
+
+export interface SessionMetrics {
+  blocked: number;
+  total: number;
+  avgLatency: number;
+}
+
+export interface WazuhAlert {
+  id: string;
+  timestamp: string;
+  rule: { id: string; level: number; description: string };
+  agent: { name: string };
+  full_log?: string;
+}
+
+export interface AnalysisSession {
+  sessionId: string;
+  timestamp: string;
+  mode: WorkspaceMode;
+  scenario: string;
+  scenarioTitle: string;
+  vulnResults: AttackResult[];
+  secureResults: AttackResult[];
+  stages: AttackEvent[];
+  metrics: { vuln: SessionMetrics; secure: SessionMetrics };
+  wazuhAlerts?: WazuhAlert[];
+}
+
+export interface SessionMeta {
+  sessionId: string;
+  timestamp: string;
+  scenario: string;
+  scenarioTitle: string;
+  mode: string;
+  s3Key: string;
+}

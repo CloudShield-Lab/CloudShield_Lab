@@ -107,6 +107,18 @@ resource "aws_security_group" "ec2" {
     }
   }
 
+  # Wazuh agent → manager (1514/TCP, 1515/TCP)
+  dynamic "egress" {
+    for_each = var.wazuh_manager_ip != "" ? [1] : []
+    content {
+      from_port   = 1514
+      to_port     = 1515
+      protocol    = "tcp"
+      cidr_blocks = ["${var.wazuh_manager_ip}/32"]
+      description = "Wazuh agent to manager"
+    }
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
@@ -131,14 +143,15 @@ resource "aws_instance" "main" {
   iam_instance_profile   = aws_iam_instance_profile.ec2.name
 
   user_data = templatefile("${path.module}/../../scripts/user_data.sh.tpl", {
-    aws_region     = var.aws_region
-    aws_account_id = data.aws_caller_identity.current.account_id
-    ecr_registry   = "${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.aws_region}.amazonaws.com"
-    db_password    = var.db_password
-    jwt_secret     = var.jwt_secret
-    s3_bucket_name = var.files_bucket_name
-    cors_origin    = var.cors_origin
-    env_type       = var.env_type
+    aws_region       = var.aws_region
+    aws_account_id   = data.aws_caller_identity.current.account_id
+    ecr_registry     = "${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.aws_region}.amazonaws.com"
+    db_password      = var.db_password
+    jwt_secret       = var.jwt_secret
+    s3_bucket_name   = var.files_bucket_name
+    cors_origin      = var.cors_origin
+    env_type         = var.env_type
+    wazuh_manager_ip = var.wazuh_manager_ip
   })
 
   # IMDSv2 강제 (보안 환경) / hop_limit=2: Docker 컨테이너 내 AWS SDK가 IMDS 접근 가능하도록

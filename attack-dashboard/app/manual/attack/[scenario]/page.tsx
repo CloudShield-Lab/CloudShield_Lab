@@ -16,7 +16,7 @@ export default async function ManualAttackScenarioPage({
 
   return (
     <WorkspaceShell mode="manual">
-      <AttackScenarioContent scenario={scenario} />
+      <AttackScenarioContent scenario={scenario} mode="manual" />
     </WorkspaceShell>
   );
 }

@@ -22,16 +22,18 @@ export function DashboardHome() {
           attackParams="count=100"
           vulnNote="취약 환경은 앞단 제어가 약해 다수의 요청이 서비스 로직 계층까지 도달하는 흐름을 보여줍니다."
           awsNote="보안 환경은 CloudFront 및 WAF 룰을 통해 비정상 요청을 더 앞단에서 차단하는 흐름을 보여줍니다."
+          mode="manual"
         />
 
         <AttackCard
           index={2}
-          title="S3 접근 경로 비교"
-          description="스토리지 접근 요청이 공개 설정 여부에 따라 어디에서 허용되거나 차단되는지 확인합니다."
+          title="S3 데이터 탈취 체인"
+          description="피해자 계정 로그인 → 파일 목록 → Presigned URL → 서명 제거 후 S3 직접 접근까지 탈취 체인 전체를 비교합니다."
           endpoint="s3-access"
-          totalRequests={5}
-          vulnNote="취약 환경은 잘못된 스토리지 설정 또는 우회 가능한 접근 경로 때문에 더 깊은 단계까지 요청이 이어질 수 있습니다."
-          awsNote="보안 환경은 비공개 버킷, 역할 기반 권한, 차단 정책으로 인해 동일 요청이 제한되는 모습을 비교합니다."
+          totalRequests={4}
+          vulnNote="취약 환경은 퍼블릭 버킷 설정으로 인해 서명 없는 S3 URL로도 파일을 직접 다운로드할 수 있습니다."
+          awsNote="보안 환경은 프라이빗 버킷으로 서명 파라미터 없는 직접 접근 시 403이 반환됩니다."
+          mode="manual"
         />
 
         <AttackCard
@@ -43,6 +45,7 @@ export function DashboardHome() {
           attackParams="count=200"
           vulnNote="취약 환경은 요청 제한이 약하거나 없어 EC2와 서비스 로직 계층에 부담이 누적되는 흐름을 보여줍니다."
           awsNote="보안 환경은 WAF 및 보호 정책이 먼저 동작하여 핵심 애플리케이션 계층이 최대한 유휴 상태를 유지하도록 구성합니다."
+          mode="manual"
         />
 
         <section className="rounded-2xl border border-slate-800 bg-[#0d1117] p-6">

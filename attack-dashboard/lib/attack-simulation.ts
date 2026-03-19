@@ -79,6 +79,13 @@ const scenarios: Record<ScenarioKey, ArchitectureScenario> = {
       '실제 SSE 공격 결과를 기반으로 취약 환경과 보안 환경의 반복 요청 흐름을 반영합니다.',
     events: [],
   },
+  'header-scan': {
+    id: 'header-scan',
+    name: 'HTTP 헤더 정보 노출',
+    description:
+      '응답 헤더를 분석해 취약 환경과 보안 환경의 기술 스택 노출 여부를 비교합니다.',
+    events: [],
+  },
 };
 
 export function getScenarioByKey(key: ScenarioKey): ArchitectureScenario {

@@ -26,9 +26,10 @@
 
 | 공격 시나리오 | 취약 환경 | 보안 환경 |
 |---|---|---|
-| 브루트포스 로그인 (30회) | 전부 서버 도달 | WAF Rate Rule 차단 |
-| S3 버킷 직접 접근 | 200 OK (파일 노출) | 403 AccessDenied |
-| API 플러드 (60회) | 전부 통과 | WAF 임계값 초과 차단 |
+| 브루트포스 로그인 (100회) | 전부 서버 도달, 계정 탈취 가능 | WAF Rate Rule 차단 |
+| S3 데이터 탈취 체인 | Presigned URL 서명 제거 후 직접 다운로드 | 403 AccessDenied (Private Bucket) |
+| Rate Limit 비교 (200회) | 전부 통과, 응답 지연 증가 | WAF 임계값 초과 차단 |
+| HTTP 헤더 정보 노출 | X-Powered-By, Server 등 기술 스택 노출 | CloudFront가 위험 헤더 제거 + 보안 헤더 추가 |
 
 ---
 
@@ -38,9 +39,16 @@
 SentinelShare/
 ├── sentinel-share-backend/   Node.js/Express API (양쪽 환경 동일 코드)
 ├── sentinel-share-frontend/  Next.js 15 사용자 UI
-├── attack-dashboard/         보안 비교 시뮬레이터 (ECS Fargate)
+├── attack-dashboard/         보안 비교 시뮬레이터 (ECS Fargate, port 3002)
+│   ├── app/
+│   │   ├── manual/           수동 배포 워크스페이스 (/attack/*, /analysis)
+│   │   ├── auto/             자동(Terraform) 워크스페이스 (/attack/*, /analysis)
+│   │   └── api/attack/       공격 시나리오 API (bruteforce, s3-access, ratelimit, header-scan)
+│   │       api/analysis/     AI 분석 API (save, sessions, [sessionId], analyze)
+│   ├── components/           WorkspaceShell, AttackCard, AiAnalysisPanel, SessionList 등
+│   └── lib/                  attack-scenarios, analysis-storage, bedrock, terraform-state
 ├── infra/terraform/          취약/보안 환경 IaC
-│   ├── modules/              network, ec2, s3, waf, cloudfront
+│   ├── modules/              network, ec2 (Wazuh agent 조건부 설치), s3, waf, cloudfront
 │   ├── environments/         vulnerable/, secure/
 │   └── scripts/              user_data.sh.tpl
 ├── docs/
@@ -87,6 +95,26 @@ PGPASSWORD="localpassword" psql -h 127.0.0.1 -p 5432 -U sentinelshare_user -d se
 
 ---
 
+## AI 사후 분석
+
+공격 시나리오 실행 완료 시 세션 데이터가 S3에 자동 저장되고, **AI 공격 분석** 탭에서 Amazon Bedrock(Claude)으로 분석 결과를 스트리밍으로 확인할 수 있다.
+
+```
+공격 실행 완료
+    → S3 자동 저장 (analysis-sessions/{mode}/{scenario}/{sessionId}.json)
+    → /manual/analysis 또는 /auto/analysis 접속
+    → 세션 선택 → "AI 분석 시작"
+    → Bedrock Claude 3.5 Haiku 스트리밍 분석 (한/영 토글)
+```
+
+**분석 섹션:** 공격 개요 / 취약 환경 영향 / 보안 환경 방어 효과 / 핵심 인사이트
+
+**ECS 배포 시 필요한 IAM 권한** (`cloudshield-dashboard-task-role` 인라인 정책):
+- `bedrock:InvokeModelWithResponseStream` (us-east-1, Claude 3.5 Haiku)
+- `s3:PutObject`, `s3:GetObject`, `s3:ListBucket` (tfstate 버킷 `analysis-sessions/*`)
+
+---
+
 ## AWS 환경
 
 ### Terraform 자동 배포 (권장)
@@ -115,6 +143,20 @@ Attack Dashboard의 InfraControl 패널에서 취약/보안 환경을 원클릭 
 | CloudFront | X | O |
 
 **Terraform state:** S3 버킷 `sentinelshare-terraform-state-833453046706-ap-northeast-2-an`
+
+### Wazuh Agent 자동 설치 (선택)
+
+Terraform 배포 시 `wazuh_manager_ip` 변수를 지정하면 EC2 user_data에서 Wazuh 4.x agent를 자동 설치한다.
+
+```bash
+# InfraControl에서 배포하거나 직접 실행 시
+terraform apply -var="wazuh_manager_ip=X.X.X.X"
+
+# 미지정 시 (기본값 "") 설치 스킵 — 기존 배포에 영향 없음
+terraform apply
+```
+
+설치 완료 후 Wazuh 대시보드에서 `{hostname}-vulnerable`, `{hostname}-secure` 에이전트 확인.
 
 ### EC2 수동 마이그레이션 (필요 시)
 ```bash
@@ -183,8 +225,9 @@ shared_links  id(uuid), file_id, token(64자hex), expires_at, created_by, create
 
 | 단계 | 내용 | 상태 |
 |---|---|---|
-| 1단계 | Attack Dashboard + ECS 배포 | 완료 |
-| 2단계 | EC2 Docker + S3 + CloudFront | 완료 |
-| 3단계 | Wazuh + Trivy + Prowler | 계획 |
-| 4단계 | Terraform 인프라 자동화 | 완료 |
-| 5단계 | Prometheus + Grafana + Loki | 계획 |
+| 1단계 | Attack Dashboard + ECS 배포 | ✅ 완료 |
+| 2단계 | EC2 Docker + S3 + CloudFront | ✅ 완료 |
+| 3단계 | Wazuh Agent Terraform 통합 | 🔄 진행 중 (Terraform 완료, Wazuh 매니저 서버 구성 대기) |
+| 4단계 | Terraform 인프라 자동화 | ✅ 완료 |
+| 4.5단계 | AI 사후 분석 탭 (Amazon Bedrock) | ✅ 완료 |
+| 5단계 | Prometheus + Grafana + Loki | 📋 계획 |
