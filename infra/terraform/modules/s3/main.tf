@@ -89,6 +89,20 @@ resource "aws_s3_bucket_cors_configuration" "files" {
   }
 }
 
+resource "aws_s3_bucket_server_side_encryption_configuration" "files" {
+  count  = var.enable_kms_encryption && var.kms_key_arn != "" ? 1 : 0
+  bucket = aws_s3_bucket.files.id
+
+  rule {
+    bucket_key_enabled = true
+
+    apply_server_side_encryption_by_default {
+      sse_algorithm     = "aws:kms"
+      kms_master_key_id = var.kms_key_arn
+    }
+  }
+}
+
 # ─── 프론트엔드 버킷 ─────────────────────────────────────────
 
 resource "aws_s3_bucket" "frontend" {

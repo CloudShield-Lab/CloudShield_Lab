@@ -43,6 +43,16 @@ output "secrets_kms_key_arn" {
   value       = module.kms.key_arn
 }
 
+output "data_kms_key_arn" {
+  description = "KMS key ARN for secure environment files bucket encryption"
+  value       = module.kms_data.key_arn
+}
+
+output "ebs_kms_key_arn" {
+  description = "KMS key ARN for secure environment root volume encryption"
+  value       = module.kms_ebs.key_arn
+}
+
 output "db_password_secret_name" {
   description = "Secrets Manager secret name for secure DB password"
   value       = module.secrets.db_password_secret_name

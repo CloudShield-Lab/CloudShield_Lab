@@ -20,3 +20,15 @@ variable "cors_origin" {
   type        = string
   default     = ""
 }
+
+variable "enable_kms_encryption" {
+  description = "Enable SSE-KMS default encryption for the files bucket"
+  type        = bool
+  default     = false
+}
+
+variable "kms_key_arn" {
+  description = "KMS key ARN for files bucket SSE-KMS encryption"
+  type        = string
+  default     = ""
+}
