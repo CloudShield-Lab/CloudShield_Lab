@@ -28,7 +28,7 @@ const workspaceTabs = [
 export default function DashboardPage() {
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-10 sm:px-6 lg:py-14">
-      <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.12),_transparent_34%),radial-gradient(circle_at_top_right,_rgba(245,158,11,0.12),_transparent_30%),linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] px-6 py-10 shadow-[0_20px_60px_rgba(15,23,42,0.06)] sm:px-10">
+      <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.12),_transparent_34%),radial-gradient(circle_at_top_right,_rgba(167,139,250,0.14),_transparent_30%),linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] px-6 py-10 shadow-[0_20px_60px_rgba(15,23,42,0.06)] sm:px-10">
         <div className="mx-auto max-w-4xl text-center">
           <span className="rounded-full border border-slate-200 bg-white px-4 py-1.5 font-mono text-[11px] tracking-[0.24em] text-slate-600">
             CLOUDSHIELD LAB
