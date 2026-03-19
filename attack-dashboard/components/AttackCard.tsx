@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useArchitectureVisualization } from '@/hooks/useArchitectureVisualization';
 import type { AttackEndpoint, AttackEvent, AttackPhase, AttackResult, SessionMetrics, WorkspaceMode } from '@/types';
 import { MetricsPanel } from './MetricsPanel';
@@ -168,15 +168,26 @@ export function AttackCard({
     setVulnDirectUrl(null);
   }, [resetScenario]);
 
-  // Latency chart data (for ratelimit)
-  const latencyChartData = useMemo(() => {
+  // Server reach rate chart (for ratelimit) — 10개 요청 단위로 서버 도달률(%) 계산
+  const REACH_WINDOW = 10;
+  const reachRateData = useMemo(() => {
+    if (endpoint !== 'ratelimit') return [];
     const maxLen = Math.max(vulnResults.length, awsResults.length);
-    return Array.from({ length: maxLen }, (_, i) => ({
-      req: i + 1,
-      취약환경: vulnResults[i]?.latency ?? null,
-      보안환경: awsResults[i]?.latency ?? null,
-    }));
-  }, [vulnResults, awsResults]);
+    const windows = Math.ceil(maxLen / REACH_WINDOW);
+    return Array.from({ length: windows }, (_, wi) => {
+      const start = wi * REACH_WINDOW;
+      const end = start + REACH_WINDOW;
+      const vulnSlice = vulnResults.slice(start, end);
+      const awsSlice = awsResults.slice(start, end);
+      const reachRate = (slice: AttackResult[]) =>
+        slice.length > 0 ? Math.round((slice.filter((r) => !r.blocked).length / slice.length) * 100) : null;
+      return {
+        req: end,
+        '취약 (서버 도달)': reachRate(vulnSlice),
+        '보안 (WAF 차단)': awsSlice.length > 0 ? Math.round((awsSlice.filter((r) => r.blocked).length / awsSlice.length) * 100) : null,
+      };
+    });
+  }, [endpoint, vulnResults, awsResults]);
 
   const buttonClass =
     phase === 'idle'
@@ -185,7 +196,7 @@ export function AttackCard({
         ? 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400'
         : 'border-slate-200 bg-slate-100 text-slate-600 hover:bg-slate-200';
 
-  const showLatencyChart = endpoint === 'ratelimit' && latencyChartData.length > 0;
+  const showReachChart = endpoint === 'ratelimit' && reachRateData.length > 0;
 
   return (
     <>
@@ -309,14 +320,27 @@ export function AttackCard({
         </div>
       </div>
 
-      {/* Latency chart for ratelimit */}
-      {showLatencyChart && (
+      {/* Server reach rate chart for ratelimit */}
+      {showReachChart && (
         <div className="border-t border-slate-200 p-4">
-          <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
-            응답 시간 추이 (ms)
+          <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-slate-500">
+            서버 도달률 vs WAF 차단율 (10개 요청 단위, %)
           </div>
+          <p className="mb-3 text-xs text-slate-400">
+            취약 환경은 요청이 그대로 서버에 도달, 보안 환경은 WAF가 엣지에서 차단합니다.
+          </p>
           <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={latencyChartData} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
+            <AreaChart data={reachRateData} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
+              <defs>
+                <linearGradient id="vulnGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#ef4444" stopOpacity={0.25} />
+                  <stop offset="95%" stopColor="#ef4444" stopOpacity={0.05} />
+                </linearGradient>
+                <linearGradient id="secureGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.25} />
+                  <stop offset="95%" stopColor="#10b981" stopOpacity={0.05} />
+                </linearGradient>
+              </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
               <XAxis
                 dataKey="req"
@@ -327,32 +351,35 @@ export function AttackCard({
               <YAxis
                 tick={{ fontSize: 10, fill: '#94a3b8' }}
                 tickLine={false}
-                unit="ms"
+                unit="%"
+                domain={[0, 100]}
               />
               <Tooltip
                 contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e2e8f0' }}
-                formatter={(value) => [`${value}ms`]}
+                formatter={(value) => [`${value}%`]}
               />
               <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
-              <Line
+              <Area
                 type="monotone"
-                dataKey="취약환경"
+                dataKey="취약 (서버 도달)"
                 stroke="#ef4444"
                 strokeWidth={1.5}
+                fill="url(#vulnGrad)"
                 dot={false}
                 isAnimationActive={false}
                 connectNulls={false}
               />
-              <Line
+              <Area
                 type="monotone"
-                dataKey="보안환경"
+                dataKey="보안 (WAF 차단)"
                 stroke="#10b981"
                 strokeWidth={1.5}
+                fill="url(#secureGrad)"
                 dot={false}
                 isAnimationActive={false}
                 connectNulls={false}
               />
-            </LineChart>
+            </AreaChart>
           </ResponsiveContainer>
         </div>
       )}
