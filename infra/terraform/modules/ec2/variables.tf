@@ -86,10 +86,22 @@ variable "secrets_kms_key_arn" {
   default     = ""
 }
 
+variable "enable_secrets_access" {
+  description = "Whether to attach the EC2 IAM policy for Secrets Manager access"
+  type        = bool
+  default     = false
+}
+
 variable "data_kms_key_arn" {
   description = "KMS key ARN used for S3 data bucket SSE-KMS access"
   type        = string
   default     = ""
+}
+
+variable "enable_data_kms_access" {
+  description = "Whether to attach the EC2 IAM policy for S3 data KMS usage"
+  type        = bool
+  default     = false
 }
 
 variable "root_volume_encrypted" {

@@ -92,7 +92,9 @@ module "ec2" {
   db_password_secret_name = module.secrets.db_password_secret_name
   jwt_secret_secret_name  = module.secrets.jwt_secret_secret_name
   secrets_kms_key_arn     = module.kms.key_arn
+  enable_secrets_access   = true
   data_kms_key_arn        = module.kms_data.key_arn
+  enable_data_kms_access  = true
   root_volume_encrypted   = true
   root_volume_kms_key_id  = module.kms_ebs.key_arn
   frontend_origin         = var.frontend_origin
