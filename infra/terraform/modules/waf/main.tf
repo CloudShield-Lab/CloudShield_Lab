@@ -41,7 +41,7 @@ resource "aws_wafv2_web_acl" "main" {
                 field_to_match {
                   uri_path {}
                 }
-                text_transformations {
+                text_transformation {
                   priority = 0
                   type     = "NONE"
                 }
