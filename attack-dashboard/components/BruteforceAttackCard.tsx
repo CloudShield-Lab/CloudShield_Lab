@@ -76,7 +76,7 @@ export function BruteforceAttackCard({
     const doSave = () => {
       void (async () => {
         try {
-          const sessionId = crypto.randomUUID();
+          const sessionId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
           await fetch('/api/analysis/save', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
