@@ -86,7 +86,7 @@ jobs:
         working-directory: sentinel-share-frontend
         env:
           STATIC_EXPORT: 'true'
-          NEXT_PUBLIC_API_URL: https://dyfs11nls1dwb.cloudfront.net/api
+          NEXT_PUBLIC_API_URL: ${{ secrets.MANUAL_SECURE_API_URL }}
           NEXT_PUBLIC_ENV_TYPE: 'secure'
         run: npm run build
 
