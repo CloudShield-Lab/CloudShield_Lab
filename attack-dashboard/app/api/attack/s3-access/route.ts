@@ -30,10 +30,15 @@ interface FileItem {
   [key: string]: unknown;
 }
 
+interface PresignedItem {
+  fileName: string;
+  url: string;
+}
+
 interface ChainState {
   token: string | null;
   files: FileItem[];
-  presignedUrl: string | null;
+  presignedItems: PresignedItem[];
 }
 
 function sleep(ms: number) {
@@ -174,8 +179,8 @@ export async function GET(request: NextRequest) {
     try {
       await send({ type: 'start' });
 
-      const vulnState: ChainState = { token: null, files: [], presignedUrl: null };
-      const awsState: ChainState = { token: null, files: [], presignedUrl: null };
+      const vulnState: ChainState = { token: null, files: [], presignedItems: [] };
+      const awsState: ChainState = { token: null, files: [], presignedItems: [] };
 
       // ─── Step 1: Login ───────────────────────────────────────────────
       const attempt1 = 1;
@@ -238,64 +243,86 @@ export async function GET(request: NextRequest) {
       });
       await sleep(500);
 
-      // ─── Step 3: Get presigned download URL ──────────────────────────
+      // ─── Step 3: Get presigned download URLs (ALL files) ─────────────
       const attempt3 = 3;
       await send({ type: 'chain_step', step: 3, status: 'running' });
-      const vulnFile = vulnState.files[0];
+
+      // 취약 환경: 모든 파일에 대해 presigned URL 획득
+      const vulnDownloads = vulnState.token && vulnState.files.length > 0
+        ? await Promise.all(vulnState.files.map((f, i) =>
+            getPresignedUrl(VULNERABLE_URL, f.id, vulnState.token!, attempt3 + i)
+          ))
+        : [{ attempt: attempt3, status: 0, latency: 0, blocked: false, label: 'NO FILES FOUND', presignedUrl: null }];
+
+      vulnState.presignedItems = vulnDownloads
+        .map((r, i) => ({ result: r, file: vulnState.files[i] }))
+        .filter(({ result }) => result.presignedUrl)
+        .map(({ result, file }) => ({
+          fileName: file?.original_name || file?.id || 'unknown',
+          url: result.presignedUrl!,
+        }));
+
+      // 보안 환경: 첫 번째 파일만 (WAF/Private S3 차단 확인용)
       const awsFile = awsState.files[0];
+      const awsDownload = AWS_URL && awsState.token && awsFile
+        ? await getPresignedUrl(AWS_URL, awsFile.id, awsState.token, attempt3)
+        : { attempt: attempt3, status: -1, latency: 0, blocked: false, label: 'SKIPPED', presignedUrl: null };
+      awsState.presignedItems = awsDownload.presignedUrl
+        ? [{ fileName: awsFile?.original_name || awsFile?.id || 'unknown', url: awsDownload.presignedUrl }]
+        : [];
 
-      const [vulnDownload, awsDownload] = await Promise.all([
-        vulnState.token && vulnFile
-          ? getPresignedUrl(VULNERABLE_URL, vulnFile.id, vulnState.token, attempt3)
-          : Promise.resolve({ attempt: attempt3, status: 0, latency: 0, blocked: false, label: 'NO FILES FOUND', presignedUrl: null }),
-        AWS_URL && awsState.token && awsFile
-          ? getPresignedUrl(AWS_URL, awsFile.id, awsState.token, attempt3)
-          : Promise.resolve({ attempt: attempt3, status: -1, latency: 0, blocked: false, label: 'SKIPPED', presignedUrl: null }),
-      ]);
-
-      vulnState.presignedUrl = vulnDownload.presignedUrl;
-      awsState.presignedUrl = awsDownload.presignedUrl;
-
-      await sendStage('vulnerable', attempt3, 'app', vulnDownload.status === 200 ? 'passed' : 'failed', 'Presigned URL 요청', 'Bearer JWT로 /api/files/:id/download 호출 — 서명된 S3 URL 발급', 'warning');
-      await sendStage('vulnerable', attempt3, 's3', vulnDownload.status === 200 ? 'passed' : 'failed', vulnDownload.status === 200 ? 'Presigned URL 발급됨' : 'URL 발급 실패', vulnDownload.status === 200 ? '취약 환경 S3에서 5분 유효 presigned URL이 반환되었습니다.' : '발급 실패', vulnDownload.status === 200 ? 'warning' : 'warning');
+      await sendStage('vulnerable', attempt3, 'app', vulnState.presignedItems.length > 0 ? 'passed' : 'failed', 'Presigned URL 요청', `${vulnState.presignedItems.length}개 파일 서명 URL 발급 완료`, 'warning');
+      await sendStage('vulnerable', attempt3, 's3', vulnState.presignedItems.length > 0 ? 'passed' : 'failed', vulnState.presignedItems.length > 0 ? 'Presigned URL 발급됨' : 'URL 발급 실패', '취약 환경 S3에서 5분 유효 presigned URL이 반환되었습니다.', 'warning');
       await sendStage('aws', attempt3, 'app', awsDownload.status === 200 ? 'passed' : 'failed', 'Presigned URL 요청', 'Bearer JWT로 /api/files/:id/download 호출 — 서명된 S3 URL 발급', 'warning');
       await sendStage('aws', attempt3, 's3', awsDownload.status === 200 ? 'passed' : 'failed', awsDownload.status === 200 ? 'Presigned URL 발급됨' : 'URL 발급 실패', awsDownload.status === 200 ? '보안 환경 S3에서 5분 유효 presigned URL이 반환되었습니다.' : '발급 실패', 'warning');
 
-      await send({ type: 'result', env: 'vulnerable', attempt: vulnDownload.attempt, status: vulnDownload.status, latency: vulnDownload.latency, blocked: vulnDownload.blocked, label: vulnDownload.label });
+      for (const r of vulnDownloads) {
+        await send({ type: 'result', env: 'vulnerable', attempt: r.attempt, status: r.status, latency: r.latency, blocked: r.blocked, label: r.label });
+      }
       await send({ type: 'result', env: 'aws', attempt: awsDownload.attempt, status: awsDownload.status, latency: awsDownload.latency, blocked: awsDownload.blocked, label: awsDownload.label });
       await send({
         type: 'chain_step', step: 3,
-        status: vulnDownload.status === 200 ? 'success' : 'failed',
-        detail: vulnDownload.status === 200
-          ? `파일: ${vulnFile ? (vulnFile.original_name || vulnFile.id) : '알 수 없음'} — 서명 URL 획득`
-          : `Presigned URL 발급 실패 (HTTP ${vulnDownload.status})`,
+        status: vulnState.presignedItems.length > 0 ? 'success' : 'failed',
+        detail: vulnState.presignedItems.length > 0
+          ? `${vulnState.presignedItems.map((p) => p.fileName).join(', ')} — 서명 URL 획득`
+          : `Presigned URL 발급 실패`,
       });
       await sleep(500);
 
-      // ─── Step 4: Direct S3 access (signature stripped) ───────────────
-      const attempt4 = 4;
+      // ─── Step 4: Direct S3 access (signature stripped, ALL files) ────
+      const attempt4Base = attempt3 + vulnDownloads.length;
       await send({ type: 'chain_step', step: 4, status: 'running' });
-      const [vulnDirect, awsDirect] = await Promise.all([
-        vulnState.presignedUrl
-          ? directS3Access(vulnState.presignedUrl, attempt4)
-          : Promise.resolve({ attempt: attempt4, status: 0, latency: 0, blocked: false, label: 'NO PRESIGNED URL', url: undefined }),
-        awsState.presignedUrl
-          ? directS3Access(awsState.presignedUrl, attempt4)
-          : Promise.resolve({ attempt: attempt4, status: -1, latency: 0, blocked: false, label: 'SKIPPED', url: undefined }),
-      ]);
 
-      await sendStage('vulnerable', attempt4, 's3', vulnDirect.status === 200 ? 'success' : 'failed', '서명 제거 후 직접 접근', vulnDirect.status === 200 ? '⚠ 서명 없이 S3 직접 접근 성공 — 버킷이 퍼블릭 상태입니다.' : '직접 접근 실패', vulnDirect.status === 200 ? 'critical' : 'warning');
-      await sendStage('aws', attempt4, 's3', awsDirect.blocked ? 'blocked' : awsDirect.status === 200 ? 'success' : 'failed', awsDirect.blocked ? 'S3 직접 접근 차단' : '직접 접근 시도', awsDirect.blocked ? '프라이빗 버킷 — 서명 없는 접근이 차단되었습니다.' : awsDirect.status === 200 ? '보안 환경에서 직접 접근이 허용되었습니다.' : '직접 접근 실패', awsDirect.blocked ? 'success' : 'critical');
+      // 취약 환경: 모든 presigned URL에 대해 서명 제거 후 직접 접근
+      const vulnDirectResults = vulnState.presignedItems.length > 0
+        ? await Promise.all(vulnState.presignedItems.map((item, i) =>
+            directS3Access(item.url, attempt4Base + i).then((r) => ({ ...r, fileName: item.fileName }))
+          ))
+        : [{ attempt: attempt4Base, status: 0, latency: 0, blocked: false, label: 'NO PRESIGNED URL', url: undefined, fileName: '' }];
 
-      await send({ type: 'result', env: 'vulnerable', attempt: vulnDirect.attempt, status: vulnDirect.status, latency: vulnDirect.latency, blocked: vulnDirect.blocked, label: vulnDirect.label, url: vulnDirect.url });
+      // 보안 환경: 첫 번째 파일만
+      const awsDirect = awsState.presignedItems[0]
+        ? await directS3Access(awsState.presignedItems[0].url, attempt4Base)
+        : { attempt: attempt4Base, status: -1, latency: 0, blocked: false, label: 'SKIPPED', url: undefined };
+
+      const vulnSuccessFiles = vulnDirectResults
+        .filter((r) => r.status === 200 && r.url)
+        .map((r) => ({ fileName: r.fileName, directUrl: r.url! }));
+
+      await sendStage('vulnerable', attempt4Base, 's3', vulnSuccessFiles.length > 0 ? 'success' : 'failed', '서명 제거 후 직접 접근', vulnSuccessFiles.length > 0 ? `⚠ ${vulnSuccessFiles.length}개 파일 S3 직접 접근 성공 — 버킷이 퍼블릭 상태입니다.` : '직접 접근 실패', vulnSuccessFiles.length > 0 ? 'critical' : 'warning');
+      await sendStage('aws', attempt4Base, 's3', awsDirect.blocked ? 'blocked' : awsDirect.status === 200 ? 'success' : 'failed', awsDirect.blocked ? 'S3 직접 접근 차단' : '직접 접근 시도', awsDirect.blocked ? '프라이빗 버킷 — 서명 없는 접근이 차단되었습니다.' : awsDirect.status === 200 ? '보안 환경에서 직접 접근이 허용되었습니다.' : '직접 접근 실패', awsDirect.blocked ? 'success' : 'critical');
+
+      for (const r of vulnDirectResults) {
+        await send({ type: 'result', env: 'vulnerable', attempt: r.attempt, status: r.status, latency: r.latency, blocked: r.blocked, label: r.label, url: r.url });
+      }
       await send({ type: 'result', env: 'aws', attempt: awsDirect.attempt, status: awsDirect.status, latency: awsDirect.latency, blocked: awsDirect.blocked, label: awsDirect.label, url: awsDirect.url });
       await send({
         type: 'chain_step', step: 4,
-        status: vulnDirect.status === 200 ? 'success' : 'failed',
-        directUrl: vulnDirect.url || null,
-        detail: vulnDirect.status === 200
-          ? '⚠ 서명 없이 S3 직접 접근 성공 — 버킷이 퍼블릭 상태'
-          : `직접 접근 차단 (HTTP ${vulnDirect.status})`,
+        status: vulnSuccessFiles.length > 0 ? 'success' : 'failed',
+        directFiles: vulnSuccessFiles,
+        detail: vulnSuccessFiles.length > 0
+          ? `⚠ 서명 없이 S3 직접 접근 성공 (${vulnSuccessFiles.length}개 파일)`
+          : `직접 접근 차단`,
       });
 
       await send({ type: 'complete' });

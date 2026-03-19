@@ -14,10 +14,15 @@ function computeMetrics(results: AttackResult[]): SessionMetrics {
 
 type StepStatus = 'pending' | 'running' | 'success' | 'failed';
 
+interface DirectFile {
+  fileName: string;
+  directUrl: string;
+}
+
 interface StepState {
   status: StepStatus;
   detail?: string;
-  directUrl?: string;
+  directFiles?: DirectFile[];
 }
 
 const STEP_META = [
@@ -133,7 +138,7 @@ export function S3ExfiltrationCard({ index, title, description, vulnNote, awsNot
         updateStep(stepIdx, {
           status: event.status as StepStatus,
           detail: (event.detail as string) || undefined,
-          directUrl: (event.directUrl as string) || undefined,
+          directFiles: (event.directFiles as DirectFile[]) || undefined,
         });
       } else if (event.type === 'result') {
         const result: AttackResult = {
@@ -342,18 +347,23 @@ export function S3ExfiltrationCard({ index, title, description, vulnNote, awsNot
                       <p className="mt-1 font-mono text-xs text-slate-600">{step.detail}</p>
                     )}
 
-                    {/* Step 4 success: danger banner */}
-                    {i === 3 && step.status === 'success' && step.directUrl && (
-                      <a
-                        href={step.directUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="mt-2 flex items-center gap-2 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 transition-colors hover:bg-red-100"
-                      >
-                        <span>⚠</span>
-                        <span>서명 없이 S3 직접 접근 성공 — 클릭하여 파일 확인</span>
-                        <span className="ml-auto font-normal text-red-400 underline">열기 →</span>
-                      </a>
+                    {/* Step 4 success: danger banners (one per file) */}
+                    {i === 3 && step.status === 'success' && step.directFiles && step.directFiles.length > 0 && (
+                      <div className="mt-2 space-y-1.5">
+                        {step.directFiles.map((file, fi) => (
+                          <a
+                            key={fi}
+                            href={file.directUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 transition-colors hover:bg-red-100"
+                          >
+                            <span>⚠</span>
+                            <span className="min-w-0 truncate">{file.fileName}</span>
+                            <span className="ml-auto flex-shrink-0 font-normal text-red-400 underline">열기 →</span>
+                          </a>
+                        ))}
+                      </div>
                     )}
                   </div>
                 </div>
