@@ -26,6 +26,7 @@ type Severity = 'info' | 'warning' | 'critical' | 'success';
 
 interface FileItem {
   id: string;
+  original_name?: string;
   [key: string]: unknown;
 }
 
@@ -178,6 +179,7 @@ export async function GET(request: NextRequest) {
 
       // ─── Step 1: Login ───────────────────────────────────────────────
       const attempt1 = 1;
+      await send({ type: 'chain_step', step: 1, status: 'running' });
       await sendStage('vulnerable', attempt1, 'attacker', 'reached', '공격 유입', `${VICTIM_EMAIL} 계정으로 취약 환경에 로그인을 시도합니다.`, 'critical');
       await sendStage('aws', attempt1, 'attacker', 'reached', '공격 유입', `동일 계정으로 보안 환경에도 로그인을 시도합니다.`, 'critical');
       await sendStage('aws', attempt1, 'cloudfront', 'passed', 'CloudFront 전달', '로그인 요청이 엣지 계층을 통과합니다.', 'info');
@@ -200,10 +202,16 @@ export async function GET(request: NextRequest) {
 
       await send({ type: 'result', env: 'vulnerable', attempt: vulnLogin.attempt, status: vulnLogin.status, latency: vulnLogin.latency, blocked: vulnLogin.blocked, label: vulnLogin.label });
       await send({ type: 'result', env: 'aws', attempt: awsLogin.attempt, status: awsLogin.status, latency: awsLogin.latency, blocked: awsLogin.blocked, label: awsLogin.label });
+      await send({
+        type: 'chain_step', step: 1,
+        status: vulnLogin.status === 200 ? 'success' : 'failed',
+        detail: vulnLogin.status === 200 ? `JWT 획득 완료 (${VICTIM_EMAIL})` : `로그인 실패 (HTTP ${vulnLogin.status})`,
+      });
       await sleep(500);
 
       // ─── Step 2: File list ───────────────────────────────────────────
       const attempt2 = 2;
+      await send({ type: 'chain_step', step: 2, status: 'running' });
       const [vulnFiles, awsFiles] = await Promise.all([
         vulnState.token
           ? getFileList(VULNERABLE_URL, vulnState.token, attempt2)
@@ -221,10 +229,18 @@ export async function GET(request: NextRequest) {
 
       await send({ type: 'result', env: 'vulnerable', attempt: vulnFiles.attempt, status: vulnFiles.status, latency: vulnFiles.latency, blocked: vulnFiles.blocked, label: vulnFiles.label });
       await send({ type: 'result', env: 'aws', attempt: awsFiles.attempt, status: awsFiles.status, latency: awsFiles.latency, blocked: awsFiles.blocked, label: awsFiles.label });
+      await send({
+        type: 'chain_step', step: 2,
+        status: vulnFiles.status === 200 ? 'success' : 'failed',
+        detail: vulnFiles.status === 200
+          ? vulnFiles.files.map((f) => f.original_name || f.id).join(', ') || '(파일 없음)'
+          : `파일 목록 조회 실패 (HTTP ${vulnFiles.status})`,
+      });
       await sleep(500);
 
       // ─── Step 3: Get presigned download URL ──────────────────────────
       const attempt3 = 3;
+      await send({ type: 'chain_step', step: 3, status: 'running' });
       const vulnFile = vulnState.files[0];
       const awsFile = awsState.files[0];
 
@@ -247,10 +263,18 @@ export async function GET(request: NextRequest) {
 
       await send({ type: 'result', env: 'vulnerable', attempt: vulnDownload.attempt, status: vulnDownload.status, latency: vulnDownload.latency, blocked: vulnDownload.blocked, label: vulnDownload.label });
       await send({ type: 'result', env: 'aws', attempt: awsDownload.attempt, status: awsDownload.status, latency: awsDownload.latency, blocked: awsDownload.blocked, label: awsDownload.label });
+      await send({
+        type: 'chain_step', step: 3,
+        status: vulnDownload.status === 200 ? 'success' : 'failed',
+        detail: vulnDownload.status === 200
+          ? `파일: ${vulnFile ? (vulnFile.original_name || vulnFile.id) : '알 수 없음'} — 서명 URL 획득`
+          : `Presigned URL 발급 실패 (HTTP ${vulnDownload.status})`,
+      });
       await sleep(500);
 
       // ─── Step 4: Direct S3 access (signature stripped) ───────────────
       const attempt4 = 4;
+      await send({ type: 'chain_step', step: 4, status: 'running' });
       const [vulnDirect, awsDirect] = await Promise.all([
         vulnState.presignedUrl
           ? directS3Access(vulnState.presignedUrl, attempt4)
@@ -265,6 +289,14 @@ export async function GET(request: NextRequest) {
 
       await send({ type: 'result', env: 'vulnerable', attempt: vulnDirect.attempt, status: vulnDirect.status, latency: vulnDirect.latency, blocked: vulnDirect.blocked, label: vulnDirect.label, url: vulnDirect.url });
       await send({ type: 'result', env: 'aws', attempt: awsDirect.attempt, status: awsDirect.status, latency: awsDirect.latency, blocked: awsDirect.blocked, label: awsDirect.label, url: awsDirect.url });
+      await send({
+        type: 'chain_step', step: 4,
+        status: vulnDirect.status === 200 ? 'success' : 'failed',
+        directUrl: vulnDirect.url || null,
+        detail: vulnDirect.status === 200
+          ? '⚠ 서명 없이 S3 직접 접근 성공 — 버킷이 퍼블릭 상태'
+          : `직접 접근 차단 (HTTP ${vulnDirect.status})`,
+      });
 
       await send({ type: 'complete' });
     } catch (e) {
