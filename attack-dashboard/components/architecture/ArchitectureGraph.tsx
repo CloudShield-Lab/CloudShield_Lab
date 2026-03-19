@@ -21,9 +21,9 @@ const positions: Record<ArchitectureStage, { x: number; y: number }> = {
   cloudfront: { x: 214, y: 20 },
   waf: { x: 406, y: 20 },
   alb: { x: 0, y: 0 },
-  ecs: { x: 118, y: 144 },
-  app: { x: 310, y: 144 },
-  s3: { x: 502, y: 144 },
+  ecs: { x: 118, y: 176 },
+  app: { x: 310, y: 176 },
+  s3: { x: 502, y: 176 },
   rds: { x: 0, y: 0 },
   redis: { x: 0, y: 0 },
 };
@@ -153,14 +153,14 @@ export function ArchitectureGraph({ env, nodes, lastEvent }: Props) {
         </div>
       </div>
 
-      <div className="h-[320px] overflow-hidden rounded-2xl border border-slate-300 bg-[linear-gradient(180deg,rgba(248,250,252,0.98),rgba(255,255,255,1)),radial-gradient(circle_at_top,rgba(203,213,225,0.45),transparent_58%)] shadow-inner">
+      <div className="h-[360px] overflow-hidden rounded-2xl border border-slate-300 bg-[linear-gradient(180deg,rgba(248,250,252,0.98),rgba(255,255,255,1)),radial-gradient(circle_at_top,rgba(203,213,225,0.45),transparent_58%)] shadow-inner">
         <ReactFlow
           nodes={graphNodes}
           edges={edges}
           nodeTypes={nodeTypes}
           fitView
-          fitViewOptions={{ padding: 0.05, minZoom: 0.84, maxZoom: 1.24 }}
-          defaultViewport={{ x: 0, y: 0, zoom: 1.02 }}
+          fitViewOptions={{ padding: 0.08, minZoom: 0.8, maxZoom: 1.2 }}
+          defaultViewport={{ x: 0, y: 0, zoom: 0.98 }}
           nodesDraggable={false}
           nodesConnectable={false}
           elementsSelectable={false}
