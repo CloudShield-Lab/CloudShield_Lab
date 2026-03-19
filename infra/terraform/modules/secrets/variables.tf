@@ -19,3 +19,15 @@ variable "jwt_secret" {
   type        = string
   sensitive   = true
 }
+
+variable "db_password_secret_name" {
+  description = "Secret name to use for the database password"
+  type        = string
+  default     = ""
+}
+
+variable "jwt_secret_secret_name" {
+  description = "Secret name to use for the JWT secret"
+  type        = string
+  default     = ""
+}

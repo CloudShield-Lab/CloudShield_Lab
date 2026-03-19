@@ -8,7 +8,7 @@ terraform {
 }
 
 resource "aws_secretsmanager_secret" "db_password" {
-  name                    = "sentinelshare/${var.env_name}/db-password"
+  name                    = var.db_password_secret_name != "" ? var.db_password_secret_name : "sentinelshare/${var.env_name}/db-password"
   description             = "Database password for SentinelShare ${var.env_name}"
   kms_key_id              = var.kms_key_arn
   recovery_window_in_days = 7
@@ -26,7 +26,7 @@ resource "aws_secretsmanager_secret_version" "db_password" {
 }
 
 resource "aws_secretsmanager_secret" "jwt_secret" {
-  name                    = "sentinelshare/${var.env_name}/jwt-secret"
+  name                    = var.jwt_secret_secret_name != "" ? var.jwt_secret_secret_name : "sentinelshare/${var.env_name}/jwt-secret"
   description             = "JWT secret for SentinelShare ${var.env_name}"
   kms_key_id              = var.kms_key_arn
   recovery_window_in_days = 7
