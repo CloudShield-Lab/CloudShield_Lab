@@ -16,12 +16,6 @@ variable "jwt_secret" {
   sensitive   = true
 }
 
-variable "frontend_origin" {
-  description = "Secure frontend origin URL for backend CORS"
-  type        = string
-  default     = ""
-}
-
 variable "wazuh_manager_ip" {
   description = "Wazuh 매니저 서버 IP (비어있으면 에이전트 미설치)"
   type        = string

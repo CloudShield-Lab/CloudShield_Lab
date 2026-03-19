@@ -97,6 +97,5 @@ module "ec2" {
   enable_data_kms_access  = true
   root_volume_encrypted   = true
   root_volume_kms_key_id  = module.kms_ebs.key_arn
-  frontend_origin         = var.frontend_origin
   wazuh_manager_ip        = var.wazuh_manager_ip
 }

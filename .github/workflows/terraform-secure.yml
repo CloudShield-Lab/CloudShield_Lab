@@ -57,7 +57,6 @@ jobs:
         if: github.event.inputs.action == 'apply'
         working-directory: ${{ env.TF_WORKING_DIR }}
         env:
-          TF_VAR_frontend_origin: ${{ secrets.TF_SECURE_CF_URL }}
           TF_VAR_db_password: ${{ secrets.TF_DB_PASSWORD }}
           TF_VAR_jwt_secret: ${{ secrets.TF_JWT_SECRET }}
         run: terraform plan -input=false -out=tfplan
@@ -66,7 +65,6 @@ jobs:
         if: github.event.inputs.action == 'apply'
         working-directory: ${{ env.TF_WORKING_DIR }}
         env:
-          TF_VAR_frontend_origin: ${{ secrets.TF_SECURE_CF_URL }}
           TF_VAR_db_password: ${{ secrets.TF_DB_PASSWORD }}
           TF_VAR_jwt_secret: ${{ secrets.TF_JWT_SECRET }}
         run: terraform apply -input=false -auto-approve tfplan
@@ -75,7 +73,6 @@ jobs:
         if: failure() && github.event.inputs.action == 'apply'
         working-directory: ${{ env.TF_WORKING_DIR }}
         env:
-          TF_VAR_frontend_origin: ${{ secrets.TF_SECURE_CF_URL }}
           TF_VAR_db_password: ${{ secrets.TF_DB_PASSWORD }}
           TF_VAR_jwt_secret: ${{ secrets.TF_JWT_SECRET }}
         run: terraform destroy -input=false -auto-approve
@@ -84,7 +81,6 @@ jobs:
         if: github.event.inputs.action == 'destroy'
         working-directory: ${{ env.TF_WORKING_DIR }}
         env:
-          TF_VAR_frontend_origin: ${{ secrets.TF_SECURE_CF_URL }}
           TF_VAR_db_password: ${{ secrets.TF_DB_PASSWORD }}
           TF_VAR_jwt_secret: ${{ secrets.TF_JWT_SECRET }}
         run: terraform destroy -input=false -auto-approve
