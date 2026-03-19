@@ -124,8 +124,9 @@ jobs:
           EC2_ID=$(terraform output -raw ec2_instance_id)
           echo "EC2 ID: $EC2_ID — user_data 완료 대기 중..."
 
-          for i in $(seq 1 40); do
-            echo "[$i/40] 상태 확인 중..."
+          USER_DATA_DONE=false
+          for i in $(seq 1 80); do
+            echo "[$i/80] 상태 확인 중..."
 
             COMMAND_ID=$(aws ssm send-command \
               --instance-ids "$EC2_ID" \
@@ -150,12 +151,18 @@ jobs:
 
             if echo "$RESULT" | grep -q "DONE"; then
               echo "✅ user_data 완료 확인!"
+              USER_DATA_DONE=true
               break
             fi
 
             echo "  → 진행 중... (${RESULT:-PENDING})"
             sleep 15
           done
+
+          if [ "$USER_DATA_DONE" = "false" ]; then
+            echo "❌ user_data 타임아웃 (최대 33분 초과) — EC2 초기화 실패"
+            exit 1
+          fi
 
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids "$EC2_ID" \
