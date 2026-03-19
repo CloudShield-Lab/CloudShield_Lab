@@ -27,8 +27,6 @@ module "s3" {
   source              = "../../modules/s3"
   env_name            = "vul"
   block_public_access = false
-  ec2_role_arn        = module.ec2.role_arn
-  cors_origin         = "http://${module.ec2.elastic_ip}:3000"
 }
 
 module "ec2" {
@@ -42,6 +40,6 @@ module "ec2" {
   files_bucket_name   = module.s3.files_bucket_name
   db_password         = var.db_password
   jwt_secret          = var.jwt_secret
-  cors_origin         = "http://${module.s3.frontend_website_endpoint}"
+  frontend_origin     = "http://${module.s3.frontend_website_endpoint}"
   wazuh_manager_ip    = var.wazuh_manager_ip
 }

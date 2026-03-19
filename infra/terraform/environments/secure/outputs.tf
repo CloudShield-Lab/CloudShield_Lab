@@ -37,3 +37,18 @@ output "frontend_url" {
   description = "Frontend URL (via CloudFront)"
   value       = "https://${module.cloudfront.cloudfront_domain}"
 }
+
+output "secrets_kms_key_arn" {
+  description = "KMS key ARN for secure environment application secrets"
+  value       = module.kms.key_arn
+}
+
+output "db_password_secret_name" {
+  description = "Secrets Manager secret name for secure DB password"
+  value       = module.secrets.db_password_secret_name
+}
+
+output "jwt_secret_secret_name" {
+  description = "Secrets Manager secret name for secure JWT secret"
+  value       = module.secrets.jwt_secret_secret_name
+}

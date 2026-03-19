@@ -10,12 +10,13 @@ variable "block_public_access" {
 }
 
 variable "ec2_role_arn" {
-  description = "EC2 IAM role ARN (for secure env bucket policy)"
+  description = "Optional EC2 IAM role ARN (used only when a private bucket policy is explicitly enabled)"
   type        = string
   default     = ""
 }
 
 variable "cors_origin" {
-  description = "CORS allowed origin for S3 bucket"
+  description = "Optional CORS allowed origin for files bucket"
   type        = string
+  default     = ""
 }

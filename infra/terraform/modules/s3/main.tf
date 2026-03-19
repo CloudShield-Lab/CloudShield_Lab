@@ -50,7 +50,7 @@ resource "aws_s3_bucket_policy" "files_public" {
 
 # 보안 환경: EC2 IAM Role만 허용
 resource "aws_s3_bucket_policy" "files_private" {
-  count  = var.block_public_access ? 1 : 0
+  count  = var.block_public_access && var.ec2_role_arn != "" ? 1 : 0
   bucket = aws_s3_bucket.files.id
 
   policy = jsonencode({
@@ -78,6 +78,7 @@ resource "aws_s3_bucket_policy" "files_private" {
 }
 
 resource "aws_s3_bucket_cors_configuration" "files" {
+  count  = var.cors_origin != "" ? 1 : 0
   bucket = aws_s3_bucket.files.id
 
   cors_rule {

@@ -58,16 +58,36 @@ variable "db_password" {
   description = "PostgreSQL database password"
   type        = string
   sensitive   = true
+  default     = ""
 }
 
 variable "jwt_secret" {
   description = "JWT signing secret"
   type        = string
   sensitive   = true
+  default     = ""
 }
 
-variable "cors_origin" {
-  description = "CORS allowed origin URL"
+variable "db_password_secret_name" {
+  description = "Secrets Manager secret name for the database password"
+  type        = string
+  default     = ""
+}
+
+variable "jwt_secret_secret_name" {
+  description = "Secrets Manager secret name for the JWT secret"
+  type        = string
+  default     = ""
+}
+
+variable "secrets_kms_key_arn" {
+  description = "KMS key ARN used to encrypt Secrets Manager secrets"
+  type        = string
+  default     = ""
+}
+
+variable "frontend_origin" {
+  description = "Frontend origin URL allowed by backend CORS"
   type        = string
 }
 
