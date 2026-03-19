@@ -1,4 +1,4 @@
-import { getToken } from './auth';
+import { getToken, clearSession } from './auth';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
 
@@ -22,21 +22,35 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     headers['Content-Type'] = 'application/json';
   }
 
-  const res = await fetch(`${BASE_URL}${path}`, {
-    method,
-    headers,
-    body: isFormData
-      ? (body as FormData)
-      : body
-      ? JSON.stringify(body)
-      : undefined,
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${BASE_URL}${path}`, {
+      method,
+      headers,
+      body: isFormData
+        ? (body as FormData)
+        : body
+        ? JSON.stringify(body)
+        : undefined,
+    });
+  } catch {
+    throw new Error('백엔드 서버에 연결할 수 없습니다. 서버가 실행 중인지 확인해주세요.');
+  }
+
+  const contentType = res.headers.get('Content-Type') ?? '';
+  if (!contentType.includes('application/json')) {
+    throw new Error(`API 서버에 연결할 수 없습니다. (${res.status} ${res.statusText})`);
+  }
 
   const data = await res.json();
 
   if (!res.ok) {
     const d = data as { error?: string; errors?: { msg: string }[] };
     const message = d.error ?? d.errors?.map((e) => e.msg).join(', ') ?? 'Request failed';
+    if (res.status === 401) {
+      clearSession();
+      window.location.href = '/login';
+    }
     throw new Error(message);
   }
 

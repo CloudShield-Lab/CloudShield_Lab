@@ -13,14 +13,15 @@ const severityTone = {
 interface Props {
   events: AttackSimulationEvent[];
   compact?: boolean;
+  title?: string;
 }
 
-export function EventTimeline({ events, compact = false }: Props) {
+export function EventTimeline({ events, compact = false, title = '이벤트 타임라인' }: Props) {
   return (
     <section className={`rounded-2xl border border-slate-200 bg-white ${compact ? 'p-3' : 'p-5'} shadow-[0_14px_36px_rgba(15,23,42,0.05)]`}>
       <div className={`flex items-center justify-between ${compact ? 'mb-3' : 'mb-4'}`}>
         <div>
-          <h2 className="text-lg font-semibold text-slate-900">이벤트 타임라인</h2>
+          <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
           <p className="text-sm text-slate-500">공격 진행 중 생성된 이벤트를 시간 순서대로 보여줍니다.</p>
         </div>
         <span className="font-mono text-xs text-slate-500">{events.length}개 이벤트</span>

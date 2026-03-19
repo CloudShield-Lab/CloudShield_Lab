@@ -103,13 +103,21 @@ export function applySimulationEvent(
   states: Record<ArchitectureEnvironment, ArchitectureNodeState[]>,
   event: AttackSimulationEvent,
 ) {
+  const isTerminal = event.status === 'blocked' || event.status === 'failed';
+  const eventStageIndex = STAGES.indexOf(event.stage);
+
   return {
     ...states,
-    [event.env]: states[event.env].map((node) =>
-      node.stage === event.stage
-        ? { ...node, status: event.status, lastEventId: event.id }
-        : node,
-    ),
+    [event.env]: states[event.env].map((node) => {
+      if (node.stage === event.stage) {
+        return { ...node, status: event.status, lastEventId: event.id };
+      }
+      // blocked/failed 노드 이후의 downstream 노드를 idle로 초기화
+      if (isTerminal && STAGES.indexOf(node.stage) > eventStageIndex) {
+        return { ...node, status: 'idle' };
+      }
+      return node;
+    }),
   };
 }
 
@@ -147,184 +155,6 @@ function createEvent(
     offsetMs: 0,
     severity,
   };
-}
-
-function isSuccessfulS3Reach(status: number) {
-  return status > 0 && status !== 403;
-}
-
-export function mapAttackResultToArchitectureEvents(
-  endpoint: ScenarioKey,
-  event: Extract<AttackEvent, { type: 'result' }>,
-): AttackSimulationEvent[] {
-  const env = mapEnvironment(event.env);
-  const suffix = `${event.attempt}-${event.status}-${event.blocked ? 'b' : 'p'}`;
-
-  if (env === 'vulnerable') {
-    const events: AttackSimulationEvent[] = [
-      createEvent(
-        endpoint,
-        env,
-        'attacker',
-        'reached',
-        '공격 유입',
-        '공격 요청이 취약 환경으로 유입되었습니다.',
-        'critical',
-        `${suffix}-attacker`,
-      ),
-      createEvent(
-        endpoint,
-        env,
-        'ecs',
-        event.status > 0 ? 'reached' : 'failed',
-        event.status > 0 ? 'EC2 도달' : 'EC2 도달 실패',
-        event.status > 0
-          ? '공격 요청이 애플리케이션 호스트 계층에 도달했습니다.'
-          : '호스트 계층 이전에서 연결이 실패했습니다.',
-        event.status > 0 ? 'critical' : 'warning',
-        `${suffix}-ec2`,
-      ),
-    ];
-
-    if (endpoint === 's3-access') {
-      events.push(
-        createEvent(
-          endpoint,
-          env,
-          'app',
-          event.status > 0 ? 'passed' : 'failed',
-          'Service Logic 경유',
-          '스토리지 접근 요청이 서비스 로직을 통과했습니다.',
-          'warning',
-          `${suffix}-app`,
-        ),
-      );
-
-      if (isSuccessfulS3Reach(event.status)) {
-        events.push(
-          createEvent(
-            endpoint,
-            env,
-            's3',
-            'success',
-            'S3 도달',
-            event.label || '취약 환경에서 S3 접근이 허용되었습니다.',
-            'critical',
-            `${suffix}-s3`,
-          ),
-        );
-      }
-    } else {
-      events.push(
-        createEvent(
-          endpoint,
-          env,
-          'app',
-          event.status > 0 ? 'passed' : 'failed',
-          event.status === 200 ? '서비스 로직 성공 응답' : '서비스 로직 도달',
-          event.label || '취약 환경에서 서비스 로직이 요청을 처리했습니다.',
-          event.status === 200 ? 'critical' : 'warning',
-          `${suffix}-app`,
-        ),
-      );
-    }
-
-    return events;
-  }
-
-  const secureEvents: AttackSimulationEvent[] = [
-    createEvent(
-      endpoint,
-      env,
-      'attacker',
-      'reached',
-      '공격 유입',
-      '동일한 공격 요청이 보안 환경으로도 유입되었습니다.',
-      'critical',
-      `${suffix}-attacker`,
-    ),
-    createEvent(
-      endpoint,
-      env,
-      'cloudfront',
-      'passed',
-      'CloudFront 전달',
-      '보안 환경은 요청을 엣지 계층에서 먼저 처리합니다.',
-      'info',
-      `${suffix}-cloudfront`,
-    ),
-  ];
-
-  if (event.blocked) {
-    secureEvents.push(
-      createEvent(
-        endpoint,
-        env,
-        'waf',
-        'blocked',
-        'WAF 차단',
-        event.label || '보안 환경의 WAF가 요청을 차단했습니다.',
-        'success',
-        `${suffix}-waf`,
-      ),
-    );
-    return secureEvents;
-  }
-
-  secureEvents.push(
-    createEvent(
-      endpoint,
-      env,
-      'waf',
-      'passed',
-      'WAF 통과',
-      '이 요청은 WAF 정책을 통과했습니다.',
-      'warning',
-      `${suffix}-waf`,
-    ),
-  );
-
-  if (event.status > 0) {
-    secureEvents.push(
-      createEvent(
-        endpoint,
-        env,
-        'ecs',
-        'reached',
-        'EC2 도달',
-        '차단되지 않은 요청이 호스트 계층에 도달했습니다.',
-        'warning',
-        `${suffix}-ec2`,
-      ),
-      createEvent(
-        endpoint,
-        env,
-        'app',
-        'passed',
-        'Service Logic 처리',
-        event.label || '보안 환경에서도 서비스 로직까지 요청이 도달했습니다.',
-        'warning',
-        `${suffix}-app`,
-      ),
-    );
-
-    if (endpoint === 's3-access' && isSuccessfulS3Reach(event.status)) {
-      secureEvents.push(
-        createEvent(
-          endpoint,
-          env,
-          's3',
-          'success',
-          'S3 도달',
-          '보안 환경에서도 스토리지 접근이 허용되었습니다.',
-          'critical',
-          `${suffix}-s3`,
-        ),
-      );
-    }
-  }
-
-  return secureEvents;
 }
 
 export function mapStageEventToArchitectureEvent(

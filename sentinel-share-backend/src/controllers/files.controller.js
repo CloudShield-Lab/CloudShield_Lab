@@ -11,13 +11,6 @@ const env = require('../config/env');
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: env.MAX_FILE_SIZE_BYTES },
-  fileFilter: (_req, file, cb) => {
-    if (env.ALLOWED_MIME_TYPES.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error(`File type not allowed: ${file.mimetype}`));
-    }
-  },
 });
 
 const shareValidation = [
