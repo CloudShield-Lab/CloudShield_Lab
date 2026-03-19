@@ -13,7 +13,10 @@ const pool = new Pool({
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000,
   // EC2 co-located PostgreSQL uses self-signed cert — rejectUnauthorized: false
-  ssl: env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  // DB_SSL=true 로 명시하거나 production 환경일 때만 SSL 활성화
+  ssl: (process.env.DB_SSL === 'true' || env.NODE_ENV === 'production')
+    ? { rejectUnauthorized: false }
+    : false,
 });
 
 pool.on('error', (err) => {
