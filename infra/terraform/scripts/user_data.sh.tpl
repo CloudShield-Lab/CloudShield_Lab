@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 exec > /var/log/user-data.log 2>&1
 
 echo "=== SentinelShare EC2 Init Start ==="
@@ -28,6 +28,33 @@ echo "Docker installed: $(docker --version)"
 # ─── Step 2: AWS CLI 설치 ───
 snap install aws-cli --classic
 echo "AWS CLI installed: $(aws --version)"
+export AWS_PAGER=""
+
+DB_PASSWORD=${db_password}
+JWT_SECRET_VALUE=${jwt_secret}
+DB_PASSWORD_SECRET_NAME=${db_password_secret_name}
+JWT_SECRET_SECRET_NAME=${jwt_secret_secret_name}
+
+if [ -n "$DB_PASSWORD_SECRET_NAME" ]; then
+  DB_PASSWORD="$(aws secretsmanager get-secret-value \
+    --region ${aws_region} \
+    --secret-id "$DB_PASSWORD_SECRET_NAME" \
+    --query SecretString \
+    --output text)"
+fi
+
+if [ -n "$JWT_SECRET_SECRET_NAME" ]; then
+  JWT_SECRET_VALUE="$(aws secretsmanager get-secret-value \
+    --region ${aws_region} \
+    --secret-id "$JWT_SECRET_SECRET_NAME" \
+    --query SecretString \
+    --output text)"
+fi
+
+if [ -z "$DB_PASSWORD" ] || [ -z "$JWT_SECRET_VALUE" ]; then
+  echo "Required application secrets are missing"
+  exit 1
+fi
 
 # ─── Step 3: 앱 디렉토리 + 로그 폴더 ───
 mkdir -p /opt/app/logs
@@ -40,17 +67,14 @@ systemctl enable postgresql
 systemctl start postgresql
 
 # DB 및 유저 생성
-sudo -u postgres psql <<'PSQL'
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'sentinelshare') THEN
-    CREATE USER sentinelshare WITH PASSWORD '${db_password}';
-  END IF;
-END$$;
-PSQL
+DB_ROLE_EXISTS=$(sudo -u postgres psql -tAc "SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = 'sentinelshare'")
+if [ "$DB_ROLE_EXISTS" != "1" ]; then
+  sudo -u postgres psql -v ON_ERROR_STOP=1 -v db_password="$DB_PASSWORD" \
+    -c "CREATE USER sentinelshare WITH PASSWORD :'db_password';"
+fi
 
-sudo -u postgres psql <<PSQL
-ALTER USER sentinelshare WITH PASSWORD '${db_password}';
+sudo -u postgres psql -v ON_ERROR_STOP=1 -v db_password="$DB_PASSWORD" <<'PSQL'
+ALTER USER sentinelshare WITH PASSWORD :'db_password';
 SELECT 'CREATE DATABASE sentinelshare OWNER sentinelshare'
   WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'sentinelshare')\gexec
 GRANT ALL PRIVILEGES ON DATABASE sentinelshare TO sentinelshare;
@@ -65,7 +89,7 @@ NODE_ENV=production
 PORT=3000
 
 # JWT
-JWT_SECRET=${jwt_secret}
+JWT_SECRET=$${JWT_SECRET_VALUE}
 JWT_EXPIRES_IN=1h
 
 # PostgreSQL
@@ -73,7 +97,7 @@ DB_HOST=127.0.0.1
 DB_PORT=5432
 DB_NAME=sentinelshare
 DB_USER=sentinelshare
-DB_PASSWORD=${db_password}
+DB_PASSWORD=$${DB_PASSWORD}
 
 # AWS S3
 AWS_REGION=${aws_region}
@@ -87,7 +111,7 @@ MAX_FILE_SIZE_MB=100
 ALLOWED_MIME_TYPES=image/jpeg,image/png,image/gif,image/webp,application/pdf,text/plain,application/zip,application/x-zip-compressed
 
 # CORS
-CORS_ORIGIN=${cors_origin}
+CORS_ORIGIN=${frontend_origin}
 
 # Environment type
 ENV_TYPE=${env_type}
@@ -129,11 +153,13 @@ done
 # 컨테이너 안 psql 없음 → docker cp로 SQL 추출 후 호스트 psql 실행
 docker cp sentinelshare-backend:/app/migrations/001_initial_schema.sql /tmp/schema.sql
 
-PGPASSWORD="${db_password}" psql \
+PGPASSWORD="$${DB_PASSWORD}" psql \
   -h 127.0.0.1 -U sentinelshare -d sentinelshare \
   -f /tmp/schema.sql \
   && echo "Migration complete" \
   || echo "Migration failed or already applied (continuing)"
+
+unset DB_PASSWORD JWT_SECRET_VALUE DB_PASSWORD_SECRET_NAME JWT_SECRET_SECRET_NAME
 
 # ─── Step 10: 시드 데이터 — victim 계정 + 데모 파일 ───
 # victim@demo.com 계정 생성 (이미 있으면 409 → 무시)

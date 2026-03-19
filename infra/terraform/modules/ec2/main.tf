@@ -9,6 +9,13 @@ terraform {
 
 data "aws_caller_identity" "current" {}
 
+locals {
+  secret_arns = compact([
+    var.db_password_secret_name != "" ? "arn:aws:secretsmanager:${var.aws_region}:${data.aws_caller_identity.current.account_id}:secret:${var.db_password_secret_name}*" : "",
+    var.jwt_secret_secret_name != "" ? "arn:aws:secretsmanager:${var.aws_region}:${data.aws_caller_identity.current.account_id}:secret:${var.jwt_secret_secret_name}*" : "",
+  ])
+}
+
 # IAM Role for EC2
 resource "aws_iam_role" "ec2" {
   name = "sentinelshare-tf-${var.env_name}-ec2-role"
@@ -58,6 +65,39 @@ resource "aws_iam_role_policy" "s3_access" {
         "arn:aws:s3:::${var.files_bucket_name}/*"
       ]
     }]
+  })
+}
+
+resource "aws_iam_role_policy" "secrets_access" {
+  count = length(local.secret_arns) > 0 && var.secrets_kms_key_arn != "" ? 1 : 0
+  name  = "sentinelshare-tf-${var.env_name}-secrets-access"
+  role  = aws_iam_role.ec2.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "secretsmanager:GetSecretValue",
+        ]
+        Resource = local.secret_arns
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "kms:Decrypt",
+        ]
+        Resource = [
+          var.secrets_kms_key_arn,
+        ]
+        Condition = {
+          StringEquals = {
+            "kms:ViaService" = "secretsmanager.${var.aws_region}.amazonaws.com"
+          }
+        }
+      },
+    ]
   })
 }
 
@@ -143,15 +183,17 @@ resource "aws_instance" "main" {
   iam_instance_profile   = aws_iam_instance_profile.ec2.name
 
   user_data = templatefile("${path.module}/../../scripts/user_data.sh.tpl", {
-    aws_region       = var.aws_region
-    aws_account_id   = data.aws_caller_identity.current.account_id
-    ecr_registry     = "${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.aws_region}.amazonaws.com"
-    db_password      = var.db_password
-    jwt_secret       = var.jwt_secret
-    s3_bucket_name   = var.files_bucket_name
-    cors_origin      = var.cors_origin
-    env_type         = var.env_type
-    wazuh_manager_ip = var.wazuh_manager_ip
+    aws_region              = var.aws_region
+    aws_account_id          = data.aws_caller_identity.current.account_id
+    ecr_registry            = "${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.aws_region}.amazonaws.com"
+    db_password             = jsonencode(var.db_password)
+    jwt_secret              = jsonencode(var.jwt_secret)
+    db_password_secret_name = jsonencode(var.db_password_secret_name)
+    jwt_secret_secret_name  = jsonencode(var.jwt_secret_secret_name)
+    s3_bucket_name          = var.files_bucket_name
+    frontend_origin         = var.frontend_origin
+    env_type                = var.env_type
+    wazuh_manager_ip        = var.wazuh_manager_ip
   })
 
   # IMDSv2 강제 (보안 환경) / hop_limit=2: Docker 컨테이너 내 AWS SDK가 IMDS 접근 가능하도록
