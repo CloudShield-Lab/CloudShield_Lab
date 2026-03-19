@@ -5,7 +5,7 @@ import {
 import type { AnalysisSession, WazuhAlert } from '@/types';
 
 const MODEL_ID =
-  process.env.BEDROCK_MODEL_ID || 'anthropic.claude-3-5-haiku-20241022-v1:0';
+  process.env.BEDROCK_MODEL_ID || 'us.anthropic.claude-3-5-haiku-20241022-v1:0';
 const REGION = process.env.BEDROCK_REGION || 'us-east-1';
 
 function formatWazuhSection(alerts: WazuhAlert[], lang: 'ko' | 'en'): string {

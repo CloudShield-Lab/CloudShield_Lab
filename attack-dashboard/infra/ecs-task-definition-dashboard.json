@@ -48,7 +48,7 @@
         },
         {
           "name": "BEDROCK_MODEL_ID",
-          "value": "anthropic.claude-3-5-haiku-20241022-v1:0"
+          "value": "us.anthropic.claude-3-5-haiku-20241022-v1:0"
         },
         {
           "name": "BEDROCK_REGION",
