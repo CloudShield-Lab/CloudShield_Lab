@@ -19,6 +19,7 @@ variable "jwt_secret" {
 variable "frontend_origin" {
   description = "Secure frontend origin URL for backend CORS"
   type        = string
+  default     = ""
 }
 
 variable "wazuh_manager_ip" {

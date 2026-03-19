@@ -18,7 +18,12 @@ async function uploadFile(storedKey, buffer, mimeType) {
     Key: storedKey,
     Body: buffer,
     ContentType: mimeType,
-    ServerSideEncryption: 'AES256',
+    ...(env.S3_SERVER_SIDE_ENCRYPTION && {
+      ServerSideEncryption: env.S3_SERVER_SIDE_ENCRYPTION,
+    }),
+    ...(env.S3_SSE_KMS_KEY_ID && {
+      SSEKMSKeyId: env.S3_SSE_KMS_KEY_ID,
+    }),
   });
   await s3Client.send(command);
 }

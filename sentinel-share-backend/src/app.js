@@ -20,19 +20,24 @@ const app = express();
 app.use(helmet());
 
 // --- CORS ---
-app.use(
-  cors({
-    origin(origin, callback) {
-      if (!origin || env.CORS_ORIGIN.includes(origin)) {
+app.use((req, res, next) => {
+  const host = req.get('Host');
+  const inferredSameOrigin = host ? [`https://${host}`, `http://${host}`] : [];
+  const allowedOrigins =
+    env.CORS_ORIGIN.length > 0 ? env.CORS_ORIGIN : inferredSameOrigin;
+
+  return cors({
+    origin(requestOrigin, callback) {
+      if (!requestOrigin || allowedOrigins.includes(requestOrigin)) {
         return callback(null, true);
       }
-      return callback(new Error(`CORS blocked for origin: ${origin}`));
+      return callback(new Error(`CORS blocked for origin: ${requestOrigin}`));
     },
     methods: ['GET', 'POST', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
-  })
-);
+  })(req, res, next);
+});
 
 // --- HTTP access log ---
 app.use((req, res, next) => {

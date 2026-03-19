@@ -101,6 +101,34 @@ resource "aws_iam_role_policy" "secrets_access" {
   })
 }
 
+resource "aws_iam_role_policy" "data_kms_access" {
+  count = var.data_kms_key_arn != "" ? 1 : 0
+  name  = "sentinelshare-tf-${var.env_name}-data-kms-access"
+  role  = aws_iam_role.ec2.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "kms:Decrypt",
+          "kms:DescribeKey",
+          "kms:GenerateDataKey",
+        ]
+        Resource = [
+          var.data_kms_key_arn,
+        ]
+        Condition = {
+          StringEquals = {
+            "kms:ViaService" = "s3.${var.aws_region}.amazonaws.com"
+          }
+        }
+      },
+    ]
+  })
+}
+
 resource "aws_iam_instance_profile" "ec2" {
   name = "sentinelshare-tf-${var.env_name}-instance-profile"
   role = aws_iam_role.ec2.name
@@ -206,6 +234,8 @@ resource "aws_instance" "main" {
   root_block_device {
     volume_type = "gp3"
     volume_size = 20
+    encrypted   = var.root_volume_encrypted
+    kms_key_id  = var.root_volume_encrypted && var.root_volume_kms_key_id != "" ? var.root_volume_kms_key_id : null
   }
 
   tags = {

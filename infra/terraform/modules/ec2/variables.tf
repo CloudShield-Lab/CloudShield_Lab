@@ -86,6 +86,24 @@ variable "secrets_kms_key_arn" {
   default     = ""
 }
 
+variable "data_kms_key_arn" {
+  description = "KMS key ARN used for S3 data bucket SSE-KMS access"
+  type        = string
+  default     = ""
+}
+
+variable "root_volume_encrypted" {
+  description = "Encrypt the EC2 root volume"
+  type        = bool
+  default     = false
+}
+
+variable "root_volume_kms_key_id" {
+  description = "KMS key ARN or ID for the EC2 root volume"
+  type        = string
+  default     = ""
+}
+
 variable "frontend_origin" {
   description = "Frontend origin URL allowed by backend CORS"
   type        = string

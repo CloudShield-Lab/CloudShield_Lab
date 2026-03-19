@@ -30,14 +30,28 @@ module "network" {
 }
 
 module "s3" {
-  source              = "../../modules/s3"
-  env_name            = "secure"
-  block_public_access = true
+  source                = "../../modules/s3"
+  env_name              = "secure"
+  block_public_access   = true
+  enable_kms_encryption = true
+  kms_key_arn           = module.kms_data.key_arn
 }
 
 module "kms" {
   source   = "../../modules/kms"
   env_name = "secure"
+}
+
+module "kms_data" {
+  source      = "../../modules/kms"
+  env_name    = "secure"
+  key_purpose = "data"
+}
+
+module "kms_ebs" {
+  source      = "../../modules/kms"
+  env_name    = "secure"
+  key_purpose = "ebs"
 }
 
 module "secrets" {
@@ -78,6 +92,9 @@ module "ec2" {
   db_password_secret_name = module.secrets.db_password_secret_name
   jwt_secret_secret_name  = module.secrets.jwt_secret_secret_name
   secrets_kms_key_arn     = module.kms.key_arn
+  data_kms_key_arn        = module.kms_data.key_arn
+  root_volume_encrypted   = true
+  root_volume_kms_key_id  = module.kms_ebs.key_arn
   frontend_origin         = var.frontend_origin
   wazuh_manager_ip        = var.wazuh_manager_ip
 }

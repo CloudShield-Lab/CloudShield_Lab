@@ -10,7 +10,7 @@ terraform {
 data "aws_caller_identity" "current" {}
 
 resource "aws_kms_key" "main" {
-  description             = "KMS key for SentinelShare ${var.env_name} application secrets"
+  description             = "KMS key for SentinelShare ${var.env_name} ${var.key_purpose}"
   deletion_window_in_days = 7
   enable_key_rotation     = true
 
@@ -30,13 +30,13 @@ resource "aws_kms_key" "main" {
   })
 
   tags = {
-    Name        = "sentinelshare-tf-${var.env_name}-secrets-kms"
+    Name        = "sentinelshare-tf-${var.env_name}-${var.key_purpose}-kms"
     Environment = var.env_name
     ManagedBy   = "terraform"
   }
 }
 
 resource "aws_kms_alias" "main" {
-  name          = "alias/sentinelshare-${var.env_name}-secrets"
+  name          = "alias/sentinelshare-${var.env_name}-${var.key_purpose}"
   target_key_id = aws_kms_key.main.key_id
 }
