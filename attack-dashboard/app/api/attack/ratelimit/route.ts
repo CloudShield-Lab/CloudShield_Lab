@@ -69,8 +69,8 @@ async function floodRequest(baseUrl: string, attempt: number) {
       attempt,
       status: 0,
       latency: Date.now() - start,
-      blocked: true,
-      label: 'BLOCKED (TCP)',
+      blocked: false,
+      label: 'CONNECTION ERROR',
       error: 'connection_refused',
     };
   }

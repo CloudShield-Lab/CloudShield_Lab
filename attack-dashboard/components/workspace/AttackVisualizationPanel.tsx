@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { ListOrdered, Network } from 'lucide-react';
 import { ArchitectureGraph } from '@/components/architecture/ArchitectureGraph';
-import { AttackPathChart } from '@/components/dashboard/AttackPathChart';
 import { EventTimeline } from '@/components/dashboard/EventTimeline';
 import { useArchitectureVisualization } from '@/hooks/useArchitectureVisualization';
 
@@ -72,9 +71,15 @@ export function AttackVisualizationPanel() {
           <ArchitectureGraph env="secure" nodes={nodeStates.secure} lastEvent={lastSecureEvent} />
         </div>
       ) : (
-        <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
-          <AttackPathChart nodeStates={nodeStates} />
-          <EventTimeline events={timeline} />
+        <div className="grid gap-4 xl:grid-cols-2">
+          <EventTimeline
+            events={timeline.filter((e) => e.env === 'vulnerable')}
+            title="취약 환경 타임라인"
+          />
+          <EventTimeline
+            events={timeline.filter((e) => e.env === 'secure')}
+            title="양호 환경 타임라인"
+          />
         </div>
       )}
     </section>

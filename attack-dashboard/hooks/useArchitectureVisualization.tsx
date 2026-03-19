@@ -12,7 +12,6 @@ import {
   createInitialNodeStates,
   getScenarioByKey,
   mapStageEventToArchitectureEvent,
-  mapAttackResultToArchitectureEvents,
   type ScenarioKey,
 } from '@/lib/attack-simulation';
 import type {
@@ -95,10 +94,10 @@ export function ArchitectureVisualizationProvider({
       return;
     }
 
-    const derivedEvents =
-      event.type === 'stage'
-        ? [mapStageEventToArchitectureEvent(key, event)]
-        : mapAttackResultToArchitectureEvents(key, event);
+    // result 이벤트는 카드 컴포넌트의 요청 로그용. 아키텍처/타임라인은 stage 이벤트만 반영.
+    if (event.type !== 'stage') return;
+
+    const derivedEvents = [mapStageEventToArchitectureEvent(key, event)];
 
     setState((current) => {
       let nextNodeStates = current.nodeStates;
