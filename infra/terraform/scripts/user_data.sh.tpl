@@ -152,7 +152,7 @@ VICTIM_TOKEN=$(curl -sf -X POST http://localhost:3000/api/auth/login \
 # JWT 획득 성공 시 데모 파일 업로드 (시나리오 2 S3 탈취 체인용)
 if [ -n "$VICTIM_TOKEN" ]; then
   echo "SentinelShare Demo — confidential-report.txt" > /tmp/demo-report.txt
-  curl -sf -X POST http://localhost:3000/api/files \
+  curl -sf -X POST http://localhost:3000/api/files/upload \
     -H "Authorization: Bearer $VICTIM_TOKEN" \
     -F "file=@/tmp/demo-report.txt;type=text/plain" \
     && echo "Demo file uploaded for victim account" \
