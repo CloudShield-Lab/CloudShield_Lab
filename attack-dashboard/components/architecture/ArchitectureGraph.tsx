@@ -17,13 +17,13 @@ const nodeTypes = {
 };
 
 const positions: Record<ArchitectureStage, { x: number; y: number }> = {
-  attacker: { x: 0, y: 12 },
-  cloudfront: { x: 220, y: 12 },
-  waf: { x: 440, y: 12 },
+  attacker: { x: 22, y: 20 },
+  cloudfront: { x: 214, y: 20 },
+  waf: { x: 406, y: 20 },
   alb: { x: 0, y: 0 },
-  ecs: { x: 220, y: 126 },
-  app: { x: 440, y: 126 },
-  s3: { x: 660, y: 126 },
+  ecs: { x: 118, y: 176 },
+  app: { x: 310, y: 176 },
+  s3: { x: 502, y: 176 },
   rds: { x: 0, y: 0 },
   redis: { x: 0, y: 0 },
 };
@@ -42,7 +42,7 @@ const secureEdges: Edge[] = [
   target,
   type: 'smoothstep',
   markerEnd: { type: MarkerType.ArrowClosed, color: '#64748b' },
-  style: { stroke: '#64748b', strokeWidth: 2.1 },
+  style: { stroke: '#64748b', strokeWidth: 2 },
 }));
 
 const vulnerableEdges: Edge[] = [
@@ -55,19 +55,19 @@ const vulnerableEdges: Edge[] = [
   target,
   type: 'smoothstep',
   markerEnd: { type: MarkerType.ArrowClosed, color: '#64748b' },
-  style: { stroke: '#64748b', strokeWidth: 2.1 },
+  style: { stroke: '#64748b', strokeWidth: 2 },
 }));
 
 const envMeta: Record<ArchitectureEnvironment, { label: string; accent: string; panel: string }> = {
   vulnerable: {
     label: '취약 환경',
-    accent: 'text-red-600',
-    panel: 'border-red-200 bg-[linear-gradient(180deg,rgba(254,242,242,0.86),rgba(255,255,255,0.96))]',
+    accent: 'text-red-700',
+    panel: 'border-red-200 bg-[linear-gradient(180deg,rgba(254,242,242,0.92),rgba(255,255,255,0.98))]',
   },
   secure: {
     label: '보안 환경',
     accent: 'text-emerald-700',
-    panel: 'border-emerald-200 bg-[linear-gradient(180deg,rgba(236,253,245,0.86),rgba(255,255,255,0.96))]',
+    panel: 'border-emerald-200 bg-[linear-gradient(180deg,rgba(236,253,245,0.92),rgba(255,255,255,0.98))]',
   },
 };
 
@@ -101,7 +101,7 @@ function CompactControls() {
         </button>
         <button
           type="button"
-          onClick={() => fitView({ padding: 0.08, minZoom: 0.55, maxZoom: 1.18 })}
+          onClick={() => fitView({ padding: 0.1, minZoom: 0.72, maxZoom: 1.2 })}
           className="h-8 w-8 text-[11px] font-bold text-slate-700 transition hover:bg-slate-50"
           title="화면 맞춤"
         >
@@ -148,19 +148,19 @@ export function ArchitectureGraph({ env, nodes, lastEvent }: Props) {
     <section className={`rounded-2xl border p-4 shadow-[0_14px_34px_rgba(15,23,42,0.05)] ${envMeta[env].panel}`}>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div className={`text-2xl font-semibold ${envMeta[env].accent}`}>{envMeta[env].label}</div>
-        <div className="rounded-xl border border-slate-300 bg-white/90 px-3 py-1.5 text-sm text-slate-600 shadow-sm">
+        <div className="rounded-xl border border-slate-300 bg-white/95 px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm">
           {lastEvent ? `${lastEvent.timestampLabel} · ${lastEvent.title}` : '이벤트 대기 중'}
         </div>
       </div>
 
-      <div className="h-[288px] overflow-hidden rounded-2xl border border-slate-300 bg-[linear-gradient(180deg,rgba(248,250,252,0.96),rgba(255,255,255,1)),radial-gradient(circle_at_top,rgba(226,232,240,0.65),transparent_58%)] shadow-inner">
+      <div className="h-[360px] overflow-hidden rounded-2xl border border-slate-300 bg-[linear-gradient(180deg,rgba(248,250,252,0.98),rgba(255,255,255,1)),radial-gradient(circle_at_top,rgba(203,213,225,0.45),transparent_58%)] shadow-inner">
         <ReactFlow
           nodes={graphNodes}
           edges={edges}
           nodeTypes={nodeTypes}
           fitView
-          fitViewOptions={{ padding: 0.08, minZoom: 0.55, maxZoom: 1.18 }}
-          defaultViewport={{ x: 0, y: 0, zoom: 0.84 }}
+          fitViewOptions={{ padding: 0.08, minZoom: 0.8, maxZoom: 1.2 }}
+          defaultViewport={{ x: 0, y: 0, zoom: 0.98 }}
           nodesDraggable={false}
           nodesConnectable={false}
           elementsSelectable={false}

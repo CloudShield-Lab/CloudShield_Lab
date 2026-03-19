@@ -11,8 +11,8 @@ const workspaceMeta = {
     title: '수동 배포 Workspace',
     titleTone: 'text-sky-950',
     description:
-      'Infrastructure Guide를 따라 실습용 AWS 환경을 직접 구성하고, 같은 화면에서 Attack Simulator로 결과를 비교합니다.',
-    setupLabel: '수동 환경 구축',
+      'Infrastructure Guide를 따라 실습용 AWS 환경을 직접 구성하고, 같은 화면에서 Attack Simulator 결과를 비교합니다.',
+    setupLabel: '수동 환경 구성',
     setupHref: '/manual',
     attackHref: `/manual/attack/${defaultAttackScenario}`,
     analysisHref: '/manual/analysis',
@@ -21,14 +21,14 @@ const workspaceMeta = {
     badgeTone: 'border-sky-200 bg-sky-50 text-sky-700',
     activeTone: 'border-sky-200 bg-sky-50 text-sky-700',
     activeSoftTone: 'border-sky-200 bg-sky-50 text-sky-800',
-    setupDescription: 'Infrastructure Guide를 기준으로 AWS 환경을 직접 단계별로 구축합니다.',
+    setupDescription: 'Infrastructure Guide 기준으로 AWS 환경을 단계별로 직접 구성합니다.',
   },
   auto: {
     title: '자동 배포 Workspace',
     titleTone: 'text-violet-950',
     description:
-      'Terraform 기반 자동 배포를 실행하고, 이어서 같은 공격 시나리오로 보호 효과를 비교합니다.',
-    setupLabel: '자동 환경 구축',
+      'Terraform 기반 자동 배포를 실행하고, 이후 같은 공격 시나리오로 보안 효과를 비교합니다.',
+    setupLabel: '자동 환경 구성',
     setupHref: '/auto',
     attackHref: `/auto/attack/${defaultAttackScenario}`,
     analysisHref: '/auto/analysis',
@@ -37,7 +37,7 @@ const workspaceMeta = {
     badgeTone: 'border-violet-200 bg-violet-50 text-violet-700',
     activeTone: 'border-violet-200 bg-violet-50 text-violet-700',
     activeSoftTone: 'border-violet-200 bg-violet-50 text-violet-800',
-    setupDescription: 'Terraform으로 AWS 환경을 자동 배포하거나 삭제합니다.',
+    setupDescription: 'Terraform으로 AWS 환경을 자동 배포하거나 제거합니다.',
   },
 } as const;
 
@@ -59,11 +59,11 @@ export function WorkspaceShell({
 
   return (
     <div className="w-full py-6 pr-4 sm:pr-6 lg:pr-8">
-      <div className="grid gap-5 lg:grid-cols-[252px_minmax(0,1fr)] lg:items-start">
+      <div className="grid gap-5 lg:grid-cols-[220px_minmax(0,1fr)] lg:items-start">
         <aside className="lg:sticky lg:top-6">
-          <div className="rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
+          <div className="rounded-2xl border border-slate-200 bg-white/95 p-3.5 shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
             <div className="space-y-2">
-              <div className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">Workspace</div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-700">Workspace</div>
               <Link
                 href={meta.setupHref}
                 className={`block rounded-xl border px-4 py-3 transition-colors ${
@@ -72,13 +72,13 @@ export function WorkspaceShell({
                     : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900'
                 }`}
               >
-                <div className="text-[13px] font-medium">{meta.setupLabel}</div>
-                <div className="mt-1 text-[11px] text-slate-500">{meta.setupDescription}</div>
+                <div className="text-[13px] font-semibold">{meta.setupLabel}</div>
+                <div className="mt-1 text-[11px] leading-5 text-slate-600">{meta.setupDescription}</div>
               </Link>
             </div>
 
             <div className="mt-6 space-y-2">
-              <div className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">Attack Simulator</div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-700">Attack Simulator</div>
               {attackScenarioConfigs.map((scenario) => {
                 const href = `${attackRoot}/${scenario.key}`;
                 const active = pathname === href;
@@ -87,7 +87,7 @@ export function WorkspaceShell({
                   <Link
                     key={scenario.key}
                     href={href}
-                    className={`block rounded-xl border px-4 py-3 transition-colors ${
+                    className={`block rounded-xl border px-3.5 py-2.5 transition-colors ${
                       active
                         ? meta.activeSoftTone
                         : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900'
@@ -97,7 +97,9 @@ export function WorkspaceShell({
                       <span className="flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-slate-50 font-mono text-[11px] text-slate-500">
                         {scenario.index}
                       </span>
-                      <span className="text-[13px] font-medium">{scenario.shortTitle}</span>
+                      <span className="whitespace-nowrap text-[12px] font-medium tracking-[-0.01em] text-slate-800">
+                        {scenario.shortTitle}
+                      </span>
                     </div>
                   </Link>
                 );
@@ -105,7 +107,7 @@ export function WorkspaceShell({
             </div>
 
             <div className="mt-6 space-y-2">
-              <div className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">사후 분석 (Log)</div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-700">Post Analysis</div>
               <Link
                 href={meta.analysisHref}
                 className={`block rounded-xl border px-4 py-3 transition-colors ${
@@ -115,10 +117,10 @@ export function WorkspaceShell({
                 }`}
               >
                 <div className="flex items-center gap-2">
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-[11px]">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-[13px] leading-none">
                     🤖
                   </span>
-                  <span className="text-[13px] font-medium">AI 공격 분석</span>
+                  <span className="text-[13px] font-medium text-slate-800">AI 공격 분석</span>
                 </div>
               </Link>
             </div>
@@ -135,13 +137,13 @@ export function WorkspaceShell({
                   <span className={`rounded-full border px-3 py-1 font-mono text-[11px] tracking-[0.22em] ${meta.badgeTone}`}>
                     {meta.badge}
                   </span>
-                  <Link href="/" className="text-sm text-slate-500 transition-colors hover:text-slate-700">
+                  <Link href="/" className="text-sm font-medium text-slate-600 transition-colors hover:text-slate-900">
                     시작 화면으로 돌아가기
                   </Link>
                 </div>
                 <div>
                   <h1 className={`text-2xl font-semibold ${meta.titleTone}`}>{meta.title}</h1>
-                  <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">{meta.description}</p>
+                  <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-700">{meta.description}</p>
                 </div>
               </div>
 

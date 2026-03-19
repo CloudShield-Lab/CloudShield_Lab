@@ -27,7 +27,7 @@ export function AttackVisualizationPanel() {
       <div className="mb-5 flex flex-col gap-3 border-b border-slate-200 pb-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h2 className="text-lg font-semibold text-slate-900">시각화 패널</h2>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 text-sm leading-6 text-slate-700">
             공격 진행 상태를 아키텍처 흐름과 타임라인 기준으로 나눠 확인할 수 있습니다.
           </p>
         </div>
@@ -40,7 +40,7 @@ export function AttackVisualizationPanel() {
               className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                 activeTab === 'architecture'
                   ? 'border border-emerald-200 bg-white text-emerald-700 shadow-sm'
-                  : 'text-slate-500 hover:text-slate-700'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <Network className="h-4 w-4" />
@@ -52,7 +52,7 @@ export function AttackVisualizationPanel() {
               className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                 activeTab === 'timeline'
                   ? 'border border-sky-200 bg-white text-sky-700 shadow-sm'
-                  : 'text-slate-500 hover:text-slate-700'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <ListOrdered className="h-4 w-4" />
