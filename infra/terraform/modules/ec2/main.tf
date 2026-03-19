@@ -69,7 +69,7 @@ resource "aws_iam_role_policy" "s3_access" {
 }
 
 resource "aws_iam_role_policy" "secrets_access" {
-  count = length(local.secret_arns) > 0 && var.secrets_kms_key_arn != "" ? 1 : 0
+  count = var.enable_secrets_access ? 1 : 0
   name  = "sentinelshare-tf-${var.env_name}-secrets-access"
   role  = aws_iam_role.ec2.id
 
@@ -102,7 +102,7 @@ resource "aws_iam_role_policy" "secrets_access" {
 }
 
 resource "aws_iam_role_policy" "data_kms_access" {
-  count = var.data_kms_key_arn != "" ? 1 : 0
+  count = var.enable_data_kms_access ? 1 : 0
   name  = "sentinelshare-tf-${var.env_name}-data-kms-access"
   role  = aws_iam_role.ec2.id
 

@@ -90,7 +90,7 @@ resource "aws_s3_bucket_cors_configuration" "files" {
 }
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "files" {
-  count  = var.enable_kms_encryption && var.kms_key_arn != "" ? 1 : 0
+  count  = var.enable_kms_encryption ? 1 : 0
   bucket = aws_s3_bucket.files.id
 
   rule {
