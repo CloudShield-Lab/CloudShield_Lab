@@ -68,10 +68,10 @@ export function AttackScenarioContent({
                 </span>
               </div>
               <h2 className="text-2xl font-semibold text-slate-900">{config.title}</h2>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">{config.description}</p>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-700">{config.description}</p>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-700">
               실행 버튼을 누르면 하단 시각화 패널이 즉시 갱신됩니다.
             </div>
           </div>
@@ -83,11 +83,11 @@ export function AttackScenarioContent({
                 <div className="mt-4 space-y-3 text-sm">
                   <div className="rounded-xl border border-red-200 bg-red-50 p-3">
                     <div className="text-xs font-medium uppercase tracking-[0.18em] text-red-600">취약 환경</div>
-                    <p className="mt-2 leading-6 text-slate-600">{step.vulnerable}</p>
+                    <p className="mt-2 leading-6 text-slate-700">{step.vulnerable}</p>
                   </div>
                   <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
                     <div className="text-xs font-medium uppercase tracking-[0.18em] text-emerald-600">보안 환경</div>
-                    <p className="mt-2 leading-6 text-slate-600">{step.secure}</p>
+                    <p className="mt-2 leading-6 text-slate-700">{step.secure}</p>
                   </div>
                 </div>
               </article>

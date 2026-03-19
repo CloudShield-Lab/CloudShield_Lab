@@ -48,7 +48,7 @@ export function Navbar() {
                 AWS Security Simulator
               </span>
             </div>
-            <p className="text-sm text-slate-700">
+            <p className="text-sm leading-6 text-slate-800">
               수동 배포와 자동 배포 환경을 준비한 뒤, 동일한 공격 흐름을 비교하는 실습형 대시보드입니다.
             </p>
           </div>
@@ -63,7 +63,7 @@ export function Navbar() {
                 key={tab.href}
                 href={tab.href}
                 className={`flex items-center gap-2 rounded-t-xl border border-b-0 px-4 py-2.5 text-sm font-medium transition-colors ${
-                  active ? tab.activeTone : 'border-transparent text-slate-700 hover:text-slate-900'
+                  active ? tab.activeTone : 'border-transparent text-slate-800 hover:text-slate-950'
                 }`}
               >
                 <span>{tab.label}</span>
