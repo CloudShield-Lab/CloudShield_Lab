@@ -119,6 +119,7 @@ variable "root_volume_kms_key_id" {
 variable "frontend_origin" {
   description = "Frontend origin URL allowed by backend CORS"
   type        = string
+  default     = ""
 }
 
 variable "wazuh_manager_ip" {
