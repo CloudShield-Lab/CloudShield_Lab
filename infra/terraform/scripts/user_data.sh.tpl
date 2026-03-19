@@ -68,14 +68,14 @@ systemctl start postgresql
 
 # DB 및 유저 생성
 DB_ROLE_EXISTS=$(sudo -u postgres psql -tAc "SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = 'sentinelshare'")
-DB_PASSWORD_SQL=${DB_PASSWORD//\'/\'\'}
+DB_PASSWORD_SQL=$${DB_PASSWORD//\'/\'\'}
 if [ "$DB_ROLE_EXISTS" != "1" ]; then
   sudo -u postgres psql -v ON_ERROR_STOP=1 \
-    -c "CREATE USER sentinelshare WITH PASSWORD '${DB_PASSWORD_SQL}';"
+    -c "CREATE USER sentinelshare WITH PASSWORD '$${DB_PASSWORD_SQL}';"
 fi
 
 sudo -u postgres psql -v ON_ERROR_STOP=1 <<PSQL
-ALTER USER sentinelshare WITH PASSWORD '${DB_PASSWORD_SQL}';
+ALTER USER sentinelshare WITH PASSWORD '$${DB_PASSWORD_SQL}';
 SELECT 'CREATE DATABASE sentinelshare OWNER sentinelshare'
   WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'sentinelshare')\gexec
 GRANT ALL PRIVILEGES ON DATABASE sentinelshare TO sentinelshare;
