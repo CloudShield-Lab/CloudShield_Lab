@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { saveSession } from '@/lib/analysis-storage';
+import { fetchWazuhAlerts } from '@/lib/wazuh';
 import type { AnalysisSession } from '@/types';
 
 export async function POST(request: NextRequest) {
@@ -16,6 +17,16 @@ export async function POST(request: NextRequest) {
 
   if (!session.sessionId || !session.scenario || !session.mode) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+  }
+
+  if (session.startTime && !session.wazuhAlerts) {
+    const bufferMs = 30_000;
+    const toTime = new Date(new Date(session.timestamp).getTime() + bufferMs).toISOString();
+    const [vulnAlerts, secureAlerts] = await Promise.all([
+      fetchWazuhAlerts({ from: session.startTime, to: toTime, envFilter: 'vulnerable' }),
+      fetchWazuhAlerts({ from: session.startTime, to: toTime, envFilter: 'secure' }),
+    ]);
+    session.wazuhAlerts = [...vulnAlerts, ...secureAlerts];
   }
 
   try {

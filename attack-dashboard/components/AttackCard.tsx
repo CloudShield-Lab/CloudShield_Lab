@@ -68,6 +68,7 @@ export function AttackCard({
   const startAttack = useCallback(() => {
     if (phase === 'running') return;
 
+    const startTime = new Date().toISOString();
     startScenario(endpoint);
     setPhase('running');
     setVulnResults([]);
@@ -85,6 +86,7 @@ export function AttackCard({
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               sessionId,
+              startTime,
               timestamp: new Date().toISOString(),
               mode,
               scenario: endpoint,

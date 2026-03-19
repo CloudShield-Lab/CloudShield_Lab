@@ -124,6 +124,7 @@ export interface WazuhAlert {
 
 export interface AnalysisSession {
   sessionId: string;
+  startTime?: string;
   timestamp: string;
   mode: WorkspaceMode;
   scenario: string;

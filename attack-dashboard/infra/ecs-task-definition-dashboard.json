@@ -15,6 +15,9 @@
         {
           "containerPort": 3000,
           "hostPort": 3000,
+
+
+          
           "protocol": "tcp"
         }
       ],
@@ -72,6 +75,18 @@
         {
           "name": "GITHUB_TOKEN",
           "valueFrom": "arn:aws:secretsmanager:ap-northeast-2:833453046706:secret:GITHUB_TOKEN-dCjhzq:GITHUB_TOKEN::"
+        },
+        {
+          "name": "WAZUH_API_URL",
+          "valueFrom": "arn:aws:secretsmanager:ap-northeast-2:833453046706:secret:cloudshield/dashboard/wazuh-UcRWR2:WAZUH_API_URL::"
+        },
+        {
+          "name": "WAZUH_API_USER",
+          "valueFrom": "arn:aws:secretsmanager:ap-northeast-2:833453046706:secret:cloudshield/dashboard/wazuh-UcRWR2:WAZUH_API_USER::"
+        },
+        {
+          "name": "WAZUH_API_PASSWORD",
+          "valueFrom": "arn:aws:secretsmanager:ap-northeast-2:833453046706:secret:cloudshield/dashboard/wazuh-UcRWR2:WAZUH_API_PASSWORD::"
         }
       ],
       "logConfiguration": {

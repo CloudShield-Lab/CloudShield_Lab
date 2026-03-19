@@ -60,6 +60,7 @@ export function BruteforceAttackCard({
   const startAttack = useCallback(async () => {
     if (phase === 'running') return;
 
+    const startTime = new Date().toISOString();
     startScenario('bruteforce');
     setPhase('running');
     setVulnResults([]);
@@ -81,6 +82,7 @@ export function BruteforceAttackCard({
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               sessionId,
+              startTime,
               timestamp: new Date().toISOString(),
               mode,
               scenario: 'bruteforce',

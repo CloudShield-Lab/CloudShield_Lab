@@ -50,6 +50,7 @@ export function HeaderScanCard({ index, title, description, vulnNote, awsNote, m
 
   const startScan = useCallback(() => {
     if (phase === 'running') return;
+    const startTime = new Date().toISOString();
     setPhase('running');
     setVulnScan(null);
     setAwsScan(null);
@@ -74,6 +75,7 @@ export function HeaderScanCard({ index, title, description, vulnNote, awsNote, m
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               sessionId,
+              startTime,
               timestamp: new Date().toISOString(),
               mode,
               scenario: 'header-scan',

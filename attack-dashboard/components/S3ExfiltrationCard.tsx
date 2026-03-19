@@ -86,6 +86,7 @@ export function S3ExfiltrationCard({ index, title, description, vulnNote, awsNot
   const startAttack = useCallback(() => {
     if (phase === 'running') return;
 
+    const startTime = new Date().toISOString();
     setPhase('running');
     setVulnResults([]);
     setAwsResults([]);
@@ -102,6 +103,7 @@ export function S3ExfiltrationCard({ index, title, description, vulnNote, awsNot
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               sessionId,
+              startTime,
               timestamp: new Date().toISOString(),
               mode,
               scenario: 's3-access',
