@@ -2,6 +2,8 @@
 set -euo pipefail
 exec > /var/log/user-data.log 2>&1
 
+trap 'echo ""; echo "=== USER-DATA FAILED (line $LINENO) ==="; touch /var/log/user-data-failed' ERR
+
 echo "=== SentinelShare EC2 Init Start ==="
 
 # ─── Step 1: 패키지 업데이트 + Docker 설치 ───
