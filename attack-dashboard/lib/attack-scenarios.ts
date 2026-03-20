@@ -200,6 +200,36 @@ export const attackScenarioConfigs: AttackScenarioConfig[] = [
       },
     ],
   },
+  {
+    key: 'origin-direct',
+    index: 7,
+    title: 'Origin 직접 접근 차단 비교',
+    shortTitle: 'Origin 직접 접근',
+    description:
+      'CloudFront 같은 정상 진입 경로를 우회해 원본 EC2 주소나 직접 엔드포인트로 요청을 보내고, 원본 직접 노출 여부 차이를 비교합니다.',
+    totalRequests: 1,
+    vulnNote:
+      '취약 환경은 외부에 노출된 원본 EC2로 직접 접근이 가능해 요청이 EC2와 서비스 로직까지 도달하고 응답이 돌아옵니다.',
+    awsNote:
+      '보안 환경은 원본 보안 그룹이 CloudFront 경로만 허용해 직접 접근 시 연결 실패, 403, 타임아웃 등으로 조기에 차단됩니다.',
+    flowSteps: [
+      {
+        title: '1. 정상 경로 우회',
+        vulnerable: '시뮬레이터가 CloudFront 같은 정상 진입 경로 대신 원본 EC2 주소로 직접 요청을 보냅니다.',
+        secure: '보안 환경도 같은 방식으로 원본 주소에 직접 요청을 보내 보호 경로 우회 여부를 확인합니다.',
+      },
+      {
+        title: '2. 원본 도달 여부 비교',
+        vulnerable: '취약 환경은 원본이 외부에 노출돼 있어 EC2가 직접 응답하고 서비스 로직까지 요청이 이어집니다.',
+        secure: '보안 환경은 Security Group과 앞단 보호 설계로 인해 직접 접근이 막혀 원본 응답이 돌아오지 않습니다.',
+      },
+      {
+        title: '3. 핵심 메시지 확인',
+        vulnerable: '공격자가 보호 장비를 우회해도 원본이 열려 있으면 직접 접근이 가능하다는 점을 보여줍니다.',
+        secure: '원본이 직접 노출되지 않으면 같은 요청도 초기 단계에서 멈추며 인프라 설계 차이가 결과를 바꿉니다.',
+      },
+    ],
+  },
 ];
 
 export const defaultAttackScenario: AttackEndpoint = 'bruteforce';

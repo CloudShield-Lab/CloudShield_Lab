@@ -38,7 +38,7 @@ export const STAGE_DESCRIPTIONS: Record<ArchitectureStage, string> = {
   cloudfront: '엣지 진입 계층',
   waf: '요청 필터링 계층',
   alb: '사용하지 않음',
-  ecs: '애플리케이션 호스트',
+  ecs: '애플리케이션 인스턴스',
   app: '서비스 처리 로직',
   s3: '스토리지 계층',
   rds: '사용하지 않음',
@@ -62,42 +62,49 @@ const scenarios: Record<ScenarioKey, ArchitectureScenario> = {
     id: 'bruteforce',
     name: '브루트포스 로그인 비교',
     description:
-      '실제 SSE 공격 결과를 기반으로 취약 환경과 보안 환경의 로그인 공격 흐름을 반영합니다.',
+      '실제 SSE 공격 결과를 기반으로 취약 환경과 보안 환경의 로그인 공격 흐름을 비교합니다.',
     events: [],
   },
   's3-access': {
     id: 's3-access',
     name: 'S3 접근 경로 비교',
     description:
-      '실제 SSE 공격 결과를 기반으로 취약 환경과 보안 환경의 S3 접근 흐름을 반영합니다.',
+      '실제 SSE 공격 결과를 기반으로 취약 환경과 보안 환경의 S3 접근 흐름을 비교합니다.',
     events: [],
   },
   ratelimit: {
     id: 'ratelimit',
     name: 'API Rate Limit 비교',
     description:
-      '실제 SSE 공격 결과를 기반으로 취약 환경과 보안 환경의 반복 요청 흐름을 반영합니다.',
+      '실제 SSE 공격 결과를 기반으로 취약 환경과 보안 환경의 반복 요청 처리 흐름을 비교합니다.',
     events: [],
   },
   'header-scan': {
     id: 'header-scan',
     name: 'HTTP 헤더 정보 노출',
     description:
-      '응답 헤더를 분석해 취약 환경과 보안 환경의 기술 스택 노출 여부를 비교합니다.',
+      '응답 헤더를 분석해 취약 환경과 보안 환경의 기술 스택 노출 차이를 비교합니다.',
     events: [],
   },
   'sqli-xss': {
     id: 'sqli-xss',
     name: 'SQL Injection / XSS 패턴 요청 차단 비교',
     description:
-      '의심스러운 SQLi / XSS 패턴 요청이 취약 환경과 보안 환경에서 어디까지 도달하는지 비교합니다.',
+      '의심 패턴 요청이 취약 환경과 보안 환경에서 어디까지 도달하는지 비교합니다.',
     events: [],
   },
   'bot-scan': {
     id: 'bot-scan',
     name: '비정상 스캐닝 / 봇 요청 차단 비교',
     description:
-      '관리자 페이지·숨은 경로 탐색 요청이 앞단에서 소거되는지와 원본까지 도달하는지를 비교합니다.',
+      '관리자 페이지와 숨은 경로 스캔 요청이 앞단에서 차단되는지, 원본까지 도달하는지 비교합니다.',
+    events: [],
+  },
+  'origin-direct': {
+    id: 'origin-direct',
+    name: 'Origin 직접 접근 차단 비교',
+    description:
+      '정상 진입 경로를 우회해 원본 EC2 주소로 직접 요청을 보내고, 원본 노출 여부 차이를 비교합니다.',
     events: [],
   },
 };
@@ -126,10 +133,11 @@ export function applySimulationEvent(
       if (node.stage === event.stage) {
         return { ...node, status: event.status, lastEventId: event.id };
       }
-      // blocked/failed 노드 이후의 downstream 노드를 idle로 초기화
+
       if (isTerminal && STAGES.indexOf(node.stage) > eventStageIndex) {
         return { ...node, status: 'idle' };
       }
+
       return node;
     }),
   };
@@ -146,29 +154,6 @@ function buildTimestampLabel() {
     minute: '2-digit',
     second: '2-digit',
   });
-}
-
-function createEvent(
-  key: ScenarioKey,
-  env: ArchitectureEnvironment,
-  stage: ArchitectureStage,
-  status: NodeStatus,
-  title: string,
-  description: string,
-  severity: AttackSimulationEvent['severity'],
-  suffix: string,
-): AttackSimulationEvent {
-  return {
-    id: `${key}-${env}-${stage}-${suffix}`,
-    env,
-    stage,
-    status,
-    title,
-    description,
-    timestampLabel: buildTimestampLabel(),
-    offsetMs: 0,
-    severity,
-  };
 }
 
 export function mapStageEventToArchitectureEvent(

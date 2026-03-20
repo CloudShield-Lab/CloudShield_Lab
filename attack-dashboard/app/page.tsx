@@ -39,7 +39,7 @@ export default function DashboardPage() {
             공격 흐름으로 비교하는 실습 대시보드
           </h1>
           <p className="mt-5 text-base font-semibold leading-7 text-slate-500/80 sm:text-lg">
-            이 프로젝트는 동일한 공격이 취약 환경과 보호된 AWS 환경에서 어떻게 다르게 처리되는지 시각적으로 보여주는 실습용 대시보드입니다. 먼저 환경을 준비한 뒤 Attack Simulator에서 브루트포스 로그인, S3 접근 경로, Rate Limit, HTTP 헤더 스캔, SQLi/XSS 패턴 요청, 비정상 봇 스캔 시나리오를 비교할 수 있습니다.
+            이 프로젝트는 동일한 공격이 취약 환경과 보호된 AWS 환경에서 어떻게 다르게 처리되는지 시각적으로 보여주는 실습용 대시보드입니다. 먼저 환경을 준비한 뒤 Attack Simulator에서 브루트포스 로그인, S3 접근 경로, Rate Limit, HTTP 헤더 스캔, SQLi/XSS 패턴 요청, 비정상 봇 스캔, Origin 직접 접근 차단 시나리오를 비교할 수 있습니다.
           </p>
         </div>
       </section>
