@@ -1,13 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { saveSession } from '@/lib/analysis-storage';
-import { fetchWazuhAlerts } from '@/lib/wazuh';
+import { normalizeApiBaseUrl } from '@/lib/url-utils';
 import type { AnalysisSession } from '@/types';
 
-export async function POST(request: NextRequest) {
-  if (!process.env.ANALYSIS_S3_BUCKET && !process.env.AWS_REGION) {
-    // Allow even without explicit ANALYSIS_S3_BUCKET (uses default tfstate bucket)
+async function fetchRawLogs(baseUrl: string, from: string, to: string): Promise<string[]> {
+  try {
+    const url = `${normalizeApiBaseUrl(baseUrl)}/api/logs?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
+    if (!res.ok) return [];
+    const data = (await res.json()) as { logs?: string[] };
+    return data.logs ?? [];
+  } catch {
+    return [];
   }
+}
 
+export async function POST(request: NextRequest) {
   let session: AnalysisSession;
   try {
     session = (await request.json()) as AnalysisSession;
@@ -19,14 +27,20 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
   }
 
-  if (session.startTime && !session.wazuhAlerts) {
+  if (session.startTime) {
     const bufferMs = 30_000;
     const toTime = new Date(new Date(session.timestamp).getTime() + bufferMs).toISOString();
-    const [vulnAlerts, secureAlerts] = await Promise.all([
-      fetchWazuhAlerts({ from: session.startTime, to: toTime, envFilter: 'vul' }),
-      fetchWazuhAlerts({ from: session.startTime, to: toTime, envFilter: 'sec' }),
+
+    const isAuto = session.mode === 'auto';
+    const vulnUrl = isAuto ? process.env.AUTO_VULNERABLE_API_URL : process.env.VULNERABLE_API_URL;
+    const secureUrl = isAuto ? process.env.AUTO_AWS_API_URL : process.env.AWS_API_URL;
+
+    const [vulnLogs, secureLogs] = await Promise.all([
+      vulnUrl ? fetchRawLogs(vulnUrl, session.startTime, toTime) : Promise.resolve([]),
+      secureUrl ? fetchRawLogs(secureUrl, session.startTime, toTime) : Promise.resolve([]),
     ]);
-    session.wazuhAlerts = [...vulnAlerts, ...secureAlerts];
+
+    session.rawLogs = { vulnerable: vulnLogs, secure: secureLogs };
   }
 
   try {

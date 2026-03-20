@@ -47,16 +47,6 @@ module "s3" {
   kms_key_arn           = data.terraform_remote_state.secure_kms.outputs.data_kms_key_arn
 }
 
-module "secrets" {
-  source                  = "../../modules/secrets"
-  env_name                = "secure"
-  kms_key_arn             = data.terraform_remote_state.secure_kms.outputs.secrets_kms_key_arn
-  db_password             = var.db_password
-  jwt_secret              = var.jwt_secret
-  db_password_secret_name = "secure-tf-db-password"
-  jwt_secret_secret_name  = "secure-tf-jwt-secret"
-}
-
 module "waf" {
   source = "../../modules/waf"
   providers = {
@@ -85,8 +75,8 @@ module "ec2" {
   allow_public_access     = false
   files_bucket_name       = module.s3.files_bucket_name
   secret_delivery_mode    = "secrets_manager"
-  db_password_secret_name = module.secrets.db_password_secret_name
-  jwt_secret_secret_name  = module.secrets.jwt_secret_secret_name
+  db_password_secret_name = data.terraform_remote_state.secure_kms.outputs.db_password_secret_name
+  jwt_secret_secret_name  = data.terraform_remote_state.secure_kms.outputs.jwt_secret_secret_name
   secrets_kms_key_arn     = data.terraform_remote_state.secure_kms.outputs.secrets_kms_key_arn
   data_kms_key_arn        = data.terraform_remote_state.secure_kms.outputs.data_kms_key_arn
   enable_data_kms_access  = true

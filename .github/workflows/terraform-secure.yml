@@ -15,6 +15,8 @@ env:
   AWS_REGION: ap-northeast-2
   TF_WORKING_DIR: infra/terraform/environments/secure
   TF_KMS_WORKING_DIR: infra/terraform/environments/secure-kms
+  SECURE_DB_SECRET_NAME: secure-tf-db-password
+  SECURE_JWT_SECRET_NAME: secure-tf-jwt-secret
 
 concurrency:
   group: terraform-secure
@@ -54,7 +56,7 @@ jobs:
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform validate
 
-      - name: Check secure KMS bootstrap state
+      - name: Check secure foundation state
         if: github.event.inputs.action == 'apply'
         id: kms-state
         run: |
@@ -67,7 +69,7 @@ jobs:
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Detect secure KMS bootstrap mode
+      - name: Detect secure foundation bootstrap mode
         if: github.event.inputs.action == 'apply' && steps.kms-state.outputs.exists == 'false'
         id: kms-bootstrap
         run: |
@@ -101,13 +103,34 @@ jobs:
           [ -n "$DATA_KEY_ID" ] && PRESENT_COUNT=$((PRESENT_COUNT + 1))
           [ -n "$EBS_KEY_ID" ] && PRESENT_COUNT=$((PRESENT_COUNT + 1))
 
+          DB_SECRET_ARN=$(aws secretsmanager describe-secret \
+            --region "${{ env.AWS_REGION }}" \
+            --secret-id "${{ env.SECURE_DB_SECRET_NAME }}" \
+            --query "ARN" \
+            --output text 2>/dev/null || echo "")
+          JWT_SECRET_ARN=$(aws secretsmanager describe-secret \
+            --region "${{ env.AWS_REGION }}" \
+            --secret-id "${{ env.SECURE_JWT_SECRET_NAME }}" \
+            --query "ARN" \
+            --output text 2>/dev/null || echo "")
+
+          if [ "$DB_SECRET_ARN" = "None" ]; then
+            DB_SECRET_ARN=""
+          fi
+
+          if [ "$JWT_SECRET_ARN" = "None" ]; then
+            JWT_SECRET_ARN=""
+          fi
+
           if [ "$PRESENT_COUNT" -eq 0 ]; then
             echo "mode=apply" >> "$GITHUB_OUTPUT"
+            echo "db_secret_exists=false" >> "$GITHUB_OUTPUT"
+            echo "jwt_secret_exists=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           if [ "$PRESENT_COUNT" -ne 3 ]; then
-            echo "Detected a partial secure KMS baseline in AWS without secure-kms state."
+            echo "Detected a partial secure foundation KMS baseline in AWS without secure-kms state."
             echo "secrets=$SECRETS_KEY_ID"
             echo "data=$DATA_KEY_ID"
             echo "ebs=$EBS_KEY_ID"
@@ -119,37 +142,86 @@ jobs:
           echo "secrets_key_id=$SECRETS_KEY_ID" >> "$GITHUB_OUTPUT"
           echo "data_key_id=$DATA_KEY_ID" >> "$GITHUB_OUTPUT"
           echo "ebs_key_id=$EBS_KEY_ID" >> "$GITHUB_OUTPUT"
+          echo "db_secret_exists=$([ -n "$DB_SECRET_ARN" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          echo "jwt_secret_exists=$([ -n "$JWT_SECRET_ARN" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
 
-      - name: Terraform Init (Secure KMS Bootstrap)
-        if: github.event.inputs.action == 'apply' && steps.kms-state.outputs.exists == 'false'
+      - name: Terraform Init (Secure Foundation)
+        if: github.event.inputs.action == 'apply'
         working-directory: ${{ env.TF_KMS_WORKING_DIR }}
         run: terraform init
 
-      - name: Terraform Validate (Secure KMS Bootstrap)
-        if: github.event.inputs.action == 'apply' && steps.kms-state.outputs.exists == 'false'
+      - name: Terraform Validate (Secure Foundation)
+        if: github.event.inputs.action == 'apply'
         working-directory: ${{ env.TF_KMS_WORKING_DIR }}
         run: terraform validate
 
-      - name: Terraform Import (Secure KMS Bootstrap)
+      - name: Terraform Import (Secure Foundation)
         if: github.event.inputs.action == 'apply' && steps.kms-state.outputs.exists == 'false' && steps.kms-bootstrap.outputs.mode == 'import'
         working-directory: ${{ env.TF_KMS_WORKING_DIR }}
+        env:
+          TF_VAR_db_password: ${{ secrets.TF_DB_PASSWORD }}
+          TF_VAR_jwt_secret: ${{ secrets.TF_JWT_SECRET }}
         run: |
-          terraform import module.kms.aws_kms_key.main "${{ steps.kms-bootstrap.outputs.secrets_key_id }}"
-          terraform import module.kms_data.aws_kms_key.main "${{ steps.kms-bootstrap.outputs.data_key_id }}"
-          terraform import module.kms_ebs.aws_kms_key.main "${{ steps.kms-bootstrap.outputs.ebs_key_id }}"
+          terraform import -input=false module.kms.aws_kms_key.main "${{ steps.kms-bootstrap.outputs.secrets_key_id }}"
+          terraform import -input=false module.kms_data.aws_kms_key.main "${{ steps.kms-bootstrap.outputs.data_key_id }}"
+          terraform import -input=false module.kms_ebs.aws_kms_key.main "${{ steps.kms-bootstrap.outputs.ebs_key_id }}"
 
-          terraform import module.kms.aws_kms_alias.main alias/sentinelshare-secure-secrets
-          terraform import module.kms_data.aws_kms_alias.main alias/sentinelshare-secure-data
-          terraform import module.kms_ebs.aws_kms_alias.main alias/sentinelshare-secure-ebs
+          terraform import -input=false module.kms.aws_kms_alias.main alias/sentinelshare-secure-secrets
+          terraform import -input=false module.kms_data.aws_kms_alias.main alias/sentinelshare-secure-data
+          terraform import -input=false module.kms_ebs.aws_kms_alias.main alias/sentinelshare-secure-ebs
 
-      - name: Terraform Plan (Secure KMS Bootstrap)
-        if: github.event.inputs.action == 'apply' && steps.kms-state.outputs.exists == 'false'
+          if [ "${{ steps.kms-bootstrap.outputs.db_secret_exists }}" = "true" ]; then
+            terraform import -input=false module.secrets.aws_secretsmanager_secret.db_password "${{ env.SECURE_DB_SECRET_NAME }}"
+          fi
+
+          if [ "${{ steps.kms-bootstrap.outputs.jwt_secret_exists }}" = "true" ]; then
+            terraform import -input=false module.secrets.aws_secretsmanager_secret.jwt_secret "${{ env.SECURE_JWT_SECRET_NAME }}"
+          fi
+
+      - name: Import existing secure secrets into foundation state
+        if: github.event.inputs.action == 'apply'
         working-directory: ${{ env.TF_KMS_WORKING_DIR }}
+        shell: bash
+        env:
+          TF_VAR_db_password: ${{ secrets.TF_DB_PASSWORD }}
+          TF_VAR_jwt_secret: ${{ secrets.TF_JWT_SECRET }}
+        run: |
+          import_secret_if_needed() {
+            local resource_address="$1"
+            local secret_name="$2"
+
+            if terraform state list | grep -Fxq "$resource_address"; then
+              echo "State already contains $resource_address"
+              return 0
+            fi
+
+            if aws secretsmanager describe-secret \
+              --region "${{ env.AWS_REGION }}" \
+              --secret-id "$secret_name" \
+              >/dev/null 2>&1; then
+              terraform import -input=false "$resource_address" "$secret_name"
+            else
+              echo "Secret does not exist yet: $secret_name"
+            fi
+          }
+
+          import_secret_if_needed "module.secrets.aws_secretsmanager_secret.db_password" "${{ env.SECURE_DB_SECRET_NAME }}"
+          import_secret_if_needed "module.secrets.aws_secretsmanager_secret.jwt_secret" "${{ env.SECURE_JWT_SECRET_NAME }}"
+
+      - name: Terraform Plan (Secure Foundation)
+        if: github.event.inputs.action == 'apply'
+        working-directory: ${{ env.TF_KMS_WORKING_DIR }}
+        env:
+          TF_VAR_db_password: ${{ secrets.TF_DB_PASSWORD }}
+          TF_VAR_jwt_secret: ${{ secrets.TF_JWT_SECRET }}
         run: terraform plan -input=false -out=tfplan
 
-      - name: Terraform Apply (Secure KMS Bootstrap)
-        if: github.event.inputs.action == 'apply' && steps.kms-state.outputs.exists == 'false'
+      - name: Terraform Apply (Secure Foundation)
+        if: github.event.inputs.action == 'apply'
         working-directory: ${{ env.TF_KMS_WORKING_DIR }}
+        env:
+          TF_VAR_db_password: ${{ secrets.TF_DB_PASSWORD }}
+          TF_VAR_jwt_secret: ${{ secrets.TF_JWT_SECRET }}
         run: terraform apply -input=false -auto-approve tfplan
 
       - name: Terraform Plan

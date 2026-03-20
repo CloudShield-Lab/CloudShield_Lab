@@ -143,6 +143,10 @@ export interface AnalysisSession {
   stages: AttackEvent[];
   metrics: { vuln: SessionMetrics; secure: SessionMetrics };
   wazuhAlerts?: WazuhAlert[];
+  rawLogs?: {
+    vulnerable: string[];
+    secure: string[];
+  };
 }
 
 export interface SessionMeta {
