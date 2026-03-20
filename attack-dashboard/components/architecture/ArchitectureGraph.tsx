@@ -146,6 +146,7 @@ export function ArchitectureGraph({ env, nodes, lastEvent, scenarioKey }: Props)
               muted,
               highlighted,
               showBypassHandle: bypassActive && node.stage === 'attacker',
+              lastEventId: node.lastEventId,
             },
             draggable: false,
             selectable: false,
