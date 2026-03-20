@@ -19,6 +19,7 @@ interface ScanResult {
   dangerousFound: string[];
   status: number;
   latency: number;
+  cfErrorPage?: boolean;
 }
 
 interface HeaderScanEvent {
@@ -29,6 +30,7 @@ interface HeaderScanEvent {
   status?: number;
   latency?: number;
   message?: string;
+  cfErrorPage?: boolean;
 }
 
 interface Props {
@@ -117,6 +119,7 @@ export function HeaderScanCard({ index, title, description, vulnNote, awsNote, m
           dangerousFound: event.dangerousFound || [],
           status: event.status ?? 0,
           latency: event.latency ?? 0,
+          cfErrorPage: event.cfErrorPage,
         };
         if (event.env === 'vulnerable') {
           setVulnScan(result);
@@ -238,13 +241,19 @@ export function HeaderScanCard({ index, title, description, vulnNote, awsNote, m
           </div>
           <p className="min-h-[44px] text-xs leading-5 text-slate-500">{awsNote}</p>
           {awsScan && (
-            <div className="flex gap-3 font-mono text-xs text-slate-500">
-              <span>HTTP {awsScan.status === -1 ? 'N/A' : awsScan.status}</span>
-              <span>{awsScan.status === -1 ? '-' : `${awsScan.latency}ms`}</span>
-              {awsScan.dangerousFound.length === 0 && awsScan.status !== -1 && (
-                <span className="font-semibold text-emerald-600">✓ 위험 헤더 없음</span>
-              )}
-            </div>
+            awsScan.cfErrorPage ? (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                <span className="font-semibold">CloudFront 오류 페이지 응답</span> — 백엔드가 응답하지 않아 S3 에러 페이지가 반환되었습니다. 헤더는 앱이 아닌 CF/S3 인프라 응답입니다.
+              </div>
+            ) : (
+              <div className="flex gap-3 font-mono text-xs text-slate-500">
+                <span>HTTP {awsScan.status === -1 ? 'N/A' : awsScan.status}</span>
+                <span>{awsScan.status === -1 ? '-' : `${awsScan.latency}ms`}</span>
+                {awsScan.dangerousFound.length === 0 && awsScan.status !== -1 && (
+                  <span className="font-semibold text-emerald-600">✓ 위험 헤더 없음</span>
+                )}
+              </div>
+            )
           )}
         </div>
       </div>
@@ -252,7 +261,14 @@ export function HeaderScanCard({ index, title, description, vulnNote, awsNote, m
       {/* Comparison table */}
       {(vulnScan || awsScan) && allHeaderNames.length > 0 && (
         <div className="border-t border-slate-200 p-4">
-          <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">헤더 비교</div>
+          <div className="mb-3 flex items-center gap-3">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">헤더 비교</span>
+            {awsScan?.cfErrorPage && (
+              <span className="rounded-full border border-amber-300 bg-amber-50 px-2.5 py-0.5 text-[10px] font-semibold text-amber-700">
+                보안 환경 열 = CF/S3 인프라 응답 (앱 헤더 아님)
+              </span>
+            )}
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full font-mono text-xs">
               <thead>
@@ -288,6 +304,12 @@ export function HeaderScanCard({ index, title, description, vulnNote, awsNote, m
                       <td className="py-1.5 pl-4">
                         {awsScan?.status === -1 ? (
                           <span className="text-slate-300">미설정</span>
+                        ) : awsScan?.cfErrorPage ? (
+                          awsVal !== undefined ? (
+                            <span className="text-amber-600">{awsVal}</span>
+                          ) : (
+                            <span className="text-slate-300">—</span>
+                          )
                         ) : awsVal !== undefined ? (
                           <span className={isSecurity ? 'font-semibold text-emerald-600' : isDangerous ? 'text-amber-600' : 'text-slate-600'}>
                             {awsVal}

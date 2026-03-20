@@ -22,7 +22,15 @@ function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-async function scanHeaders(baseUrl: string) {
+interface ScanResult {
+  status: number;
+  latency: number;
+  headers: Record<string, string>;
+  dangerousFound: string[];
+  cfErrorPage: boolean;
+}
+
+async function scanHeaders(baseUrl: string): Promise<ScanResult> {
   const start = Date.now();
   try {
     const res = await fetch(`${baseUrl}/api/health`, {
@@ -34,8 +42,16 @@ async function scanHeaders(baseUrl: string) {
     res.headers.forEach((value, key) => {
       headers[key.toLowerCase()] = value;
     });
+
+    // CloudFront custom_error_response: 백엔드 오류 → S3 에러 페이지(text/html) 감지.
+    // API 엔드포인트는 항상 application/json 반환 — text/html이면 CF/S3 인프라 응답.
+    const isHtmlResponse = (headers['content-type'] || '').includes('text/html');
+    if (isHtmlResponse) {
+      return { status: res.status, latency, headers, dangerousFound: [], cfErrorPage: true };
+    }
+
     const dangerousFound = DANGEROUS_HEADERS.filter((h) => headers[h] !== undefined);
-    return { status: res.status, latency, headers, dangerousFound };
+    return { status: res.status, latency, headers, dangerousFound, cfErrorPage: false };
   } catch {
     // Fallback: try root path
     try {
@@ -48,10 +64,14 @@ async function scanHeaders(baseUrl: string) {
       res2.headers.forEach((value, key) => {
         headers[key.toLowerCase()] = value;
       });
+      const isHtmlFallback = (headers['content-type'] || '').includes('text/html');
+      if (isHtmlFallback) {
+        return { status: res2.status, latency: latency2, headers, dangerousFound: [], cfErrorPage: true };
+      }
       const dangerousFound = DANGEROUS_HEADERS.filter((h) => headers[h] !== undefined);
-      return { status: res2.status, latency: latency2, headers, dangerousFound };
+      return { status: res2.status, latency: latency2, headers, dangerousFound, cfErrorPage: false };
     } catch {
-      return { status: 0, latency: Date.now() - start, headers: {}, dangerousFound: [] };
+      return { status: 0, latency: Date.now() - start, headers: {}, dangerousFound: [], cfErrorPage: false };
     }
   }
 }
@@ -96,13 +116,19 @@ export async function GET(request: NextRequest) {
         scanHeaders(VULNERABLE_URL),
         AWS_URL
           ? scanHeaders(AWS_URL)
-          : Promise.resolve({ status: -1, latency: 0, headers: {}, dangerousFound: [] }),
+          : Promise.resolve({ status: -1, latency: 0, headers: {} as Record<string, string>, dangerousFound: [], cfErrorPage: false }),
       ]);
 
       await send({ type: 'stage', env: 'vulnerable', attempt: 1, stage: 'ecs', status: vulnScan.status > 0 ? 'reached' : 'failed', title: 'EC2 응답 수신', description: `HTTP ${vulnScan.status} — ${vulnScan.latency}ms`, severity: 'warning' });
       await sleep(STAGE_STEP_MS);
       if (AWS_URL) {
-        await send({ type: 'stage', env: 'aws', attempt: 1, stage: 'ecs', status: awsScan.status > 0 ? 'reached' : 'failed', title: 'EC2 응답 수신', description: `HTTP ${awsScan.status} — ${awsScan.latency}ms`, severity: 'info' });
+        // CF 에러 페이지 응답은 백엔드에 도달하지 못한 것으로 처리
+        const awsEcsStatus = awsScan.cfErrorPage ? 'failed' : (awsScan.status > 0 ? 'reached' : 'failed');
+        const awsEcsTitle = awsScan.cfErrorPage ? 'CF 오류 페이지 반환' : 'EC2 응답 수신';
+        const awsEcsDesc = awsScan.cfErrorPage
+          ? 'CloudFront가 백엔드 대신 S3 오류 페이지를 반환했습니다. 백엔드 앱 헤더를 수집할 수 없습니다.'
+          : `HTTP ${awsScan.status} — ${awsScan.latency}ms`;
+        await send({ type: 'stage', env: 'aws', attempt: 1, stage: 'ecs', status: awsEcsStatus, title: awsEcsTitle, description: awsEcsDesc, severity: 'warning' });
         await sleep(STAGE_STEP_MS);
       }
 
@@ -113,6 +139,7 @@ export async function GET(request: NextRequest) {
         dangerousFound: vulnScan.dangerousFound,
         status: vulnScan.status,
         latency: vulnScan.latency,
+        cfErrorPage: vulnScan.cfErrorPage,
       });
 
       await send({
@@ -122,6 +149,7 @@ export async function GET(request: NextRequest) {
         dangerousFound: awsScan.dangerousFound,
         status: awsScan.status,
         latency: awsScan.latency,
+        cfErrorPage: awsScan.cfErrorPage,
       });
 
       // Also emit result events so AttackCard stats work if used
