@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { saveSession } from '@/lib/analysis-storage';
-import { fetchWazuhAlerts } from '@/lib/wazuh';
 import { normalizeApiBaseUrl } from '@/lib/url-utils';
 import type { AnalysisSession } from '@/types';
 
@@ -33,27 +32,14 @@ export async function POST(request: NextRequest) {
     const toTime = new Date(new Date(session.timestamp).getTime() + bufferMs).toISOString();
 
     const isAuto = session.mode === 'auto';
-    const vulnUrl = isAuto
-      ? process.env.AUTO_VULNERABLE_API_URL
-      : process.env.VULNERABLE_API_URL;
-    const secureUrl = isAuto
-      ? process.env.AUTO_AWS_API_URL
-      : process.env.AWS_API_URL;
+    const vulnUrl = isAuto ? process.env.AUTO_VULNERABLE_API_URL : process.env.VULNERABLE_API_URL;
+    const secureUrl = isAuto ? process.env.AUTO_AWS_API_URL : process.env.AWS_API_URL;
 
-    const [vulnAlerts, secureAlerts, vulnLogs, secureLogs] = await Promise.all([
-      session.wazuhAlerts
-        ? Promise.resolve([])
-        : fetchWazuhAlerts({ from: session.startTime, to: toTime, envFilter: 'vul' }),
-      session.wazuhAlerts
-        ? Promise.resolve([])
-        : fetchWazuhAlerts({ from: session.startTime, to: toTime, envFilter: 'sec' }),
+    const [vulnLogs, secureLogs] = await Promise.all([
       vulnUrl ? fetchRawLogs(vulnUrl, session.startTime, toTime) : Promise.resolve([]),
       secureUrl ? fetchRawLogs(secureUrl, session.startTime, toTime) : Promise.resolve([]),
     ]);
 
-    if (!session.wazuhAlerts) {
-      session.wazuhAlerts = [...vulnAlerts, ...secureAlerts];
-    }
     session.rawLogs = { vulnerable: vulnLogs, secure: secureLogs };
   }
 
