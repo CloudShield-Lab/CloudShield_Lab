@@ -160,7 +160,7 @@ export function AnalysisPage({ mode }: Props) {
                         ) : (
                           <div className="flex max-h-96 flex-col gap-2 overflow-y-auto">
                             {session.rawLogs.vulnerable.map((raw, i) => (
-                              <pre key={i} className="overflow-x-auto whitespace-pre-wrap rounded bg-slate-900 p-2 font-mono text-[9px] leading-4 text-slate-100">
+                              <pre key={i} className="overflow-x-auto whitespace-pre-wrap rounded border border-slate-200 bg-slate-50 p-2 font-mono text-[9px] leading-4 text-slate-700">
                                 {raw}
                               </pre>
                             ))}
@@ -176,7 +176,7 @@ export function AnalysisPage({ mode }: Props) {
                         ) : (
                           <div className="flex max-h-96 flex-col gap-2 overflow-y-auto">
                             {session.rawLogs.secure.map((raw, i) => (
-                              <pre key={i} className="overflow-x-auto whitespace-pre-wrap rounded bg-slate-900 p-2 font-mono text-[9px] leading-4 text-slate-100">
+                              <pre key={i} className="overflow-x-auto whitespace-pre-wrap rounded border border-slate-200 bg-slate-50 p-2 font-mono text-[9px] leading-4 text-slate-700">
                                 {raw}
                               </pre>
                             ))}
