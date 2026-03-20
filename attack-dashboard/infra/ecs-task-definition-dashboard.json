@@ -91,6 +91,14 @@
         {
           "name": "WAZUH_API_PASSWORD",
           "valueFrom": "arn:aws:secretsmanager:ap-northeast-2:833453046706:secret:cloudshield/dashboard/wazuh-UcRWR2:WAZUH_API_PASSWORD::"
+        },
+        {
+          "name": "WAZUH_INDEXER_USER",
+          "valueFrom": "arn:aws:secretsmanager:ap-northeast-2:833453046706:secret:cloudshield/dashboard/wazuh-UcRWR2:WAZUH_INDEXER_USER::"
+        },
+        {
+          "name": "WAZUH_INDEXER_PASSWORD",
+          "valueFrom": "arn:aws:secretsmanager:ap-northeast-2:833453046706:secret:cloudshield/dashboard/wazuh-UcRWR2:WAZUH_INDEXER_PASSWORD::"
         }
       ],
       "logConfiguration": {

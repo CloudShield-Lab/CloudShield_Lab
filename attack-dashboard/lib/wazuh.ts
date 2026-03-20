@@ -5,12 +5,12 @@ import type { WazuhAlert } from '@/types';
 const MAX_ALERTS = 50;
 const INSECURE = process.env.WAZUH_INSECURE === 'true';
 
-// Next.js 15 uses undici-based fetch which ignores NODE_TLS_REJECT_UNAUTHORIZED.
-// Use node:https directly so rejectUnauthorized: false is respected.
+// Wazuh Manager REST API (port 55000) has no /alerts query endpoint.
+// Alerts are indexed in Wazuh Indexer (OpenSearch, port 9200) — query via OpenSearch DSL.
 function wazuhRequest(
   url: string,
   options: { method?: string; headers?: Record<string, string>; body?: string },
-): Promise<{ ok: boolean; json: () => Promise<unknown> }> {
+): Promise<{ ok: boolean; status: number; json: () => Promise<unknown> }> {
   return new Promise((resolve, reject) => {
     const parsed = new URL(url);
     const isHttps = parsed.protocol === 'https:';
@@ -33,11 +33,12 @@ function wazuhRequest(
         const status = res.statusCode ?? 0;
         resolve({
           ok: status >= 200 && status < 300,
+          status,
           json: () => {
             try {
               return Promise.resolve(JSON.parse(body));
             } catch {
-              return Promise.reject(new Error(`Invalid JSON: ${body.slice(0, 100)}`));
+              return Promise.reject(new Error(`Invalid JSON: ${body.slice(0, 200)}`));
             }
           },
         });
@@ -45,11 +46,28 @@ function wazuhRequest(
     });
 
     req.on('error', reject);
-    req.setTimeout(8000, () => req.destroy(new Error('Wazuh request timeout')));
+    req.setTimeout(10000, () => req.destroy(new Error('Wazuh request timeout')));
 
     if (options.body) req.write(options.body);
     req.end();
   });
+}
+
+function getIndexerUrl(): string | null {
+  if (process.env.WAZUH_INDEXER_URL) return process.env.WAZUH_INDEXER_URL;
+  // Derive from WAZUH_API_URL: replace Manager port 55000 → Indexer port 9200
+  const apiUrl = process.env.WAZUH_API_URL;
+  if (!apiUrl) return null;
+  return apiUrl.replace(':55000', ':9200');
+}
+
+interface OpenSearchHit {
+  _source: {
+    timestamp?: string;
+    rule?: { id?: string; level?: number; description?: string };
+    agent?: { name?: string };
+    full_log?: string;
+  };
 }
 
 export async function fetchWazuhAlerts(options: {
@@ -57,56 +75,64 @@ export async function fetchWazuhAlerts(options: {
   to: string;
   envFilter?: string;
 }): Promise<WazuhAlert[]> {
-  const wazuhApiUrl = process.env.WAZUH_API_URL;
-  if (!wazuhApiUrl) return [];
+  const indexerUrl = getIndexerUrl();
+  if (!indexerUrl) return [];
+
+  const user = process.env.WAZUH_INDEXER_USER ?? 'admin';
+  const pass = process.env.WAZUH_INDEXER_PASSWORD ?? '';
+  if (!pass) {
+    console.warn('[wazuh] WAZUH_INDEXER_PASSWORD not set');
+    return [];
+  }
+
+  const basicAuth = 'Basic ' + Buffer.from(`${user}:${pass}`).toString('base64');
+
+  // Build OpenSearch DSL query
+  const mustFilters: unknown[] = [
+    { range: { timestamp: { gte: options.from, lte: options.to } } },
+  ];
+  if (options.envFilter) {
+    mustFilters.push({ wildcard: { 'agent.name': `*${options.envFilter}*` } });
+  }
+
+  const query = {
+    size: MAX_ALERTS,
+    _source: ['timestamp', 'rule.id', 'rule.level', 'rule.description', 'agent.name', 'full_log'],
+    query: { bool: { filter: mustFilters } },
+    sort: [{ 'rule.level': { order: 'desc' } }],
+  };
 
   try {
-    // Authenticate
-    const authRes = await wazuhRequest(`${wazuhApiUrl}/security/user/authenticate`, {
+    const res = await wazuhRequest(`${indexerUrl}/wazuh-alerts-4.x-*/_search`, {
       method: 'POST',
       headers: {
-        Authorization:
-          'Basic ' +
-          Buffer.from(
-            `${process.env.WAZUH_API_USER ?? 'wazuh'}:${process.env.WAZUH_API_PASSWORD ?? ''}`,
-          ).toString('base64'),
+        Authorization: basicAuth,
         'Content-Type': 'application/json',
       },
+      body: JSON.stringify(query),
     });
 
-    if (!authRes.ok) {
-      console.warn('[wazuh] auth failed');
+    if (!res.ok) {
+      console.warn('[wazuh] indexer query failed, status:', res.status);
       return [];
     }
 
-    const token = ((await authRes.json()) as { data?: { token?: string } }).data?.token;
-    if (!token) {
-      console.warn('[wazuh] no token in auth response');
-      return [];
-    }
+    const data = (await res.json()) as { hits?: { hits?: OpenSearchHit[] } };
+    const hits = data.hits?.hits ?? [];
 
-    // Query alerts — Wazuh 4.x q 문법: 조건을 세미콜론(;=AND)으로 결합
-    const params = new URLSearchParams({ limit: '100' });
-    const conditions: string[] = [`timestamp>${options.from}`];
-    if (options.envFilter) conditions.push(`agent.name~${options.envFilter}`);
-    params.set('q', conditions.join(';'));
-
-    const alertsRes = await wazuhRequest(`${wazuhApiUrl}/alerts?${params.toString()}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-
-    if (!alertsRes.ok) {
-      console.warn('[wazuh] alerts query failed');
-      return [];
-    }
-
-    const data = (await alertsRes.json()) as { data?: { affected_items?: WazuhAlert[] } };
-    const alerts = data.data?.affected_items ?? [];
-
-    return alerts
-      .filter((a) => a.timestamp >= options.from && a.timestamp <= options.to)
-      .sort((a, b) => b.rule.level - a.rule.level)
-      .slice(0, MAX_ALERTS);
+    return hits
+      .map((h) => ({
+        id: `${h._source.agent?.name ?? 'unknown'}-${h._source.timestamp ?? ''}`,
+        timestamp: h._source.timestamp ?? '',
+        rule: {
+          id: h._source.rule?.id ?? '',
+          level: h._source.rule?.level ?? 0,
+          description: h._source.rule?.description ?? '',
+        },
+        agent: { name: h._source.agent?.name ?? 'unknown' },
+        full_log: h._source.full_log,
+      }))
+      .filter((a) => a.timestamp);
   } catch (e) {
     console.warn('[wazuh] fetchWazuhAlerts failed:', (e as Error).message);
     return [];
