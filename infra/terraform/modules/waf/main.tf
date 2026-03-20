@@ -55,7 +55,7 @@ resource "aws_wafv2_web_acl" "main" {
         aggregate_key_type = "IP"
 
         # 정적 파일(JS/CSS 등) 요청은 카운트 제외 — /api/ 경로만 rate limit 대상
-        # /api/files/ 도 제외 — 파일 업로드/다운로드는 공격 시나리오 대상 아님
+        # /api/files/ 와 /api/logs 는 제외 — 파일 업로드/다운로드 및 로그 수집은 공격 시나리오 대상 아님
         scope_down_statement {
           and_statement {
             statement {
@@ -76,6 +76,23 @@ resource "aws_wafv2_web_acl" "main" {
                 statement {
                   byte_match_statement {
                     search_string = "/api/files/"
+                    field_to_match {
+                      uri_path {}
+                    }
+                    text_transformation {
+                      priority = 0
+                      type     = "NONE"
+                    }
+                    positional_constraint = "STARTS_WITH"
+                  }
+                }
+              }
+            }
+            statement {
+              not_statement {
+                statement {
+                  byte_match_statement {
+                    search_string = "/api/logs"
                     field_to_match {
                       uri_path {}
                     }
