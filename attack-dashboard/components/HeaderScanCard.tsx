@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback, useRef, useState } from 'react';
-import type { AttackPhase, AttackResult, SessionMetrics, WorkspaceMode } from '@/types';
+import { useArchitectureVisualization } from '@/hooks/useArchitectureVisualization';
+import type { AttackEvent, AttackPhase, AttackResult, SessionMetrics, WorkspaceMode } from '@/types';
 
 function computeMetrics(results: AttackResult[]): SessionMetrics {
   const total = results.length;
@@ -40,6 +41,7 @@ interface Props {
 }
 
 export function HeaderScanCard({ index, title, description, vulnNote, awsNote, mode }: Props) {
+  const { startScenario, handleAttackEvent, resetScenario } = useArchitectureVisualization();
   const [phase, setPhase] = useState<AttackPhase>('idle');
   const [vulnScan, setVulnScan] = useState<ScanResult | null>(null);
   const [awsScan, setAwsScan] = useState<ScanResult | null>(null);
@@ -51,6 +53,7 @@ export function HeaderScanCard({ index, title, description, vulnNote, awsNote, m
   const startScan = useCallback(() => {
     if (phase === 'running') return;
     const startTime = new Date().toISOString();
+    startScenario('header-scan');
     setPhase('running');
     setVulnScan(null);
     setAwsScan(null);
@@ -106,6 +109,8 @@ export function HeaderScanCard({ index, title, description, vulnNote, awsNote, m
         return;
       }
 
+      handleAttackEvent('header-scan', event as unknown as AttackEvent);
+
       if (event.type === 'headers' && event.headers !== undefined) {
         const result: ScanResult = {
           headers: event.headers,
@@ -135,14 +140,15 @@ export function HeaderScanCard({ index, title, description, vulnNote, awsNote, m
       doSave(localVulnRef.current, localAwsRef.current);
       es.close();
     };
-  }, [mode, phase, title]);
+  }, [handleAttackEvent, mode, phase, startScenario, title]);
 
   const reset = useCallback(() => {
     esRef.current?.close();
+    resetScenario();
     setPhase('idle');
     setVulnScan(null);
     setAwsScan(null);
-  }, []);
+  }, [resetScenario]);
 
   const buttonClass =
     phase === 'idle'
