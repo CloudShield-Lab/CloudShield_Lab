@@ -26,7 +26,7 @@ function wazuhLevelClass(level: number) {
 function WazuhAlertRow({ alert }: { alert: WazuhAlert }) {
   const [expanded, setExpanded] = useState(false);
   const levelClass = wazuhLevelClass(alert.rule.level);
-  const isVuln = alert.agent.name.toLowerCase().includes('vulnerable');
+  const isVuln = alert.agent.name.toLowerCase().includes('vul');
 
   return (
     <div className={`rounded-lg border px-3 py-2 ${levelClass}`}>
@@ -110,7 +110,7 @@ export function AnalysisPage({ mode }: Props) {
     if (wazuhFilter === 'all') return alerts;
     const isVuln = wazuhFilter === 'vulnerable';
     return alerts.filter((a) => {
-      const nameIsVuln = a.agent.name.toLowerCase().includes('vulnerable');
+      const nameIsVuln = a.agent.name.toLowerCase().includes('vul');
       return isVuln ? nameIsVuln : !nameIsVuln;
     });
   };

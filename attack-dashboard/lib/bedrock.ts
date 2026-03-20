@@ -11,8 +11,8 @@ const REGION = process.env.BEDROCK_REGION || 'us-east-1';
 function formatWazuhSection(alerts: WazuhAlert[], lang: 'ko' | 'en'): string {
   if (!alerts || alerts.length === 0) return '';
 
-  const vulnAlerts = alerts.filter((a) => a.agent.name.includes('vulnerable'));
-  const secureAlerts = alerts.filter((a) => !a.agent.name.includes('vulnerable'));
+  const vulnAlerts = alerts.filter((a) => a.agent.name.includes('vul'));
+  const secureAlerts = alerts.filter((a) => !a.agent.name.includes('vul'));
 
   const formatList = (list: WazuhAlert[]) =>
     list

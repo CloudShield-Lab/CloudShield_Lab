@@ -23,8 +23,8 @@ export async function POST(request: NextRequest) {
     const bufferMs = 30_000;
     const toTime = new Date(new Date(session.timestamp).getTime() + bufferMs).toISOString();
     const [vulnAlerts, secureAlerts] = await Promise.all([
-      fetchWazuhAlerts({ from: session.startTime, to: toTime, envFilter: 'vulnerable' }),
-      fetchWazuhAlerts({ from: session.startTime, to: toTime, envFilter: 'secure' }),
+      fetchWazuhAlerts({ from: session.startTime, to: toTime, envFilter: 'vul' }),
+      fetchWazuhAlerts({ from: session.startTime, to: toTime, envFilter: 'sec' }),
     ]);
     session.wazuhAlerts = [...vulnAlerts, ...secureAlerts];
   }
