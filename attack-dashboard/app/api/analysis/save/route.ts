@@ -9,6 +9,9 @@ async function fetchRawLogs(baseUrl: string, from: string, to: string): Promise<
     const url = `${normalizeApiBaseUrl(baseUrl)}/api/logs?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
     const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
     if (!res.ok) return [];
+    // CloudFront custom_error_response: WAF 403 → 200+HTML 변환 오탐 방지
+    const isJson = (res.headers.get('content-type') || '').includes('application/json');
+    if (!isJson) return [];
     const data = (await res.json()) as { logs?: string[] };
     return data.logs ?? [];
   } catch {
