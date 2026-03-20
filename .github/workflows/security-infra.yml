@@ -62,7 +62,7 @@ jobs:
             toniblyx/prowler:stable \
             aws \
             --region "${{ env.AWS_REGION }}" \
-            --suppression-file /home/prowler/prowler-exceptions.yml \
+            --mutelist-file /home/prowler/prowler-exceptions.yml \
             --resource-tags "Environment=${{ inputs.environment_tag }}" "ManagedBy=${{ inputs.managed_by_tag }}" \
             --output-modes json-ocsf html csv
 
