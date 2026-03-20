@@ -69,7 +69,7 @@ resource "aws_iam_role_policy" "s3_access" {
 }
 
 resource "aws_iam_role_policy" "secrets_access" {
-  count = var.enable_secrets_access ? 1 : 0
+  count = var.secret_delivery_mode == "secrets_manager" ? 1 : 0
   name  = "sentinelshare-tf-${var.env_name}-secrets-access"
   role  = aws_iam_role.ec2.id
 
@@ -211,13 +211,14 @@ resource "aws_instance" "main" {
   iam_instance_profile   = aws_iam_instance_profile.ec2.name
 
   user_data = templatefile("${path.module}/../../scripts/user_data.sh.tpl", {
+    secret_delivery_mode    = var.secret_delivery_mode
     aws_region              = var.aws_region
     aws_account_id          = data.aws_caller_identity.current.account_id
     ecr_registry            = "${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.aws_region}.amazonaws.com"
-    db_password             = jsonencode(var.db_password)
-    jwt_secret              = jsonencode(var.jwt_secret)
-    db_password_secret_name = jsonencode(var.db_password_secret_name)
-    jwt_secret_secret_name  = jsonencode(var.jwt_secret_secret_name)
+    db_password             = jsonencode(var.secret_delivery_mode == "raw" ? var.db_password : "")
+    jwt_secret              = jsonencode(var.secret_delivery_mode == "raw" ? var.jwt_secret : "")
+    db_password_secret_name = jsonencode(var.secret_delivery_mode == "secrets_manager" ? var.db_password_secret_name : "")
+    jwt_secret_secret_name  = jsonencode(var.secret_delivery_mode == "secrets_manager" ? var.jwt_secret_secret_name : "")
     s3_bucket_name          = var.files_bucket_name
     frontend_origin         = var.frontend_origin
     env_type                = var.env_type
@@ -225,6 +226,25 @@ resource "aws_instance" "main" {
   })
 
   # IMDSv2 강제 (보안 환경) / hop_limit=2: Docker 컨테이너 내 AWS SDK가 IMDS 접근 가능하도록
+  lifecycle {
+    precondition {
+      condition = var.secret_delivery_mode == "raw" ? (
+        var.db_password != "" &&
+        var.jwt_secret != "" &&
+        var.db_password_secret_name == "" &&
+        var.jwt_secret_secret_name == "" &&
+        var.secrets_kms_key_arn == ""
+        ) : (
+        var.db_password == "" &&
+        var.jwt_secret == "" &&
+        var.db_password_secret_name != "" &&
+        var.jwt_secret_secret_name != "" &&
+        var.secrets_kms_key_arn != ""
+      )
+      error_message = "EC2 secret inputs must match the selected secret_delivery_mode without mixing raw values and Secrets Manager settings."
+    }
+  }
+
   metadata_options {
     http_endpoint               = "enabled"
     http_tokens                 = var.allow_public_access ? "optional" : "required"

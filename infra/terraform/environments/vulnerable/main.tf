@@ -30,16 +30,17 @@ module "s3" {
 }
 
 module "ec2" {
-  source              = "../../modules/ec2"
-  env_name            = "vul"
-  env_type            = "vulnerable"
-  vpc_id              = module.network.vpc_id
-  subnet_id           = module.network.subnet_id
-  aws_region          = var.aws_region
-  allow_public_access = true
-  files_bucket_name   = module.s3.files_bucket_name
-  db_password         = var.db_password
-  jwt_secret          = var.jwt_secret
-  frontend_origin     = "http://${module.s3.frontend_website_endpoint}"
-  wazuh_manager_ip    = var.wazuh_manager_ip
+  source               = "../../modules/ec2"
+  env_name             = "vul"
+  env_type             = "vulnerable"
+  vpc_id               = module.network.vpc_id
+  subnet_id            = module.network.subnet_id
+  aws_region           = var.aws_region
+  allow_public_access  = true
+  files_bucket_name    = module.s3.files_bucket_name
+  secret_delivery_mode = "raw"
+  db_password          = var.db_password
+  jwt_secret           = var.jwt_secret
+  frontend_origin      = "http://${module.s3.frontend_website_endpoint}"
+  wazuh_manager_ip     = var.wazuh_manager_ip
 }

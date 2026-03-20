@@ -21,7 +21,7 @@ app.use(helmet());
 
 // --- CORS ---
 app.use((req, res, next) => {
-  const host = req.get('Host');
+  const host = req.get('X-Forwarded-Host') || req.get('Host');
   const inferredSameOrigin = host ? [`https://${host}`, `http://${host}`] : [];
   const allowedOrigins =
     env.CORS_ORIGIN.length > 0 ? env.CORS_ORIGIN : inferredSameOrigin;
@@ -31,7 +31,9 @@ app.use((req, res, next) => {
       if (!requestOrigin || allowedOrigins.includes(requestOrigin)) {
         return callback(null, true);
       }
-      return callback(new Error(`CORS blocked for origin: ${requestOrigin}`));
+      const err = new Error(`CORS blocked for origin: ${requestOrigin}`);
+      err.statusCode = 403;
+      return callback(err);
     },
     methods: ['GET', 'POST', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization'],
