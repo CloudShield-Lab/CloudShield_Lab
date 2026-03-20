@@ -8,6 +8,28 @@ terraform {
   }
 }
 
+resource "aws_wafv2_regex_pattern_set" "sqli_xss_query" {
+  provider    = aws.us_east_1
+  name        = "sentinelshare-tf-${var.env_name}-sqli-xss-query"
+  description = "Suspicious SQLi/XSS query patterns for SentinelShare"
+  scope       = "CLOUDFRONT"
+
+  regular_expression {
+    regex_string = "(<script|javascript:|onerror=|onload=|union\\s+select|'\\s*or\\s*1=1|drop\\s+table|alert\\s*\\()"
+  }
+}
+
+resource "aws_wafv2_regex_pattern_set" "suspicious_paths" {
+  provider    = aws.us_east_1
+  name        = "sentinelshare-tf-${var.env_name}-suspicious-paths"
+  description = "Suspicious scan paths for SentinelShare"
+  scope       = "CLOUDFRONT"
+
+  regular_expression {
+    regex_string = "(/wp-login\\.php|/phpmyadmin|/server-status|/\\.env|/admin)"
+  }
+}
+
 resource "aws_wafv2_web_acl" "main" {
   provider    = aws.us_east_1
   name        = "sentinelshare-tf-${var.env_name}-waf"
@@ -80,8 +102,84 @@ resource "aws_wafv2_web_acl" "main" {
 
   # AWS Managed: Common Rule Set
   rule {
-    name     = "AWSManagedRulesCommonRuleSet"
+    name     = "SuspiciousQueryPatternRule"
     priority = 2
+
+    action {
+      block {}
+    }
+
+    statement {
+      regex_pattern_set_reference_statement {
+        arn = aws_wafv2_regex_pattern_set.sqli_xss_query.arn
+
+        field_to_match {
+          query_string {}
+        }
+
+        text_transformation {
+          priority = 0
+          type     = "URL_DECODE"
+        }
+
+        text_transformation {
+          priority = 1
+          type     = "HTML_ENTITY_DECODE"
+        }
+
+        text_transformation {
+          priority = 2
+          type     = "LOWERCASE"
+        }
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "sentinelshare-tf-${var.env_name}-sqli-xss-query"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  rule {
+    name     = "SuspiciousPathScanRule"
+    priority = 3
+
+    action {
+      block {}
+    }
+
+    statement {
+      regex_pattern_set_reference_statement {
+        arn = aws_wafv2_regex_pattern_set.suspicious_paths.arn
+
+        field_to_match {
+          uri_path {}
+        }
+
+        text_transformation {
+          priority = 0
+          type     = "URL_DECODE"
+        }
+
+        text_transformation {
+          priority = 1
+          type     = "LOWERCASE"
+        }
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "sentinelshare-tf-${var.env_name}-suspicious-paths"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  # AWS Managed: Common Rule Set
+  rule {
+    name     = "AWSManagedRulesCommonRuleSet"
+    priority = 4
 
     override_action {
       none {}
@@ -112,7 +210,7 @@ resource "aws_wafv2_web_acl" "main" {
   # AWS Managed: Known Bad Inputs
   rule {
     name     = "AWSManagedRulesKnownBadInputsRuleSet"
-    priority = 3
+    priority = 5
 
     override_action {
       none {}

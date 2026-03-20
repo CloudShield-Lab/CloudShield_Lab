@@ -9,7 +9,7 @@
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │                    Attack Dashboard (ECS Fargate)             │
-│              브루트포스 / S3 직접접근 / API 플러드               │
+│   브루트포스 / S3 직접접근 / API 플러드 / 헤더 스캔 / 패턴 차단 / 봇 스캔   │
 └────────────────┬───────────────────────┬─────────────────────┘
                  │                       │
                  ▼                       ▼
@@ -30,6 +30,8 @@
 | S3 데이터 탈취 체인 | Presigned URL 서명 제거 후 직접 다운로드 | 403 AccessDenied (Private Bucket) |
 | Rate Limit 비교 (200회) | 전부 통과, 응답 지연 증가 | WAF 임계값 초과 차단 |
 | HTTP 헤더 정보 노출 | X-Powered-By, Server 등 기술 스택 노출 | CloudFront가 위험 헤더 제거 + 보안 헤더 추가 |
+| SQLi / XSS 패턴 요청 차단 | 의심 패턴 요청이 앱 계층까지 도달 | WAF가 Known Bad Inputs 및 패턴 규칙으로 차단 |
+| 비정상 스캐닝 / 봇 요청 차단 | /admin, /.env 등의 탐색 요청이 원본까지 도달 | 앞단 계층에서 흡수되거나 차단되어 원본 도달 수 감소 |
 
 ---
 
@@ -43,7 +45,7 @@ SentinelShare/
 │   ├── app/
 │   │   ├── manual/           수동 배포 워크스페이스 (/attack/*, /analysis)
 │   │   ├── auto/             자동(Terraform) 워크스페이스 (/attack/*, /analysis)
-│   │   └── api/attack/       공격 시나리오 API (bruteforce, s3-access, ratelimit, header-scan)
+│   │   └── api/attack/       공격 시나리오 API (bruteforce, s3-access, ratelimit, header-scan, sqli-xss, bot-scan)
 │   │       api/analysis/     AI 분석 API (save, sessions, [sessionId], analyze)
 │   ├── components/           WorkspaceShell, AttackCard, AiAnalysisPanel, SessionList 등
 │   └── lib/                  attack-scenarios, analysis-storage, bedrock, terraform-state

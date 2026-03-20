@@ -140,6 +140,66 @@ export const attackScenarioConfigs: AttackScenarioConfig[] = [
       },
     ],
   },
+  {
+    key: 'sqli-xss',
+    index: 5,
+    title: 'SQL Injection / XSS 패턴 요청 차단 비교',
+    shortTitle: 'SQLi / XSS 차단 비교',
+    description:
+      '의심스러운 SQLi / XSS 패턴이 포함된 요청을 보내, 취약 환경에서는 어디까지 도달하는지와 보안 환경에서 어디서 차단되는지를 비교합니다.',
+    totalRequests: 6,
+    vulnNote:
+      '취약 환경은 앞단 WAF가 없어 의심 요청이 EC2와 서비스 로직까지 전달되고, 애플리케이션이 직접 응답을 반환합니다.',
+    awsNote:
+      '보안 환경은 CloudFront 뒤 WAF가 의심 패턴을 먼저 검사해 악성 요청을 애플리케이션 도달 전에 차단합니다.',
+    flowSteps: [
+      {
+        title: '1. 악성 패턴 요청 전송',
+        vulnerable: 'SQLi / XSS 형태의 의심 패턴이 포함된 요청이 공개 엔드포인트로 유입됩니다.',
+        secure: '동일 요청이 먼저 CloudFront를 거쳐 WAF 정책 검사 단계로 전달됩니다.',
+      },
+      {
+        title: '2. 처리 지점 비교',
+        vulnerable: '앞단 차단 계층이 없어 요청이 EC2와 서비스 로직 계층까지 도달합니다.',
+        secure: 'WAF가 Known Bad Inputs 및 패턴 규칙으로 의심 요청을 조기에 차단합니다.',
+      },
+      {
+        title: '3. 보호 효과 해석',
+        vulnerable: '애플리케이션이 직접 잘못된 입력을 처리하며 응답을 반환하는 흐름을 확인합니다.',
+        secure: '같은 요청이 앞단에서 멈추는 지점을 통해 보안 계층의 역할을 확인합니다.',
+      },
+    ],
+  },
+  {
+    key: 'bot-scan',
+    index: 6,
+    title: '비정상 스캐닝 / 봇 요청 차단 비교',
+    shortTitle: '봇 요청 차단 비교',
+    description:
+      '관리자 페이지나 숨은 경로를 자동 탐색하는 요청이 취약 환경과 보안 환경에서 어디까지 도달하는지 비교합니다.',
+    totalRequests: 6,
+    vulnNote:
+      '취약 환경은 탐색성 요청이 원본 서버까지 도달해 404 응답이라도 애플리케이션과 로그에 부담을 남깁니다.',
+    awsNote:
+      '보안 환경은 CloudFront 같은 앞단 계층에서 상당수 탐색 요청이 먼저 흡수되거나 차단되어 원본 도달 수를 줄입니다.',
+    flowSteps: [
+      {
+        title: '1. 민감 경로 탐색',
+        vulnerable: '/admin, /wp-login.php, /.env 같은 요청이 원본 애플리케이션으로 직접 전달됩니다.',
+        secure: '동일 요청이 CloudFront 등 앞단 보호 계층으로 먼저 유입됩니다.',
+      },
+      {
+        title: '2. 원본 도달 여부 비교',
+        vulnerable: '존재하지 않는 경로라도 서버가 직접 404를 처리하며 로그와 부하가 누적됩니다.',
+        secure: '앞단에서 흡수되거나 차단되는 요청이 늘어나 원본 서버 도달 수가 줄어듭니다.',
+      },
+      {
+        title: '3. 영향 해석',
+        vulnerable: '불필요한 스캐닝 요청이 서비스 계층까지 닿는 흐름을 확인합니다.',
+        secure: '의미 없는 탐색 요청도 앞단 보호 계층에서 초기에 소거될 수 있음을 보여줍니다.',
+      },
+    ],
+  },
 ];
 
 export const defaultAttackScenario: AttackEndpoint = 'bruteforce';

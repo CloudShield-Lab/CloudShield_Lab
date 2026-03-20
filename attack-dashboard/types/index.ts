@@ -106,7 +106,13 @@ export type ArchitectureScenario = {
   events: AttackSimulationEvent[];
 };
 
-export type AttackEndpoint = 'bruteforce' | 's3-access' | 'ratelimit' | 'header-scan';
+export type AttackEndpoint =
+  | 'bruteforce'
+  | 's3-access'
+  | 'ratelimit'
+  | 'header-scan'
+  | 'sqli-xss'
+  | 'bot-scan';
 
 export interface SessionMetrics {
   blocked: number;

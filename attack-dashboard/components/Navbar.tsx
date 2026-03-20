@@ -34,7 +34,7 @@ export function Navbar() {
 
   return (
     <header className="relative overflow-hidden border-b border-slate-200 bg-white/95 backdrop-blur">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.08),_transparent_35%),radial-gradient(circle_at_top_right,_rgba(245,158,11,0.08),_transparent_32%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.08),_transparent_35%),radial-gradient(circle_at_top_right,_rgba(125,211,252,0.12),_transparent_22%),radial-gradient(circle_at_84%_16%,_rgba(168,85,247,0.12),_transparent_30%)]" />
 
       <div className="relative mx-auto flex max-w-7xl flex-col gap-4 px-6 py-5">
         <div className="flex flex-col justify-between gap-4 md:flex-row md:items-start">

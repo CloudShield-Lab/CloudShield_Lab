@@ -86,6 +86,20 @@ const scenarios: Record<ScenarioKey, ArchitectureScenario> = {
       '응답 헤더를 분석해 취약 환경과 보안 환경의 기술 스택 노출 여부를 비교합니다.',
     events: [],
   },
+  'sqli-xss': {
+    id: 'sqli-xss',
+    name: 'SQL Injection / XSS 패턴 요청 차단 비교',
+    description:
+      '의심스러운 SQLi / XSS 패턴 요청이 취약 환경과 보안 환경에서 어디까지 도달하는지 비교합니다.',
+    events: [],
+  },
+  'bot-scan': {
+    id: 'bot-scan',
+    name: '비정상 스캐닝 / 봇 요청 차단 비교',
+    description:
+      '관리자 페이지·숨은 경로 탐색 요청이 앞단에서 소거되는지와 원본까지 도달하는지를 비교합니다.',
+    events: [],
+  },
 };
 
 export function getScenarioByKey(key: ScenarioKey): ArchitectureScenario {
