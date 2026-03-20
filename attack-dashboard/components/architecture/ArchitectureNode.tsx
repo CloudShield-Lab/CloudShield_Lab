@@ -21,6 +21,7 @@ type ArchitectureNodeData = {
   stage: ArchitectureStage;
   muted?: boolean;
   highlighted?: boolean;
+  showBypassHandle?: boolean;
 };
 
 const statusClasses: Record<NodeStatus, string> = {
@@ -79,6 +80,14 @@ export function ArchitectureNode({ data }: NodeProps<ArchitectureNodeData>) {
         type="target"
         className="!h-2.5 !w-2.5 !border-2 !border-white !bg-slate-500"
       />
+      {data.showBypassHandle ? (
+        <Handle
+          id="bypass-source"
+          position={Position.Bottom}
+          type="source"
+          className="!h-3 !w-3 !border-2 !border-white !bg-orange-500 !shadow-[0_0_0_3px_rgba(249,115,22,0.18)]"
+        />
+      ) : null}
       <div className="flex flex-col items-center text-center">
         <div className="mb-2.5 flex h-9 w-9 items-center justify-center rounded-xl border border-white/80 bg-white/80 shadow-sm">
           <Icon className="h-4.5 w-4.5 opacity-95" />
@@ -91,6 +100,7 @@ export function ArchitectureNode({ data }: NodeProps<ArchitectureNodeData>) {
       </div>
       <Handle
         position={Position.Right}
+        id="default-source"
         type="source"
         className="!h-2.5 !w-2.5 !border-2 !border-white !bg-slate-500"
       />

@@ -17,7 +17,7 @@ type VisualizationTab = 'architecture' | 'timeline';
 
 export function AttackVisualizationPanel() {
   const [activeTab, setActiveTab] = useState<VisualizationTab>('architecture');
-  const { phase, timeline, nodeStates } = useArchitectureVisualization();
+  const { phase, timeline, nodeStates, scenarioKey } = useArchitectureVisualization();
   const lastVulnerableEvent = [...timeline].reverse().find((event) => event.env === 'vulnerable');
   const lastSecureEvent = [...timeline].reverse().find((event) => event.env === 'secure');
 
@@ -67,8 +67,18 @@ export function AttackVisualizationPanel() {
 
       {activeTab === 'architecture' ? (
         <div className="grid gap-4 xl:grid-cols-2">
-          <ArchitectureGraph env="vulnerable" nodes={nodeStates.vulnerable} lastEvent={lastVulnerableEvent} />
-          <ArchitectureGraph env="secure" nodes={nodeStates.secure} lastEvent={lastSecureEvent} />
+          <ArchitectureGraph
+            env="vulnerable"
+            nodes={nodeStates.vulnerable}
+            lastEvent={lastVulnerableEvent}
+            scenarioKey={scenarioKey}
+          />
+          <ArchitectureGraph
+            env="secure"
+            nodes={nodeStates.secure}
+            lastEvent={lastSecureEvent}
+            scenarioKey={scenarioKey}
+          />
         </div>
       ) : (
         <div className="grid gap-4 xl:grid-cols-2">

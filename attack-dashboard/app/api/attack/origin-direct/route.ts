@@ -201,7 +201,7 @@ export async function GET(request: NextRequest) {
           vulnerableResult.blocked ? 'blocked' : 'failed',
           vulnerableResult.blocked ? 'Origin 접근 차단' : 'Origin 접근 실패',
           vulnerableResult.error === 'origin_url_not_configured'
-            ? '취약 환경 origin URL이 설정되지 않아 직접 접근을 확인할 수 없습니다.'
+            ? '취약 환경 origin URL이 설정되지 않아 직접 접근 여부를 확인할 수 없습니다.'
             : vulnerableResult.error === 'timeout_or_refused'
               ? '원본 응답이 돌아오지 않아 직접 접근 여부를 확인하지 못했습니다.'
               : `원본이 HTTP ${vulnerableResult.status} 상태로 응답했습니다.`,
@@ -218,6 +218,28 @@ export async function GET(request: NextRequest) {
         '정상 경로 우회',
         `CloudFront를 우회하고 원본 주소(${awsOriginUrl || 'NOT CONFIGURED'})로 직접 요청을 보냈습니다.`,
         'critical',
+      );
+
+      await sendStageWithDelay(
+        sendStage,
+        'aws',
+        attempt,
+        'cloudfront',
+        'passed',
+        '정상 진입 경로 유지',
+        '보안 환경은 CloudFront를 정상 진입 경로로 사용하도록 설계되어 있습니다.',
+        'info',
+      );
+
+      await sendStageWithDelay(
+        sendStage,
+        'aws',
+        attempt,
+        'waf',
+        'passed',
+        '보호 계층 활성',
+        '직접 접근은 우회되었지만, 보안 환경의 표준 경로에는 WAF 보호 계층이 유지됩니다.',
+        'info',
       );
 
       if (isOriginReachable(awsResult.status)) {
@@ -238,7 +260,7 @@ export async function GET(request: NextRequest) {
           'app',
           'passed',
           'Service Logic 도달',
-          '보안 환경에서도 원본에 직접 접근이 가능해 보호 계층 우회가 발생했습니다.',
+          '보안 환경에서도 원본 직접 접근이 가능해 보호 계층 우회가 발생했습니다.',
           'warning',
         );
       } else {

@@ -3,7 +3,7 @@
 import 'reactflow/dist/style.css';
 import { useMemo } from 'react';
 import ReactFlow, { Background, Edge, MarkerType, Node, Panel, useReactFlow } from 'reactflow';
-import { STAGE_DESCRIPTIONS, STAGE_LABELS } from '@/lib/attack-simulation';
+import { STAGE_DESCRIPTIONS, STAGE_LABELS, type ScenarioKey } from '@/lib/attack-simulation';
 import type {
   ArchitectureEnvironment,
   ArchitectureNodeState,
@@ -75,6 +75,7 @@ interface Props {
   env: ArchitectureEnvironment;
   nodes: ArchitectureNodeState[];
   lastEvent?: AttackSimulationEvent;
+  scenarioKey: ScenarioKey;
 }
 
 function CompactControls() {
@@ -112,16 +113,26 @@ function CompactControls() {
   );
 }
 
-export function ArchitectureGraph({ env, nodes, lastEvent }: Props) {
+export function ArchitectureGraph({ env, nodes, lastEvent, scenarioKey }: Props) {
+  const bypassActive =
+    env === 'secure' &&
+    scenarioKey === 'origin-direct' &&
+    nodes.some((node) => node.stage === 'attacker' && node.status !== 'idle');
+  const preserveDefaultSecureStages = env === 'secure' && scenarioKey === 'origin-direct';
+
   const graphNodes = useMemo<Node[]>(
     () =>
       nodes
         .filter((node) => visibleStages.includes(node.stage))
         .map((node) => {
+          const displayStatus =
+            preserveDefaultSecureStages && (node.stage === 'cloudfront' || node.stage === 'waf')
+              ? 'idle'
+              : node.status;
           const muted = env === 'vulnerable' && (node.stage === 'cloudfront' || node.stage === 'waf');
           const highlighted =
-            (env === 'vulnerable' && node.stage === 's3' && node.status === 'success') ||
-            (env === 'secure' && node.stage === 'waf' && node.status === 'blocked');
+            (env === 'vulnerable' && node.stage === 's3' && displayStatus === 'success') ||
+            (env === 'secure' && node.stage === 'waf' && displayStatus === 'blocked');
 
           return {
             id: node.stage,
@@ -130,19 +141,50 @@ export function ArchitectureGraph({ env, nodes, lastEvent }: Props) {
             data: {
               label: STAGE_LABELS[node.stage],
               description: STAGE_DESCRIPTIONS[node.stage],
-              status: node.status,
+              status: displayStatus,
               stage: node.stage,
               muted,
               highlighted,
+              showBypassHandle: bypassActive && node.stage === 'attacker',
             },
             draggable: false,
             selectable: false,
           };
         }),
-    [env, nodes]
+    [bypassActive, env, nodes, preserveDefaultSecureStages]
   );
 
-  const edges = env === 'vulnerable' ? vulnerableEdges : secureEdges;
+  const edges = useMemo(() => {
+    if (env === 'vulnerable') {
+      return vulnerableEdges;
+    }
+
+    const baseSecureEdges = preserveDefaultSecureStages
+      ? secureEdges.map((edge) =>
+          edge.id === 'secure-attacker-cloudfront'
+            ? { ...edge, sourceHandle: 'default-source' }
+            : edge
+        )
+      : secureEdges;
+
+    if (!bypassActive) {
+      return baseSecureEdges;
+    }
+
+    return [
+      ...baseSecureEdges,
+      {
+        id: 'secure-origin-bypass',
+        source: 'attacker',
+        sourceHandle: 'bypass-source',
+        target: 'ecs',
+        type: 'default',
+        animated: true,
+        markerEnd: { type: MarkerType.ArrowClosed, color: '#f97316' },
+        style: { stroke: '#f97316', strokeWidth: 2.5 },
+      } satisfies Edge,
+    ];
+  }, [bypassActive, env]);
 
   return (
     <section className={`rounded-2xl border p-4 shadow-[0_14px_34px_rgba(15,23,42,0.05)] ${envMeta[env].panel}`}>

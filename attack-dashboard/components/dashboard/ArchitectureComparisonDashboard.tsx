@@ -18,7 +18,7 @@ type PanelTab = 'architecture' | 'timeline';
 export function ArchitectureComparisonDashboard() {
   const [expanded, setExpanded] = useState(false);
   const [tab, setTab] = useState<PanelTab>('architecture');
-  const { scenario, phase, timeline, nodeStates } = useArchitectureVisualization();
+  const { scenario, scenarioKey, phase, timeline, nodeStates } = useArchitectureVisualization();
 
   const lastVulnerableEvent = [...timeline].reverse().find((event) => event.env === 'vulnerable');
   const lastSecureEvent = [...timeline].reverse().find((event) => event.env === 'secure');
@@ -91,11 +91,13 @@ export function ArchitectureComparisonDashboard() {
                     env="vulnerable"
                     nodes={nodeStates.vulnerable}
                     lastEvent={lastVulnerableEvent}
+                    scenarioKey={scenarioKey}
                   />
                   <ArchitectureGraph
                     env="secure"
                     nodes={nodeStates.secure}
                     lastEvent={lastSecureEvent}
+                    scenarioKey={scenarioKey}
                   />
                 </section>
               ) : (
