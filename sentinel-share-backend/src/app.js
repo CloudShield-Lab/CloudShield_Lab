@@ -41,21 +41,32 @@ app.use((req, res, next) => {
   })(req, res, next);
 });
 
-// --- HTTP access log ---
+// --- Body parsers ---
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: false, limit: '1mb' }));
+
+// --- HTTP access log (raw request — body available after body parsers) ---
 app.use((req, res, next) => {
   const start = Date.now();
   res.on('finish', () => {
     log('info', 'HTTP_ACCESS', {
-      ip: req.ip, method: req.method, path: req.path,
-      status: res.statusCode, latency_ms: Date.now() - start,
+      ip: req.ip,
+      method: req.method,
+      path: req.path,
+      query: Object.keys(req.query).length > 0 ? req.query : undefined,
+      body: Object.keys(req.body || {}).length > 0 ? req.body : undefined,
+      headers: {
+        'content-type': req.headers['content-type'],
+        'user-agent': req.headers['user-agent'],
+        'authorization': req.headers['authorization'],
+        'x-forwarded-for': req.headers['x-forwarded-for'],
+      },
+      status: res.statusCode,
+      latency_ms: Date.now() - start,
     });
   });
   next();
 });
-
-// --- Body parsers ---
-app.use(express.json({ limit: '1mb' }));
-app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 
 // --- Global rate limit ---
 app.use(apiLimiter);
