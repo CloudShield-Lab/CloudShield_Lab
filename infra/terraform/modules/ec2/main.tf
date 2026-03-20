@@ -234,7 +234,7 @@ resource "aws_instance" "main" {
         var.db_password_secret_name == "" &&
         var.jwt_secret_secret_name == "" &&
         var.secrets_kms_key_arn == ""
-      ) : (
+        ) : (
         var.db_password == "" &&
         var.jwt_secret == "" &&
         var.db_password_secret_name != "" &&
