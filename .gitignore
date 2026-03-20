@@ -10,6 +10,7 @@ node_modules/
 *.log
 *.err.log
 *.out.log
+.edge-headless-*/
 
 # Claude Code 전용 파일 (로컬에서만 사용)
 CLAUDE.md
