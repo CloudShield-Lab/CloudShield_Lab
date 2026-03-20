@@ -41,28 +41,35 @@ app.use((req, res, next) => {
   })(req, res, next);
 });
 
-// --- Body parsers ---
-app.use(express.json({ limit: '1mb' }));
-app.use(express.urlencoded({ extended: false, limit: '1mb' }));
+// --- Body parsers (verify captures raw bytes before parsing) ---
+app.use(express.json({
+  limit: '1mb',
+  verify: (req, _res, buf) => { req.rawBody = buf.toString('utf-8'); },
+}));
+app.use(express.urlencoded({
+  extended: false,
+  limit: '1mb',
+  verify: (req, _res, buf) => { req.rawBody = buf.toString('utf-8'); },
+}));
 
-// --- HTTP access log (raw request — body available after body parsers) ---
+// --- HTTP access log (raw HTTP request format) ---
 app.use((req, res, next) => {
   const start = Date.now();
   res.on('finish', () => {
+    const headerLines = Object.entries(req.headers)
+      .map(([k, v]) => `${k}: ${v}`)
+      .join('\n');
+    const qs = req.originalUrl.includes('?') ? req.originalUrl.slice(req.originalUrl.indexOf('?')) : '';
+    const requestLine = `${req.method} ${req.path}${qs} HTTP/1.1`;
+    const raw = req.rawBody
+      ? `${requestLine}\n${headerLines}\n\n${req.rawBody}`
+      : `${requestLine}\n${headerLines}`;
+
     log('info', 'HTTP_ACCESS', {
       ip: req.ip,
-      method: req.method,
-      path: req.path,
-      query: Object.keys(req.query).length > 0 ? req.query : undefined,
-      body: Object.keys(req.body || {}).length > 0 ? req.body : undefined,
-      headers: {
-        'content-type': req.headers['content-type'],
-        'user-agent': req.headers['user-agent'],
-        'authorization': req.headers['authorization'],
-        'x-forwarded-for': req.headers['x-forwarded-for'],
-      },
       status: res.statusCode,
       latency_ms: Date.now() - start,
+      raw,
     });
   });
   next();
