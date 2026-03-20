@@ -33,3 +33,13 @@ module "kms_ebs" {
   env_name    = "secure"
   key_purpose = "ebs"
 }
+
+module "secrets" {
+  source                  = "../../modules/secrets"
+  env_name                = "secure"
+  kms_key_arn             = module.kms.key_arn
+  db_password             = var.db_password
+  jwt_secret              = var.jwt_secret
+  db_password_secret_name = "secure-tf-db-password"
+  jwt_secret_secret_name  = "secure-tf-jwt-secret"
+}
