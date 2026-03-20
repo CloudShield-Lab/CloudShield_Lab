@@ -178,8 +178,40 @@ resource "aws_wafv2_web_acl" "main" {
 
   # AWS Managed: Common Rule Set
   rule {
-    name     = "AWSManagedRulesCommonRuleSet"
+    name     = "AllowFilesApiPath"
     priority = 4
+
+    action {
+      allow {}
+    }
+
+    statement {
+      byte_match_statement {
+        search_string = "/api/files/"
+
+        field_to_match {
+          uri_path {}
+        }
+
+        text_transformation {
+          priority = 0
+          type     = "NONE"
+        }
+
+        positional_constraint = "STARTS_WITH"
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "sentinelshare-tf-${var.env_name}-allow-files-api"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  rule {
+    name     = "AWSManagedRulesCommonRuleSet"
+    priority = 5
 
     override_action {
       none {}
@@ -210,7 +242,7 @@ resource "aws_wafv2_web_acl" "main" {
   # AWS Managed: Known Bad Inputs
   rule {
     name     = "AWSManagedRulesKnownBadInputsRuleSet"
-    priority = 5
+    priority = 6
 
     override_action {
       none {}
