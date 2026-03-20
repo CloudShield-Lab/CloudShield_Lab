@@ -41,7 +41,7 @@ export function SessionList({ mode, selectedId, onSelect, onDeleted }: Props) {
     setError(null);
     setEditMode(false);
     setCheckedIds(new Set());
-    fetch(`/api/analysis/sessions?mode=${mode}`)
+    fetch(`/api/analysis/sessions?mode=${mode}`, { cache: 'no-store' })
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();

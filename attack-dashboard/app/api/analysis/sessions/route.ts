@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { listSessions, deleteSessions } from '@/lib/analysis-storage';
 import type { WorkspaceMode } from '@/types';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const modeParam = url.searchParams.get('mode');
@@ -10,11 +12,13 @@ export async function GET(request: NextRequest) {
 
   try {
     const sessions = await listSessions(mode, limit);
-    return NextResponse.json(sessions);
+    return NextResponse.json(sessions, {
+      headers: { 'Cache-Control': 'no-store' },
+    });
   } catch (e) {
     // S3 unavailable (e.g. local dev without credentials) → return empty list
     console.warn('[analysis/sessions] S3 unavailable, returning empty list:', (e as Error).message);
-    return NextResponse.json([]);
+    return NextResponse.json([], { headers: { 'Cache-Control': 'no-store' } });
   }
 }
 
