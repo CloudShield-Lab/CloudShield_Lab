@@ -908,17 +908,17 @@ export function AttackCard({
         )}
 
         {endpoint === 'origin-direct' && mode === 'auto' && (
-          <div className="border-b border-slate-200 bg-cyan-50/70 px-6 py-4">
+          <div className="border-b border-violet-200 bg-violet-50/70 px-6 py-4">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
               <div className="max-w-3xl">
-                <div className="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-700">
+                <div className="text-xs font-semibold uppercase tracking-[0.16em] text-violet-700">
                   Auto Origin Input
                 </div>
                 <p className="mt-1 text-sm text-slate-700">
                   자동 배포가 완료되면 Terraform 출력값의 Origin Direct 주소를 가져와 취약 환경과 보안 환경 입력칸에 자동으로 고정 표시합니다.
                 </p>
               </div>
-              <span className="text-xs font-medium text-cyan-700">Terraform Output</span>
+              <span className="text-xs font-medium text-violet-700">Terraform Output</span>
             </div>
             <div className="mt-3 grid gap-3 lg:grid-cols-2">
               <div className="space-y-1">
@@ -930,7 +930,7 @@ export function AttackCard({
                   value={autoOriginUrls.vulnerable}
                   readOnly
                   placeholder="배포 완료 후 자동 입력"
-                  className="w-full cursor-default rounded-lg border border-cyan-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none placeholder:text-slate-400"
+                  className="w-full cursor-default rounded-lg border border-violet-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none placeholder:text-slate-400"
                 />
               </div>
               <div className="space-y-1">
@@ -942,7 +942,7 @@ export function AttackCard({
                   value={autoOriginUrls.secure}
                   readOnly
                   placeholder="배포 완료 후 자동 입력"
-                  className="w-full cursor-default rounded-lg border border-cyan-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none placeholder:text-slate-400"
+                  className="w-full cursor-default rounded-lg border border-violet-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none placeholder:text-slate-400"
                 />
               </div>
             </div>
