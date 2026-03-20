@@ -58,9 +58,11 @@ jobs:
             -e AWS_SESSION_TOKEN \
             -e AWS_REGION \
             -v "${{ github.workspace }}/${{ env.PROWLER_OUTPUT_DIR }}:/home/prowler/output" \
+            -v "${{ github.workspace }}/.github/workflows/prowler-exceptions.yml:/home/prowler/prowler-exceptions.yml:ro" \
             toniblyx/prowler:stable \
             aws \
             --region "${{ env.AWS_REGION }}" \
+            --suppression-file /home/prowler/prowler-exceptions.yml \ 
             --resource-tags "Environment=${{ inputs.environment_tag }}" "ManagedBy=${{ inputs.managed_by_tag }}" \
             --output-modes json-ocsf html csv
 
