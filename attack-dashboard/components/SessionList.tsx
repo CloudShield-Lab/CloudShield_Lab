@@ -32,6 +32,7 @@ export function SessionList({ mode, selectedId, onSelect, onDeleted }: Props) {
   const [sessions, setSessions] = useState<SessionMeta[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState(false);
@@ -81,17 +82,23 @@ export function SessionList({ mode, selectedId, onSelect, onDeleted }: Props) {
       .map((s) => s.s3Key);
 
     try {
-      await fetch('/api/analysis/sessions', {
+      const res = await fetch('/api/analysis/sessions', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ keys: keysToDelete }),
       });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: string };
+        setDeleteError(`삭제 실패: ${body.error ?? `HTTP ${res.status}`}`);
+        return;
+      }
+      setDeleteError(null);
       setSessions((prev) => prev.filter((s) => !idsToDelete.includes(s.sessionId)));
       setCheckedIds(new Set());
       setEditMode(false);
       onDeleted?.(idsToDelete);
-    } catch {
-      // silently ignore
+    } catch (e) {
+      setDeleteError(`삭제 실패: ${e instanceof Error ? e.message : '네트워크 오류'}`);
     } finally {
       setDeleting(false);
     }
@@ -99,7 +106,14 @@ export function SessionList({ mode, selectedId, onSelect, onDeleted }: Props) {
 
   // ── Header ──────────────────────────────────────────
   const header = (
-    <div className="border-b border-slate-200 px-4 py-3">
+    <div className="border-b border-slate-200">
+      {deleteError && (
+        <div className="flex items-center justify-between gap-2 bg-red-50 px-4 py-2 text-[10px] text-red-600">
+          <span>{deleteError}</span>
+          <button onClick={() => setDeleteError(null)} className="text-red-400 hover:text-red-600">✕</button>
+        </div>
+      )}
+    <div className="px-4 py-3">
       {editMode ? (
         <div className="flex items-center justify-between gap-2">
           <label className="flex cursor-pointer items-center gap-1.5">
@@ -144,6 +158,7 @@ export function SessionList({ mode, selectedId, onSelect, onDeleted }: Props) {
           )}
         </div>
       )}
+    </div>
     </div>
   );
 

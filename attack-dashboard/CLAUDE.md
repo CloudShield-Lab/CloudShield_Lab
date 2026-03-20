@@ -120,7 +120,7 @@ WAZUH_INSECURE       — true 설정 시 TLS 인증서 검증 비활성화 (자�
 },
 {
   "Effect": "Allow",
-  "Action": ["s3:PutObject", "s3:GetObject", "s3:ListBucket"],
+  "Action": ["s3:PutObject", "s3:GetObject", "s3:ListBucket", "s3:DeleteObject"],
   "Resource": [
     "arn:aws:s3:::sentinelshare-terraform-state-833453046706-ap-northeast-2-an/analysis-sessions/*",
     "arn:aws:s3:::sentinelshare-terraform-state-833453046706-ap-northeast-2-an"

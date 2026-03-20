@@ -85,10 +85,11 @@ export async function fetchWazuhAlerts(options: {
       return [];
     }
 
-    // Query alerts
+    // Query alerts — Wazuh 4.x q 문법: 조건을 세미콜론(;=AND)으로 결합
     const params = new URLSearchParams({ limit: '100' });
-    params.set('timestamp', `>${options.from}`);
-    if (options.envFilter) params.set('q', `agent.name~${options.envFilter}`);
+    const conditions: string[] = [`timestamp>${options.from}`];
+    if (options.envFilter) conditions.push(`agent.name~${options.envFilter}`);
+    params.set('q', conditions.join(';'));
 
     const alertsRes = await wazuhRequest(`${wazuhApiUrl}/alerts?${params.toString()}`, {
       headers: { Authorization: `Bearer ${token}` },
