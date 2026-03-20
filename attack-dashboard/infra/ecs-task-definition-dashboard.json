@@ -53,6 +53,10 @@
         {
           "name": "BEDROCK_REGION",
           "value": "us-east-1"
+        },
+        {
+          "name": "WAZUH_INSECURE",
+          "value": "true"
         }
       ],
       "secrets": [

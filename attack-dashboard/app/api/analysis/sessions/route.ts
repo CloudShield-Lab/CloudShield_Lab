@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { listSessions } from '@/lib/analysis-storage';
+import { listSessions, deleteSessions } from '@/lib/analysis-storage';
 import type { WorkspaceMode } from '@/types';
 
 export async function GET(request: NextRequest) {
@@ -15,5 +15,25 @@ export async function GET(request: NextRequest) {
     // S3 unavailable (e.g. local dev without credentials) → return empty list
     console.warn('[analysis/sessions] S3 unavailable, returning empty list:', (e as Error).message);
     return NextResponse.json([]);
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  let body: { keys: string[] };
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+  }
+
+  if (!Array.isArray(body.keys) || body.keys.length === 0) {
+    return NextResponse.json({ error: 'keys array required' }, { status: 400 });
+  }
+
+  try {
+    await deleteSessions(body.keys);
+    return NextResponse.json({ deleted: body.keys.length });
+  } catch (e) {
+    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
   }
 }

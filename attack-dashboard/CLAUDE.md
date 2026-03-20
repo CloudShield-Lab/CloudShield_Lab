@@ -104,8 +104,11 @@ ANALYSIS_S3_PREFIX   — S3 key prefix (기본: analysis-sessions)
 BEDROCK_MODEL_ID     — Claude 모델 ID (기본: anthropic.claude-3-5-haiku-20241022-v1:0)
 BEDROCK_REGION       — Bedrock 리전 (기본: us-east-1)
 
-# Wazuh (Phase 3)
-WAZUH_API_URL, WAZUH_API_USER, WAZUH_API_PASSWORD
+# Wazuh
+WAZUH_API_URL        — Wazuh API 주소 (예: https://10.1.101.167:55000), Secrets Manager
+WAZUH_API_USER       — Wazuh API 사용자명, Secrets Manager
+WAZUH_API_PASSWORD   — Wazuh API 비밀번호, Secrets Manager
+WAZUH_INSECURE       — true 설정 시 TLS 인증서 검증 비활성화 (자체 서명 cert 환경, ecs-task-def에 설정됨)
 ```
 
 ## AI 분석 IAM 권한 (cloudshield-dashboard-task-role에 수동 추가 필요)

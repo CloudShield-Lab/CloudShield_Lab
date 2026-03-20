@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand, GetObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand, ListObjectsV2Command, DeleteObjectCommand, DeleteObjectsCommand } from '@aws-sdk/client-s3';
 import type { AnalysisSession, SessionMeta, WorkspaceMode } from '@/types';
 
 const BUCKET = process.env.ANALYSIS_S3_BUCKET || 'sentinelshare-terraform-state-833453046706-ap-northeast-2-an';
@@ -81,6 +81,25 @@ export async function getSessionByKey(s3Key: string): Promise<AnalysisSession | 
   } catch {
     return null;
   }
+}
+
+export async function deleteSession(s3Key: string): Promise<void> {
+  const client = getClient();
+  await client.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: s3Key }));
+}
+
+export async function deleteSessions(s3Keys: string[]): Promise<void> {
+  if (s3Keys.length === 0) return;
+  const client = getClient();
+  await client.send(
+    new DeleteObjectsCommand({
+      Bucket: BUCKET,
+      Delete: {
+        Objects: s3Keys.map((Key) => ({ Key })),
+        Quiet: true,
+      },
+    }),
+  );
 }
 
 export async function getSessionById(sessionId: string): Promise<AnalysisSession | null> {

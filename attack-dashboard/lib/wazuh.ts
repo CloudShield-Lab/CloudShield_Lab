@@ -1,6 +1,11 @@
 import type { WazuhAlert } from '@/types';
 
-const MAX_ALERTS = 20;
+// Wazuh는 기본적으로 자체 서명 인증서 사용 → WAZUH_INSECURE=true 설정 시 TLS 검증 비활성화
+if (process.env.WAZUH_INSECURE === 'true') {
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+}
+
+const MAX_ALERTS = 50;
 
 export async function fetchWazuhAlerts(options: {
   from: string;
