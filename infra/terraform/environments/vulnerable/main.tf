@@ -38,6 +38,7 @@ module "ec2" {
   aws_region          = var.aws_region
   allow_public_access = true
   files_bucket_name   = module.s3.files_bucket_name
+  secret_delivery_mode = "raw"
   db_password         = var.db_password
   jwt_secret          = var.jwt_secret
   frontend_origin     = "http://${module.s3.frontend_website_endpoint}"

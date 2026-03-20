@@ -91,10 +91,10 @@ module "ec2" {
   aws_region              = var.aws_region
   allow_public_access     = false
   files_bucket_name       = module.s3.files_bucket_name
+  secret_delivery_mode    = "secrets_manager"
   db_password_secret_name = module.secrets.db_password_secret_name
   jwt_secret_secret_name  = module.secrets.jwt_secret_secret_name
   secrets_kms_key_arn     = module.kms.key_arn
-  enable_secrets_access   = true
   data_kms_key_arn        = module.kms_data.key_arn
   enable_data_kms_access  = true
   root_volume_encrypted   = true

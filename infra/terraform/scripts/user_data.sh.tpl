@@ -32,26 +32,29 @@ snap install aws-cli --classic
 echo "AWS CLI installed: $(aws --version)"
 export AWS_PAGER=""
 
+%{ if secret_delivery_mode == "raw" }
 DB_PASSWORD=${db_password}
 JWT_SECRET_VALUE=${jwt_secret}
+DB_PASSWORD_SECRET_NAME=""
+JWT_SECRET_SECRET_NAME=""
+%{ else }
+DB_PASSWORD=""
+JWT_SECRET_VALUE=""
 DB_PASSWORD_SECRET_NAME=${db_password_secret_name}
 JWT_SECRET_SECRET_NAME=${jwt_secret_secret_name}
 
-if [ -n "$DB_PASSWORD_SECRET_NAME" ]; then
-  DB_PASSWORD="$(aws secretsmanager get-secret-value \
-    --region ${aws_region} \
-    --secret-id "$DB_PASSWORD_SECRET_NAME" \
-    --query SecretString \
-    --output text)"
-fi
+DB_PASSWORD="$(aws secretsmanager get-secret-value \
+  --region ${aws_region} \
+  --secret-id "$DB_PASSWORD_SECRET_NAME" \
+  --query SecretString \
+  --output text)"
 
-if [ -n "$JWT_SECRET_SECRET_NAME" ]; then
-  JWT_SECRET_VALUE="$(aws secretsmanager get-secret-value \
-    --region ${aws_region} \
-    --secret-id "$JWT_SECRET_SECRET_NAME" \
-    --query SecretString \
-    --output text)"
-fi
+JWT_SECRET_VALUE="$(aws secretsmanager get-secret-value \
+  --region ${aws_region} \
+  --secret-id "$JWT_SECRET_SECRET_NAME" \
+  --query SecretString \
+  --output text)"
+%{ endif }
 
 if [ -z "$DB_PASSWORD" ] || [ -z "$JWT_SECRET_VALUE" ]; then
   echo "Required application secrets are missing"

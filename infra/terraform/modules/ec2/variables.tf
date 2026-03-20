@@ -54,6 +54,17 @@ variable "files_bucket_name" {
   type        = string
 }
 
+variable "secret_delivery_mode" {
+  description = "How application secrets are delivered to EC2: raw or secrets_manager"
+  type        = string
+  default     = "raw"
+
+  validation {
+    condition     = contains(["raw", "secrets_manager"], var.secret_delivery_mode)
+    error_message = "secret_delivery_mode must be either \"raw\" or \"secrets_manager\"."
+  }
+}
+
 variable "db_password" {
   description = "PostgreSQL database password"
   type        = string
@@ -84,12 +95,6 @@ variable "secrets_kms_key_arn" {
   description = "KMS key ARN used to encrypt Secrets Manager secrets"
   type        = string
   default     = ""
-}
-
-variable "enable_secrets_access" {
-  description = "Whether to attach the EC2 IAM policy for Secrets Manager access"
-  type        = bool
-  default     = false
 }
 
 variable "data_kms_key_arn" {
