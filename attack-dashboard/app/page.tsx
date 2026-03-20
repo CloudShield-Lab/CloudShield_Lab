@@ -28,7 +28,7 @@ const workspaceTabs = [
 export default function DashboardPage() {
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-10 sm:px-6 lg:py-14">
-      <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.12),_transparent_34%),radial-gradient(circle_at_top_right,_rgba(167,139,250,0.14),_transparent_30%),linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] px-6 py-10 shadow-[0_20px_60px_rgba(15,23,42,0.06)] sm:px-10">
+      <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.12),_transparent_34%),radial-gradient(circle_at_top_right,_rgba(125,211,252,0.14),_transparent_20%),radial-gradient(circle_at_82%_18%,_rgba(168,85,247,0.16),_transparent_34%),linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] px-6 py-10 shadow-[0_20px_60px_rgba(15,23,42,0.06)] sm:px-10">
         <div className="mx-auto max-w-4xl text-center">
           <span className="rounded-full border border-slate-200 bg-white px-4 py-1.5 font-mono text-[11px] tracking-[0.24em] text-slate-600">
             CLOUDSHIELD LAB
@@ -39,7 +39,7 @@ export default function DashboardPage() {
             공격 흐름으로 비교하는 실습 대시보드
           </h1>
           <p className="mt-5 text-base font-semibold leading-7 text-slate-500/80 sm:text-lg">
-            이 프로젝트는 동일한 공격이 취약 환경과 보호된 AWS 환경에서 어떻게 다르게 처리되는지 시각적으로 보여주는 실습용 대시보드입니다. 먼저 환경을 준비한 뒤 Attack Simulator에서 브루트포스 로그인, S3 접근 경로, Rate Limit 시나리오를 비교할 수 있습니다.
+            이 프로젝트는 동일한 공격이 취약 환경과 보호된 AWS 환경에서 어떻게 다르게 처리되는지 시각적으로 보여주는 실습용 대시보드입니다. 먼저 환경을 준비한 뒤 Attack Simulator에서 브루트포스 로그인, S3 접근 경로, Rate Limit, HTTP 헤더 스캔, SQLi/XSS 패턴 요청, 비정상 봇 스캔 시나리오를 비교할 수 있습니다.
           </p>
         </div>
       </section>

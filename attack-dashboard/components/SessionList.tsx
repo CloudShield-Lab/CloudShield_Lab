@@ -8,6 +8,8 @@ const SCENARIO_ICONS: Record<string, string> = {
   's3-access': '🪣',
   ratelimit: '📊',
   'header-scan': '🔍',
+  'sqli-xss': '🧪',
+  'bot-scan': '🤖',
 };
 
 const SCENARIO_LABELS: Record<string, string> = {
@@ -15,6 +17,8 @@ const SCENARIO_LABELS: Record<string, string> = {
   's3-access': 'S3 탈취',
   ratelimit: 'Rate Limit',
   'header-scan': '헤더 스캔',
+  'sqli-xss': 'SQLi / XSS',
+  'bot-scan': '봇 스캔',
 };
 
 interface Props {

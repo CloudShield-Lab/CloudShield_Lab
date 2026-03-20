@@ -33,6 +33,9 @@ npm install && npm run dev          # → http://localhost:3002
 | `/api/attack/bruteforce` | 30회 병렬 로그인 시도 → 취약(무제한) vs 보안(WAF 차단) |
 | `/api/attack/s3-access` | S3 ListBucket + GetObject → 취약(공개 성공) vs 보안(403) |
 | `/api/attack/ratelimit` | 60회 연속 API 요청 → 취약(통과) vs 보안(WAF rate limit) |
+| `/api/attack/header-scan` | 응답 헤더 수집 → 취약(기술 스택 노출) vs 보안(위험 헤더 최소화) |
+| `/api/attack/sqli-xss` | 의심 패턴 요청 전송 → 취약(앱 도달) vs 보안(WAF 차단) |
+| `/api/attack/bot-scan` | 관리자/숨은 경로 스캔 → 취약(원본 도달) vs 보안(앞단 흡수/차단) |
 | `/api/config` | 현재 환경 설정 반환 (ECS 헬스체크 겸용) |
 
 ---
