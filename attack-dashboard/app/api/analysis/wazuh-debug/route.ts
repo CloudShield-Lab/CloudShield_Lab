@@ -88,23 +88,46 @@ export async function GET() {
     result.alert_indices = { error: (e as Error).message };
   }
 
-  // ── Step 3: Sample alerts (no filter) ──────────────
+  // ── Step 3: 최근 30분 알림 (시간 필터만, 에이전트 무관) ──
+  const now = new Date();
+  const from30m = new Date(now.getTime() - 30 * 60_000).toISOString();
   try {
-    const sampleQuery = JSON.stringify({
-      size: 3,
+    const recentQuery = JSON.stringify({
+      size: 5,
       _source: ['timestamp', 'rule.level', 'rule.description', 'agent.name'],
-      sort: [{ 'rule.level': { order: 'desc' } }],
+      query: { range: { timestamp: { gte: from30m, lte: now.toISOString() } } },
+      sort: [{ timestamp: { order: 'desc' } }],
     });
-    const sample = await request(`${indexerUrl}/wazuh-alerts-4.x-*/_search`, {
+    const recent = await request(`${indexerUrl}/wazuh-alerts-4.x-*/_search`, {
       method: 'POST',
       headers: { Authorization: auth, 'Content-Type': 'application/json' },
-      body: sampleQuery,
+      body: recentQuery,
     });
     let parsed: unknown = null;
-    try { parsed = JSON.parse(sample.body); } catch { /* raw only */ }
-    result.sample_alerts = { status: sample.status, parsed };
+    try { parsed = JSON.parse(recent.body); } catch { /* raw only */ }
+    result.recent_30m = { status: recent.status, from: from30m, parsed };
   } catch (e) {
-    result.sample_alerts = { error: (e as Error).message };
+    result.recent_30m = { error: (e as Error).message };
+  }
+
+  // ── Step 4: agent.name.keyword 와일드카드 테스트 ───────
+  try {
+    const agentQuery = JSON.stringify({
+      size: 3,
+      _source: ['timestamp', 'rule.level', 'rule.description', 'agent.name'],
+      query: { wildcard: { 'agent.name.keyword': '*vul*' } },
+      sort: [{ timestamp: { order: 'desc' } }],
+    });
+    const agentTest = await request(`${indexerUrl}/wazuh-alerts-4.x-*/_search`, {
+      method: 'POST',
+      headers: { Authorization: auth, 'Content-Type': 'application/json' },
+      body: agentQuery,
+    });
+    let parsed: unknown = null;
+    try { parsed = JSON.parse(agentTest.body); } catch { /* raw only */ }
+    result.agent_wildcard_test = { status: agentTest.status, parsed };
+  } catch (e) {
+    result.agent_wildcard_test = { error: (e as Error).message };
   }
 
   return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } });
