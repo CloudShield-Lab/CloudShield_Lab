@@ -158,27 +158,33 @@ jobs:
       - name: Terraform Import (Secure Foundation)
         if: github.event.inputs.action == 'apply' && steps.kms-state.outputs.exists == 'false' && steps.kms-bootstrap.outputs.mode == 'import'
         working-directory: ${{ env.TF_KMS_WORKING_DIR }}
+        env:
+          TF_VAR_db_password: ${{ secrets.TF_DB_PASSWORD }}
+          TF_VAR_jwt_secret: ${{ secrets.TF_JWT_SECRET }}
         run: |
-          terraform import module.kms.aws_kms_key.main "${{ steps.kms-bootstrap.outputs.secrets_key_id }}"
-          terraform import module.kms_data.aws_kms_key.main "${{ steps.kms-bootstrap.outputs.data_key_id }}"
-          terraform import module.kms_ebs.aws_kms_key.main "${{ steps.kms-bootstrap.outputs.ebs_key_id }}"
+          terraform import -input=false module.kms.aws_kms_key.main "${{ steps.kms-bootstrap.outputs.secrets_key_id }}"
+          terraform import -input=false module.kms_data.aws_kms_key.main "${{ steps.kms-bootstrap.outputs.data_key_id }}"
+          terraform import -input=false module.kms_ebs.aws_kms_key.main "${{ steps.kms-bootstrap.outputs.ebs_key_id }}"
 
-          terraform import module.kms.aws_kms_alias.main alias/sentinelshare-secure-secrets
-          terraform import module.kms_data.aws_kms_alias.main alias/sentinelshare-secure-data
-          terraform import module.kms_ebs.aws_kms_alias.main alias/sentinelshare-secure-ebs
+          terraform import -input=false module.kms.aws_kms_alias.main alias/sentinelshare-secure-secrets
+          terraform import -input=false module.kms_data.aws_kms_alias.main alias/sentinelshare-secure-data
+          terraform import -input=false module.kms_ebs.aws_kms_alias.main alias/sentinelshare-secure-ebs
 
           if [ "${{ steps.kms-bootstrap.outputs.db_secret_exists }}" = "true" ]; then
-            terraform import module.secrets.aws_secretsmanager_secret.db_password "${{ env.SECURE_DB_SECRET_NAME }}"
+            terraform import -input=false module.secrets.aws_secretsmanager_secret.db_password "${{ env.SECURE_DB_SECRET_NAME }}"
           fi
 
           if [ "${{ steps.kms-bootstrap.outputs.jwt_secret_exists }}" = "true" ]; then
-            terraform import module.secrets.aws_secretsmanager_secret.jwt_secret "${{ env.SECURE_JWT_SECRET_NAME }}"
+            terraform import -input=false module.secrets.aws_secretsmanager_secret.jwt_secret "${{ env.SECURE_JWT_SECRET_NAME }}"
           fi
 
       - name: Import existing secure secrets into foundation state
         if: github.event.inputs.action == 'apply'
         working-directory: ${{ env.TF_KMS_WORKING_DIR }}
         shell: bash
+        env:
+          TF_VAR_db_password: ${{ secrets.TF_DB_PASSWORD }}
+          TF_VAR_jwt_secret: ${{ secrets.TF_JWT_SECRET }}
         run: |
           import_secret_if_needed() {
             local resource_address="$1"
@@ -193,7 +199,7 @@ jobs:
               --region "${{ env.AWS_REGION }}" \
               --secret-id "$secret_name" \
               >/dev/null 2>&1; then
-              terraform import "$resource_address" "$secret_name"
+              terraform import -input=false "$resource_address" "$secret_name"
             else
               echo "Secret does not exist yet: $secret_name"
             fi
