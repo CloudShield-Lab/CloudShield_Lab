@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { saveSession } from '@/lib/analysis-storage';
+import { getTerraformOutputs } from '@/lib/terraform-state';
 import { normalizeApiBaseUrl } from '@/lib/url-utils';
 import type { AnalysisSession } from '@/types';
 
@@ -32,8 +33,19 @@ export async function POST(request: NextRequest) {
     const toTime = new Date(new Date(session.timestamp).getTime() + bufferMs).toISOString();
 
     const isAuto = session.mode === 'auto';
-    const vulnUrl = isAuto ? process.env.AUTO_VULNERABLE_API_URL : process.env.VULNERABLE_API_URL;
-    const secureUrl = isAuto ? process.env.AUTO_AWS_API_URL : process.env.AWS_API_URL;
+    let vulnUrl = isAuto ? process.env.AUTO_VULNERABLE_API_URL : process.env.VULNERABLE_API_URL;
+    let secureUrl = isAuto ? process.env.AUTO_AWS_API_URL : process.env.AWS_API_URL;
+
+    // Auto mode: fall back to tfstate if env vars are not set (same as /api/config)
+    if (isAuto && (!vulnUrl || !secureUrl)) {
+      try {
+        const tf = await getTerraformOutputs();
+        if (!vulnUrl && tf.vulnerable?.backendUrl) vulnUrl = tf.vulnerable.backendUrl;
+        if (!secureUrl && tf.secure?.backendUrl) secureUrl = tf.secure.backendUrl;
+      } catch {
+        // ignore tfstate failure
+      }
+    }
 
     const [vulnLogs, secureLogs] = await Promise.all([
       vulnUrl ? fetchRawLogs(vulnUrl, session.startTime, toTime) : Promise.resolve([]),

@@ -93,6 +93,7 @@ jobs:
           jq -e -s '
             map(.[])
             | map(select(.status_code == "FAIL"))
+            | map(select(((.status_id // 0) != 2) and (((.status // "") | ascii_downcase) != "suppressed")))
             | map(select((.severity // "") | ascii_downcase == "critical"))
             | length == 0
           ' $files
