@@ -23,7 +23,7 @@ export function AttackScenarioContent({
 
   useEffect(() => {
     fetch('/api/config')
-      .then((r) => r.json())
+      .then((response) => response.json())
       .then(setDashConfig)
       .catch(() => {});
   }, []);
@@ -38,21 +38,39 @@ export function AttackScenarioContent({
     !dashConfig.autoVulnerable.configured &&
     !dashConfig.autoAws.configured;
 
+  const originDirectNeedsConfig =
+    scenario === 'origin-direct' &&
+    dashConfig !== null &&
+    ((mode === 'manual' && !dashConfig.aws.originConfigured) ||
+      (mode === 'auto' &&
+        (!dashConfig.autoVulnerable.originConfigured || !dashConfig.autoAws.originConfigured)));
+
   return (
     <ArchitectureVisualizationProvider>
       <div className="space-y-6">
-        {/* 자동 배포 미완료 배너 */}
         {autoNotDeployed && (
           <div className="rounded-xl border border-amber-300 bg-amber-50 px-5 py-4">
             <p className="text-sm font-semibold text-amber-900">
               자동 배포 인프라가 아직 구성되지 않았습니다.
             </p>
             <p className="mt-1 text-xs text-amber-700">
-              공격 시뮬레이션을 실행하려면 먼저{' '}
+              공격 시뮬레이터를 실행하려면 먼저{' '}
               <Link href="/auto" className="font-semibold underline hover:text-amber-900">
-                자동 환경 구축
+                자동 환경 구성
               </Link>{' '}
               페이지에서 인프라를 배포해 주세요.
+            </p>
+          </div>
+        )}
+
+        {originDirectNeedsConfig && (
+          <div className="rounded-xl border border-violet-300 bg-violet-50 px-5 py-4">
+            <p className="text-sm font-semibold text-violet-900">
+              Origin 직접 접근 비교는 원본 EC2 주소가 필요합니다.
+            </p>
+            <p className="mt-1 text-xs text-violet-700">
+              자동 배포는 Terraform 출력의 Elastic IP를 자동 사용합니다. 수동 배포는{' '}
+              <code className="font-mono">AWS_ORIGIN_API_URL</code>을 설정하면 보안 환경 원본 주소까지 직접 비교할 수 있습니다.
             </p>
           </div>
         )}
@@ -83,11 +101,15 @@ export function AttackScenarioContent({
                 <div className="text-sm font-semibold text-slate-900">{step.title}</div>
                 <div className="mt-4 space-y-3 text-sm">
                   <div className="rounded-xl border border-red-200 bg-red-50 p-3">
-                    <div className="text-xs font-medium uppercase tracking-[0.18em] text-red-600">취약 환경</div>
+                    <div className="text-xs font-medium uppercase tracking-[0.18em] text-red-600">
+                      취약 환경
+                    </div>
                     <p className="mt-2 leading-6 text-slate-700">{step.vulnerable}</p>
                   </div>
                   <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
-                    <div className="text-xs font-medium uppercase tracking-[0.18em] text-emerald-600">보안 환경</div>
+                    <div className="text-xs font-medium uppercase tracking-[0.18em] text-emerald-600">
+                      보안 환경
+                    </div>
                     <p className="mt-2 leading-6 text-slate-700">{step.secure}</p>
                   </div>
                 </div>

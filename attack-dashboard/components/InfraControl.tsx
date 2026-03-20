@@ -224,6 +224,7 @@ export function InfraControl() {
               <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-xs">
                 <div className="mb-2 font-semibold text-red-700">취약 환경</div>
                 <OutputRow label="Backend API" value={tfOutputs.vulnerable.backendUrl} />
+                <OutputRow label="Origin Direct" value={tfOutputs.vulnerable.elasticIp ? `http://${tfOutputs.vulnerable.elasticIp}:3000` : ''} />
                 <OutputRow label="Frontend" value={tfOutputs.vulnerable.frontendUrl} />
                 <OutputRow label="S3 Bucket" value={tfOutputs.vulnerable.filesBucket} />
               </div>
@@ -232,6 +233,7 @@ export function InfraControl() {
               <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-xs">
                 <div className="mb-2 font-semibold text-emerald-700">보안 환경</div>
                 <OutputRow label="Backend API" value={tfOutputs.secure.backendUrl} />
+                <OutputRow label="Origin Direct" value={tfOutputs.secure.elasticIp ? `http://${tfOutputs.secure.elasticIp}:3000` : ''} />
                 <OutputRow label="Frontend" value={tfOutputs.secure.frontendUrl} />
                 <OutputRow label="S3 Bucket" value={tfOutputs.secure.filesBucket} />
               </div>

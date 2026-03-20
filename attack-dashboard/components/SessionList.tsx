@@ -10,6 +10,7 @@ const SCENARIO_ICONS: Record<string, string> = {
   'header-scan': '🔍',
   'sqli-xss': '🧪',
   'bot-scan': '🤖',
+  'origin-direct': '🎯',
 };
 
 const SCENARIO_LABELS: Record<string, string> = {
@@ -19,6 +20,7 @@ const SCENARIO_LABELS: Record<string, string> = {
   'header-scan': '헤더 스캔',
   'sqli-xss': 'SQLi / XSS',
   'bot-scan': '봇 스캔',
+  'origin-direct': 'Origin 직접 접근',
 };
 
 interface Props {

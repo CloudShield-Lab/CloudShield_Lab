@@ -16,9 +16,13 @@ npm install && npm run dev          # → http://localhost:3002
 | 변수 | 로컬 | AWS | 설명 |
 |---|---|---|---|
 | `VULNERABLE_API_URL` | `http://localhost:3000` | 취약 EC2 URL | 공격 대상 |
+| `VULNERABLE_ORIGIN_API_URL` | `http://localhost:3000` | 취약 원본 EC2 URL | Origin 직접 접근 비교용 |
 | `VULNERABLE_S3_BUCKET` | `sentinelshare-local` | 취약 버킷명 | |
 | `AWS_API_URL` | (빈 값) | CloudFront HTTPS URL | 보안 환경 |
+| `AWS_ORIGIN_API_URL` | (빈 값) | 보안 원본 EC2 URL | Origin 직접 접근 비교용 |
 | `AWS_S3_BUCKET` | (빈 값) | 보안 버킷명 | |
+| `AUTO_VULNERABLE_ORIGIN_API_URL` | (선택) | 취약 auto 원본 EC2 URL | 비워두면 tfstate Elastic IP 사용 |
+| `AUTO_AWS_ORIGIN_API_URL` | (선택) | 보안 auto 원본 EC2 URL | 비워두면 tfstate Elastic IP 사용 |
 | `AWS_REGION` | `ap-northeast-2` | `ap-northeast-2` | |
 | `GITHUB_OWNER` | GitHub 사용자명 | GitHub 사용자명 | InfraControl용 |
 | `GITHUB_REPO` | `SentinelShare` | `SentinelShare` | InfraControl용 |
@@ -36,6 +40,7 @@ npm install && npm run dev          # → http://localhost:3002
 | `/api/attack/header-scan` | 응답 헤더 수집 → 취약(기술 스택 노출) vs 보안(위험 헤더 최소화) |
 | `/api/attack/sqli-xss` | 의심 패턴 요청 전송 → 취약(앱 도달) vs 보안(WAF 차단) |
 | `/api/attack/bot-scan` | 관리자/숨은 경로 스캔 → 취약(원본 도달) vs 보안(앞단 흡수/차단) |
+| `/api/attack/origin-direct` | CloudFront 우회 원본 직접 요청 → 취약(Origin 도달) vs 보안(직접 접근 차단) |
 | `/api/config` | 현재 환경 설정 반환 (ECS 헬스체크 겸용) |
 
 ---

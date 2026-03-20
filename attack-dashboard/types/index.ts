@@ -47,6 +47,8 @@ export type EnvConfig = {
   url: string;
   frontendUrl?: string;
   s3Url?: string;
+  originUrl?: string;
+  originConfigured?: boolean;
   configured: boolean;
 };
 
@@ -112,7 +114,8 @@ export type AttackEndpoint =
   | 'ratelimit'
   | 'header-scan'
   | 'sqli-xss'
-  | 'bot-scan';
+  | 'bot-scan'
+  | 'origin-direct';
 
 export interface SessionMetrics {
   blocked: number;
