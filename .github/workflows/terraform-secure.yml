@@ -175,6 +175,33 @@ jobs:
             terraform import module.secrets.aws_secretsmanager_secret.jwt_secret "${{ env.SECURE_JWT_SECRET_NAME }}"
           fi
 
+      - name: Import existing secure secrets into foundation state
+        if: github.event.inputs.action == 'apply'
+        working-directory: ${{ env.TF_KMS_WORKING_DIR }}
+        shell: bash
+        run: |
+          import_secret_if_needed() {
+            local resource_address="$1"
+            local secret_name="$2"
+
+            if terraform state list | grep -Fxq "$resource_address"; then
+              echo "State already contains $resource_address"
+              return 0
+            fi
+
+            if aws secretsmanager describe-secret \
+              --region "${{ env.AWS_REGION }}" \
+              --secret-id "$secret_name" \
+              >/dev/null 2>&1; then
+              terraform import "$resource_address" "$secret_name"
+            else
+              echo "Secret does not exist yet: $secret_name"
+            fi
+          }
+
+          import_secret_if_needed "module.secrets.aws_secretsmanager_secret.db_password" "${{ env.SECURE_DB_SECRET_NAME }}"
+          import_secret_if_needed "module.secrets.aws_secretsmanager_secret.jwt_secret" "${{ env.SECURE_JWT_SECRET_NAME }}"
+
       - name: Terraform Plan (Secure Foundation)
         if: github.event.inputs.action == 'apply'
         working-directory: ${{ env.TF_KMS_WORKING_DIR }}
