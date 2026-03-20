@@ -161,10 +161,47 @@ export async function GET(request: NextRequest) {
       await send({ type: 'start' });
 
       const attempt = 1;
-      const [vulnerableResult, awsResult] = await Promise.all([
-        probeOrigin(vulnerableOriginUrl, 'VULNERABLE'),
-        probeOrigin(awsOriginUrl, 'SECURE'),
-      ]);
+      const vulnerableProbe = probeOrigin(vulnerableOriginUrl, 'VULNERABLE');
+      const awsProbe = probeOrigin(awsOriginUrl, 'SECURE');
+      let vulnerableResult: Awaited<typeof vulnerableProbe> | undefined;
+      let awsResult: Awaited<typeof awsProbe> | undefined;
+      const delivered = new Set<Env>();
+
+      while (delivered.size < 2) {
+        const pending: Promise<{ env: Env; result: Awaited<typeof vulnerableProbe> }>[] = [];
+
+        if (!delivered.has('vulnerable')) {
+          pending.push(vulnerableProbe.then((result) => ({ env: 'vulnerable' as const, result })));
+        }
+        if (!delivered.has('aws')) {
+          pending.push(awsProbe.then((result) => ({ env: 'aws' as const, result })));
+        }
+
+        const { env, result } = await Promise.race(pending);
+        delivered.add(env);
+
+        if (env === 'vulnerable') {
+          vulnerableResult = result;
+        } else {
+          awsResult = result;
+        }
+
+        await send({
+          type: 'result',
+          env,
+          attempt,
+          status: result.status,
+          latency: result.latency,
+          blocked: result.blocked,
+          label: result.label,
+          error: result.error,
+          url: result.url,
+        });
+      }
+
+      if (!vulnerableResult || !awsResult) {
+        throw new Error('Origin probe results were not fully resolved');
+      }
 
       await sendStageWithDelay(
         sendStage,
@@ -285,30 +322,6 @@ export async function GET(request: NextRequest) {
           'success',
         );
       }
-
-      await send({
-        type: 'result',
-        env: 'vulnerable',
-        attempt,
-        status: vulnerableResult.status,
-        latency: vulnerableResult.latency,
-        blocked: vulnerableResult.blocked,
-        label: vulnerableResult.label,
-        error: vulnerableResult.error,
-        url: vulnerableResult.url,
-      });
-
-      await send({
-        type: 'result',
-        env: 'aws',
-        attempt,
-        status: awsResult.status,
-        latency: awsResult.latency,
-        blocked: awsResult.blocked,
-        label: awsResult.label,
-        error: awsResult.error,
-        url: awsResult.url,
-      });
 
       await send({ type: 'complete' });
     } catch (error) {

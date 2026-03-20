@@ -17,6 +17,7 @@ import type {
   AttackEvent,
   AttackPhase,
   AttackResult,
+  DashboardConfig,
   SessionMetrics,
   WorkspaceMode,
 } from '@/types';
@@ -155,45 +156,29 @@ function getEvidenceBadge(
 }
 
 function getEvidenceMeta(result: AttackResult | undefined, status: EvidenceDisplayStatus) {
-  if (status === 'pending') return '아직 실행되지 않음';
-  if (status === 'running') return '요청 전송 및 응답 대기 중';
-  if (status === 'not_configured') return '대상 URL이 설정되지 않음';
-  if (status === 'failed') return '연결 거부 또는 타임아웃';
+  if (status === 'pending') return '아직 실행하지 않았습니다.';
+  if (status === 'running') return '요청 전송 후 응답을 기다리는 중입니다.';
+  if (status === 'not_configured') return '대상 URL이 아직 설정되지 않았습니다.';
+  if (status === 'failed') return '연결 거부 또는 타임아웃이 발생했습니다.';
   if (!result) return '-';
   return `HTTP ${result.status} · ${formatLatency(result)}`;
-}
-
-function getSqliEvidenceBadge(env: 'vulnerable' | 'aws', status: EvidenceDisplayStatus) {
-  if (status === 'failed') {
-    return env === 'vulnerable' ? '원본 연결 실패' : '앞단 경유 후 실패';
-  }
-
-  return getEvidenceBadge(status, { reached: '앱 도달', blocked: 'WAF 차단' });
 }
 
 function getSqliEvidenceMeta(env: 'vulnerable' | 'aws', result: AttackResult | undefined, status: EvidenceDisplayStatus) {
   if (status === 'failed') {
     return env === 'vulnerable'
-      ? '보호 계층 없이 원본 애플리케이션으로 직접 시도했으나 연결되지 않음'
-      : 'CloudFront/WAF 경유 구간은 확인되지만 원본 연결 단계에서 실패';
+      ? '보호 계층 없이 원본 애플리케이션까지 직접 시도했지만 연결되지 않았습니다.'
+      : 'CloudFront/WAF 경유 여부를 확인하기 전에 원본 연결 단계에서 실패했습니다.';
   }
 
   return getEvidenceMeta(result, status);
 }
 
-function getBotEvidenceBadge(env: 'vulnerable' | 'aws', status: EvidenceDisplayStatus) {
-  if (status === 'failed') {
-    return env === 'vulnerable' ? '원본 직접 실패' : '앞단 경유 후 실패';
-  }
-
-  return getEvidenceBadge(status, { reached: '원본 도달', blocked: '앞단 차단' });
-}
-
 function getBotEvidenceMeta(env: 'vulnerable' | 'aws', result: AttackResult | undefined, status: EvidenceDisplayStatus) {
   if (status === 'failed') {
     return env === 'vulnerable'
-      ? '숨은 경로 요청이 원본으로 바로 향했지만 연결 실패'
-      : 'CloudFront 경유 시도 이후 원본 연결이 확인되지 않음';
+      ? '숨은 경로 요청을 원본으로 직접 보냈지만 연결에 실패했습니다.'
+      : 'CloudFront 경유 여부와 무관하게 원본 연결 단계에서 실패했습니다.';
   }
 
   return getEvidenceMeta(result, status);
@@ -216,212 +201,6 @@ function EvidenceSection({
       </div>
       {children}
     </div>
-  );
-}
-
-function SqliXssEvidence({
-  phase,
-  vulnResults,
-  awsResults,
-}: {
-  phase: AttackPhase;
-  vulnResults: AttackResult[];
-  awsResults: AttackResult[];
-}) {
-  const summary = useMemo(() => {
-    const vulnerable = SQLI_XSS_ATTEMPTS.map((_, index) =>
-      getEvidenceDisplayStatus(vulnResults[index], phase, index, vulnResults.length),
-    );
-    const secure = SQLI_XSS_ATTEMPTS.map((_, index) =>
-      getEvidenceDisplayStatus(awsResults[index], phase, index, awsResults.length),
-    );
-
-    return {
-      vulnerableReached: vulnerable.filter((status) => status === 'reached').length,
-      vulnerableFailed: vulnerable.filter((status) => status === 'failed').length,
-      secureBlocked: secure.filter((status) => status === 'blocked').length,
-      secureReached: secure.filter((status) => status === 'reached').length,
-      secureFailed: secure.filter((status) => status === 'failed').length,
-    };
-  }, [awsResults, phase, vulnResults]);
-
-  return (
-    <EvidenceSection
-      title="Pattern Evidence"
-      description="어떤 패턴이 앱까지 도달했고, 어떤 패턴이 앞단에서 차단됐는지 패턴별로 바로 확인할 수 있습니다."
-    >
-      <div className="mb-4 grid gap-3 lg:grid-cols-2">
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4">
-          <div className="text-xs font-semibold uppercase tracking-[0.16em] text-red-600">취약 환경 해석</div>
-          <div className="mt-3 text-2xl font-bold text-red-700">{summary.vulnerableReached}</div>
-          <div className="mt-1 text-sm text-red-700">앱 도달 패턴 수</div>
-          <div className="mt-3 border-t border-red-200 pt-3 text-sm text-slate-700">
-            보호 계층 없이 원본 앱으로 직접 시도하며, 연결 실패 패턴은
-            <span className="ml-1 font-semibold text-slate-900">{summary.vulnerableFailed}</span>개입니다.
-          </div>
-        </div>
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-          <div className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-600">보안 환경 해석</div>
-          <div className="mt-3 text-2xl font-bold text-emerald-700">{summary.secureBlocked}</div>
-          <div className="mt-1 text-sm text-emerald-700">WAF 차단 패턴 수</div>
-          <div className="mt-3 border-t border-emerald-200 pt-3 text-sm text-slate-700">
-            CloudFront/WAF 경유 후 앱 도달 패턴은
-            <span className="mx-1 font-semibold text-slate-900">{summary.secureReached}</span>개,
-            연결 실패 패턴은
-            <span className="ml-1 font-semibold text-slate-900">{summary.secureFailed}</span>개입니다.
-          </div>
-        </div>
-      </div>
-      <div className="mb-4 grid gap-3 lg:grid-cols-2">
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4">
-          <div className="text-xs font-semibold uppercase tracking-[0.16em] text-red-600">취약 환경 해석</div>
-          <div className="mt-3 text-2xl font-bold text-red-700">
-            {
-              SQLI_XSS_ATTEMPTS.filter((_, index) =>
-                getEvidenceDisplayStatus(vulnResults[index], phase, index, vulnResults.length) === 'reached'
-              ).length
-            }
-          </div>
-          <div className="mt-1 text-sm text-red-700">앱 도달 패턴 수</div>
-          <div className="mt-3 border-t border-red-200 pt-3 text-sm text-slate-700">
-            보호 계층 없이 원본 앱으로 직접 시도합니다. 연결 실패가 나와도 취약 환경 기준으로는 원본 직접 노출을 점검하는 시나리오입니다.
-          </div>
-        </div>
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-          <div className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-600">보안 환경 해석</div>
-          <div className="mt-3 text-2xl font-bold text-emerald-700">
-            {
-              SQLI_XSS_ATTEMPTS.filter((_, index) =>
-                getEvidenceDisplayStatus(awsResults[index], phase, index, awsResults.length) === 'blocked'
-              ).length
-            }
-          </div>
-          <div className="mt-1 text-sm text-emerald-700">WAF 차단 패턴 수</div>
-          <div className="mt-3 border-t border-emerald-200 pt-3 text-sm text-slate-700">
-            CloudFront/WAF 경유를 전제로 보안 계층에서 먼저 걸러지는지 보는 시나리오입니다. 같은 연결 실패여도 취약 환경과 해석 지점이 다릅니다.
-          </div>
-        </div>
-      </div>
-      <div className="overflow-hidden rounded-xl border border-slate-200">
-        <div className="grid grid-cols-[1.1fr_1.6fr_1.15fr_1.15fr_0.9fr] bg-slate-50 px-4 py-3 text-xs font-semibold text-slate-600">
-          <span>패턴</span>
-          <span>전송 값</span>
-          <span>취약 환경</span>
-          <span>보안 환경</span>
-          <span>차단 위치</span>
-        </div>
-        <div className="divide-y divide-slate-200">
-          {SQLI_XSS_ATTEMPTS.map((pattern, index) => {
-            const vulnResult = vulnResults[index];
-            const awsResult = awsResults[index];
-            const vulnStatus = inferResultStatus(vulnResult);
-            const awsStatus = inferResultStatus(awsResult);
-            const blockPoint =
-              awsStatus === 'blocked'
-                ? 'WAF'
-                : awsStatus === 'reached'
-                  ? '차단 없음'
-                  : '연결 실패';
-
-            return (
-              <div
-                key={pattern.name}
-                className="grid grid-cols-[1.1fr_1.6fr_1.15fr_1.15fr_0.9fr] items-center px-4 py-3 text-sm"
-              >
-                <div className="font-semibold text-slate-800">{pattern.name}</div>
-                <code className="truncate pr-3 font-mono text-xs text-slate-500">{pattern.value}</code>
-                <span
-                  className={`justify-self-start rounded-lg border px-2.5 py-1 text-center text-xs font-medium ${getResultTone(vulnStatus)}`}
-                >
-                  {getStatusBadge(vulnStatus, 'vulnerable')}
-                </span>
-                <span
-                  className={`justify-self-start rounded-lg border px-2.5 py-1 text-center text-xs font-medium ${getResultTone(awsStatus)}`}
-                >
-                  {getStatusBadge(awsStatus, 'aws')}
-                </span>
-                <span className="text-xs font-medium text-slate-600">{blockPoint}</span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </EvidenceSection>
-  );
-}
-
-function BotScanEvidence({
-  vulnResults,
-  awsResults,
-}: {
-  vulnResults: AttackResult[];
-  awsResults: AttackResult[];
-}) {
-  const summary = useMemo(() => {
-    const vulnerableReached = vulnResults.filter((result) => inferResultStatus(result) === 'reached').length;
-    const secureReached = awsResults.filter((result) => inferResultStatus(result) === 'reached').length;
-    const secureBlocked = awsResults.filter((result) => inferResultStatus(result) === 'blocked').length;
-    return { vulnerableReached, secureReached, secureBlocked };
-  }, [awsResults, vulnResults]);
-
-  return (
-    <EvidenceSection
-      title="Scan Evidence"
-      description="스캔 경로별 원본 도달 여부를 따로 보여주어, 404와 관계없이 원본까지 닿았는지 바로 이해할 수 있습니다."
-    >
-      <div className="grid gap-4 lg:grid-cols-[1.6fr_0.9fr]">
-        <div className="overflow-hidden rounded-xl border border-slate-200">
-          <div className="grid grid-cols-[1.2fr_1fr_1fr] bg-slate-50 px-4 py-3 text-xs font-semibold text-slate-600">
-            <span>스캔 경로</span>
-            <span>취약 환경</span>
-            <span>보안 환경</span>
-          </div>
-          <div className="divide-y divide-slate-200">
-            {BOT_SCAN_ATTEMPTS.map((scan, index) => {
-              const vulnResult = vulnResults[index];
-              const awsResult = awsResults[index];
-              const vulnStatus = inferResultStatus(vulnResult);
-              const awsStatus = inferResultStatus(awsResult);
-
-              return (
-                <div key={scan.path} className="grid grid-cols-[1.2fr_1fr_1fr] items-center px-4 py-3 text-sm">
-                  <div>
-                    <div className="font-semibold text-slate-800">{scan.path}</div>
-                    <div className="text-xs text-slate-400">{scan.name}</div>
-                  </div>
-                  <span className={`w-fit rounded-lg border px-2.5 py-1 text-xs font-medium ${getResultTone(vulnStatus)}`}>
-                    {vulnStatus === 'reached' ? '원본 도달' : '실패'}
-                  </span>
-                  <span className={`w-fit rounded-lg border px-2.5 py-1 text-xs font-medium ${getResultTone(awsStatus)}`}>
-                    {awsStatus === 'blocked'
-                      ? '앞단 차단'
-                      : awsStatus === 'reached'
-                        ? '원본 도달'
-                        : '연결 실패'}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="grid gap-3">
-          <div className="rounded-xl border border-red-200 bg-red-50 p-4">
-            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-red-600">취약 환경</div>
-            <div className="mt-3 text-2xl font-bold text-red-700">{summary.vulnerableReached}</div>
-            <div className="mt-1 text-sm text-red-700">원본 도달 경로 수</div>
-          </div>
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-600">보안 환경</div>
-            <div className="mt-3 text-2xl font-bold text-emerald-700">{summary.secureBlocked}</div>
-            <div className="mt-1 text-sm text-emerald-700">앞단 차단 경로 수</div>
-            <div className="mt-3 border-t border-emerald-200 pt-3 text-sm text-slate-600">
-              원본 도달 경로: <span className="font-semibold text-slate-800">{summary.secureReached}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </EvidenceSection>
   );
 }
 
@@ -613,9 +392,11 @@ function BotScanEvidenceV2({
 }
 
 function OriginDirectEvidence({
+  phase,
   vulnResults,
   awsResults,
 }: {
+  phase: AttackPhase;
   vulnResults: AttackResult[];
   awsResults: AttackResult[];
 }) {
@@ -654,63 +435,72 @@ function OriginDirectEvidence({
         {[
           {
             key: 'vuln',
-            heading: '취약 환경 Origin',
+            heading: '취약 환경 ORIGIN',
             tone: 'border-red-200 bg-red-50',
             textTone: 'text-red-700',
             result: vulnerable,
           },
           {
             key: 'secure',
-            heading: '보안 환경 Origin',
+            heading: '보안 환경 ORIGIN',
             tone: 'border-emerald-200 bg-emerald-50',
             textTone: 'text-emerald-700',
             result: secure,
           },
-        ].map((card) => (
-          <div key={card.key} className={`rounded-xl border p-4 ${card.tone}`}>
-            <div className={`text-xs font-semibold uppercase tracking-[0.16em] ${card.textTone}`}>
-              {card.heading}
-            </div>
-            <div className="mt-3 rounded-lg border border-white/80 bg-white/80 p-3">
-              <div className="text-xs text-slate-500">직접 접근 대상 주소</div>
-              <div className="mt-1 break-all font-mono text-sm text-slate-800">
-                {card.result?.url || '주소 없음'}
+        ].map((card) => {
+          const pending = phase === 'running' && !card.result;
+          return (
+            <div key={card.key} className={`rounded-xl border p-4 ${card.tone}`}>
+              <div className={`text-xs font-semibold uppercase tracking-[0.16em] ${card.textTone}`}>
+                {card.heading}
               </div>
-              <button
-                type="button"
-                onClick={() => copy(card.key, card.result?.url)}
-                className="mt-3 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-600 transition-colors hover:bg-slate-50"
-              >
-                {copied === card.key ? '복사됨' : '주소 복사'}
-              </button>
-            </div>
+              <div className="relative mt-3 rounded-lg border border-white/80 bg-white/80 p-3">
+                {pending && <div aria-hidden className="absolute inset-0 rounded-lg bg-white/35 backdrop-blur-[2px]" />}
+                <div className="relative z-10 text-xs text-slate-500">직접 접근 대상 주소</div>
+                <div className="relative z-10 mt-1 break-all font-mono text-sm text-slate-800">
+                  {pending ? '응답 대기 중' : card.result?.url || '주소 없음'}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => copy(card.key, card.result?.url)}
+                  disabled={pending || !card.result?.url}
+                  className={`relative z-10 mt-3 rounded-md border px-2.5 py-1 text-xs transition-colors ${pending || !card.result?.url ? 'cursor-not-allowed border-slate-100 bg-slate-100 text-slate-400' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}
+                >
+                  {pending ? '대기 중' : copied === card.key ? '복사됨' : '주소 복사'}
+                </button>
+              </div>
 
-            <div className="mt-3 grid grid-cols-2 gap-3">
-              <div className="rounded-lg border border-white/80 bg-white/80 p-3">
-                <div className="text-xs text-slate-500">응답 상태</div>
-                <div className="mt-1 font-mono text-lg font-semibold text-slate-800">
-                  {formatStatus(card.result)}
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <div className="relative rounded-lg border border-white/80 bg-white/80 p-3">
+                  {pending && <div aria-hidden className="absolute inset-0 rounded-lg bg-white/35 backdrop-blur-[2px]" />}
+                  <div className="relative z-10 text-xs text-slate-500">응답 상태</div>
+                  <div className="relative z-10 mt-1 font-mono text-lg font-semibold text-slate-800">
+                    {pending ? 'WAIT' : formatStatus(card.result)}
+                  </div>
+                </div>
+                <div className="relative rounded-lg border border-white/80 bg-white/80 p-3">
+                  {pending && <div aria-hidden className="absolute inset-0 rounded-lg bg-white/35 backdrop-blur-[2px]" />}
+                  <div className="relative z-10 text-xs text-slate-500">지연 시간</div>
+                  <div className="relative z-10 mt-1 font-mono text-lg font-semibold text-slate-800">
+                    {pending ? '...' : formatLatency(card.result)}
+                  </div>
                 </div>
               </div>
-              <div className="rounded-lg border border-white/80 bg-white/80 p-3">
-                <div className="text-xs text-slate-500">지연 시간</div>
-                <div className="mt-1 font-mono text-lg font-semibold text-slate-800">
-                  {formatLatency(card.result)}
-                </div>
+
+              <div className="mt-3 rounded-lg border border-white/80 bg-white/80 p-3 text-sm text-slate-700">
+                {pending
+                  ? '원본 응답을 기다리는 중입니다.'
+                  : card.key === 'vuln'
+                    ? inferResultStatus(card.result) === 'reached'
+                      ? '원본 EC2가 직접 응답해 보호 장비 우회 후에도 요청이 내부 로직까지 이어질 수 있음을 보여줍니다.'
+                      : '직접 접근 증거가 부족해 원본 노출 여부를 다시 확인할 필요가 있습니다.'
+                    : inferResultStatus(card.result) === 'blocked' || inferResultStatus(card.result) === 'failed'
+                      ? '직접 접근이 차단되거나 실패해 원본이 외부에 직접 노출되지 않았음을 보여줍니다.'
+                      : '보안 환경 원본이 직접 응답하므로 원본 보호 구성을 다시 점검해야 합니다.'}
               </div>
             </div>
-
-            <div className="mt-3 rounded-lg border border-white/80 bg-white/80 p-3 text-sm text-slate-700">
-              {card.key === 'vuln'
-                ? inferResultStatus(card.result) === 'reached'
-                  ? '원본 EC2가 직접 응답해 보호 장비 우회 후에도 요청이 내부 로직까지 이어질 수 있음을 보여줍니다.'
-                  : '직접 접근 증거가 부족해 원본 노출 여부를 다시 확인할 필요가 있습니다.'
-                : inferResultStatus(card.result) === 'blocked' || inferResultStatus(card.result) === 'failed'
-                  ? '직접 접근이 차단되거나 실패해 원본이 외부에 직접 노출되지 않았음을 보여줍니다.'
-                  : '보안 환경 원본이 직접 응답해 원본 보호 구성이 다시 필요합니다.'}
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </EvidenceSection>
   );
@@ -736,7 +526,7 @@ function ScenarioEvidence({
   }
 
   if (endpoint === 'origin-direct') {
-    return <OriginDirectEvidence vulnResults={vulnResults} awsResults={awsResults} />;
+    return <OriginDirectEvidence phase={phase} vulnResults={vulnResults} awsResults={awsResults} />;
   }
 
   return null;
@@ -762,6 +552,7 @@ export function AttackCard({
   const [savedToast, setSavedToast] = useState(false);
   const [manualVulnerableOriginUrl, setManualVulnerableOriginUrl] = useState('');
   const [manualSecureOriginUrl, setManualSecureOriginUrl] = useState('');
+  const [autoOriginUrls, setAutoOriginUrls] = useState({ vulnerable: '', secure: '' });
   const [originSavedToast, setOriginSavedToast] = useState(false);
   const esRef = useRef<EventSource | null>(null);
   const localVulnRef = useRef<AttackResult[]>([]);
@@ -791,6 +582,32 @@ export function AttackCard({
         setManualSecureOriginUrl(saved);
       }
     } catch {}
+  }, [endpoint, mode]);
+
+  useEffect(() => {
+    if (endpoint !== 'origin-direct' || mode !== 'auto') return;
+
+    let active = true;
+    const syncOriginUrls = () => {
+      fetch('/api/config')
+        .then((response) => response.json())
+        .then((config: DashboardConfig) => {
+          if (!active) return;
+          setAutoOriginUrls({
+            vulnerable: config.autoVulnerable.originUrl || '',
+            secure: config.autoAws.originUrl || '',
+          });
+        })
+        .catch(() => {});
+    };
+
+    syncOriginUrls();
+    const intervalId = window.setInterval(syncOriginUrls, 5000);
+
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+    };
   }, [endpoint, mode]);
 
   const saveManualOriginUrls = useCallback(() => {
@@ -1023,7 +840,7 @@ export function AttackCard({
             {stolenCredential ? (
               <>
                 <span className="font-semibold text-red-700">이전 시나리오 연동</span>
-                <span className="text-red-600">브루트포스에서 탈취한 계정 사용 중</span>
+                <span className="text-red-600">브루트포스에서 획득한 계정을 사용 중입니다.</span>
                 <code className="rounded bg-red-100 px-1.5 py-0.5 font-mono text-red-800">
                   {stolenCredential.email}
                 </code>
@@ -1039,11 +856,11 @@ export function AttackCard({
         {endpoint === 'origin-direct' && mode === 'manual' && (
           <div className="border-b border-slate-200 bg-sky-50/70 px-6 py-4">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-              <div className="max-w-3xl">
+              <div className="lg:flex-1">
                 <div className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-700">
                   Manual Origin Input
                 </div>
-                <p className="mt-1 text-sm text-slate-700">
+                <p className="mt-1 text-sm text-slate-700 lg:whitespace-nowrap">
                   실습자가 취약 환경과 보안 환경의 원본 EC2 주소를 직접 입력하면, CloudFront 우회 전후의 직접 접근 차이를 이 카드에서 바로 비교할 수 있습니다.
                 </p>
               </div>
@@ -1086,6 +903,51 @@ export function AttackCard({
             </div>
             <p className="mt-2 text-xs text-slate-500">
               입력하지 않은 항목은 서버에 미리 설정된 <code className="font-mono">VULNERABLE_ORIGIN_API_URL</code> 또는 <code className="font-mono">AWS_ORIGIN_API_URL</code>을 그대로 사용합니다.
+            </p>
+          </div>
+        )}
+
+        {endpoint === 'origin-direct' && mode === 'auto' && (
+          <div className="border-b border-slate-200 bg-cyan-50/70 px-6 py-4">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+              <div className="max-w-3xl">
+                <div className="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-700">
+                  Auto Origin Input
+                </div>
+                <p className="mt-1 text-sm text-slate-700">
+                  자동 배포가 완료되면 Terraform 출력값의 Origin Direct 주소를 가져와 취약 환경과 보안 환경 입력칸에 자동으로 고정 표시합니다.
+                </p>
+              </div>
+              <span className="text-xs font-medium text-cyan-700">Terraform Output</span>
+            </div>
+            <div className="mt-3 grid gap-3 lg:grid-cols-2">
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold uppercase tracking-[0.14em] text-red-600">
+                  Vulnerable Origin
+                </label>
+                <input
+                  type="text"
+                  value={autoOriginUrls.vulnerable}
+                  readOnly
+                  placeholder="배포 완료 후 자동 입력"
+                  className="w-full cursor-default rounded-lg border border-cyan-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none placeholder:text-slate-400"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-600">
+                  Secure Origin
+                </label>
+                <input
+                  type="text"
+                  value={autoOriginUrls.secure}
+                  readOnly
+                  placeholder="배포 완료 후 자동 입력"
+                  className="w-full cursor-default rounded-lg border border-cyan-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none placeholder:text-slate-400"
+                />
+              </div>
+            </div>
+            <p className="mt-2 text-xs text-slate-500">
+              자동 배포 모드에서는 실습자가 주소를 수정할 수 없고, 배포된 인프라의 Origin Direct 주소가 고정 사용됩니다.
             </p>
           </div>
         )}
