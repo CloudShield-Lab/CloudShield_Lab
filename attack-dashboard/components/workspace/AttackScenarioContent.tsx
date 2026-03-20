@@ -54,7 +54,7 @@ export function AttackScenarioContent({
               자동 배포 인프라가 아직 구성되지 않았습니다.
             </p>
             <p className="mt-1 text-xs text-amber-700">
-              공격 시뮬레이터를 실행하려면 먼저{' '}
+              공격 시나리오를 실행하려면 먼저{' '}
               <Link href="/auto" className="font-semibold underline hover:text-amber-900">
                 자동 환경 구성
               </Link>{' '}
@@ -64,13 +64,14 @@ export function AttackScenarioContent({
         )}
 
         {originDirectNeedsConfig && (
-          <div className="rounded-xl border border-violet-300 bg-violet-50 px-5 py-4">
-            <p className="text-sm font-semibold text-violet-900">
-              Origin 직접 접근 비교는 원본 EC2 주소가 필요합니다.
+          <div className="rounded-xl border border-sky-300 bg-sky-50 px-5 py-4">
+            <p className="text-sm font-semibold text-sky-900">
+              Origin 직접 접근 비교에는 원본 EC2 주소가 필요합니다.
             </p>
-            <p className="mt-1 text-xs text-violet-700">
-              자동 배포는 Terraform 출력의 Elastic IP를 자동 사용합니다. 수동 배포는{' '}
-              <code className="font-mono">AWS_ORIGIN_API_URL</code>을 설정하면 보안 환경 원본 주소까지 직접 비교할 수 있습니다.
+            <p className="mt-1 text-xs text-sky-700">
+              {mode === 'manual'
+                ? '수동 배포는 공격 카드에서 취약 환경과 보안 환경의 원본 EC2 주소를 직접 입력하고 저장하면, 보안 계층 우회 전후의 직접 접근 비교를 바로 실행할 수 있습니다.'
+                : '자동 배포는 Terraform 출력값의 Elastic IP를 읽어 원본 주소를 자동으로 구성합니다. 배포가 완료되면 별도 입력 없이 Origin 직접 접근 비교가 동작합니다.'}
             </p>
           </div>
         )}

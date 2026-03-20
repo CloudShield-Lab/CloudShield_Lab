@@ -69,6 +69,9 @@ const BOT_SCAN_ATTEMPTS = [
   { name: 'Hidden Config Probe', path: '/config.bak' },
 ];
 
+const MANUAL_VULNERABLE_ORIGIN_STORAGE_KEY = 'sentinelshare_manual_vulnerable_origin_url';
+const MANUAL_SECURE_ORIGIN_STORAGE_KEY = 'sentinelshare_manual_secure_origin_url';
+
 function getResultTone(status: EvidenceStatus | EvidenceDisplayStatus) {
   if (status === 'blocked') return 'border-emerald-200 bg-emerald-50 text-emerald-700';
   if (status === 'reached') return 'border-red-200 bg-red-50 text-red-700';
@@ -623,7 +626,20 @@ function OriginDirectEvidence({
   const copy = useCallback(async (key: string, value?: string) => {
     if (!value) return;
     try {
-      await navigator.clipboard.writeText(value);
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(value);
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = value;
+        textarea.setAttribute('readonly', 'true');
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+      }
       setCopied(key);
       window.setTimeout(() => setCopied((current) => (current === key ? null : current)), 1800);
     } catch {}
@@ -744,6 +760,9 @@ export function AttackCard({
   const [vulnDirectUrl, setVulnDirectUrl] = useState<string | null>(null);
   const [stolenCredential, setStolenCredential] = useState<CapturedCredential | null>(null);
   const [savedToast, setSavedToast] = useState(false);
+  const [manualVulnerableOriginUrl, setManualVulnerableOriginUrl] = useState('');
+  const [manualSecureOriginUrl, setManualSecureOriginUrl] = useState('');
+  const [originSavedToast, setOriginSavedToast] = useState(false);
   const esRef = useRef<EventSource | null>(null);
   const localVulnRef = useRef<AttackResult[]>([]);
   const localAwsRef = useRef<AttackResult[]>([]);
@@ -759,6 +778,40 @@ export function AttackCard({
       }
     } catch {}
   }, [endpoint]);
+
+  useEffect(() => {
+    if (endpoint !== 'origin-direct' || mode !== 'manual') return;
+    try {
+      const savedVulnerable = localStorage.getItem(MANUAL_VULNERABLE_ORIGIN_STORAGE_KEY);
+      const saved = localStorage.getItem(MANUAL_SECURE_ORIGIN_STORAGE_KEY);
+      if (savedVulnerable) {
+        setManualVulnerableOriginUrl(savedVulnerable);
+      }
+      if (saved) {
+        setManualSecureOriginUrl(saved);
+      }
+    } catch {}
+  }, [endpoint, mode]);
+
+  const saveManualOriginUrls = useCallback(() => {
+    const trimmedVulnerable = manualVulnerableOriginUrl.trim();
+    const trimmedSecure = manualSecureOriginUrl.trim();
+    try {
+      if (trimmedVulnerable) {
+        localStorage.setItem(MANUAL_VULNERABLE_ORIGIN_STORAGE_KEY, trimmedVulnerable);
+      } else {
+        localStorage.removeItem(MANUAL_VULNERABLE_ORIGIN_STORAGE_KEY);
+      }
+
+      if (trimmedSecure) {
+        localStorage.setItem(MANUAL_SECURE_ORIGIN_STORAGE_KEY, trimmedSecure);
+      } else {
+        localStorage.removeItem(MANUAL_SECURE_ORIGIN_STORAGE_KEY);
+      }
+      setOriginSavedToast(true);
+      window.setTimeout(() => setOriginSavedToast(false), 1800);
+    } catch {}
+  }, [manualSecureOriginUrl, manualVulnerableOriginUrl]);
 
   const startAttack = useCallback(() => {
     if (phase === 'running') return;
@@ -810,6 +863,14 @@ export function AttackCard({
     if (endpoint === 's3-access' && stolenCredential) {
       extraParams += `&email=${encodeURIComponent(stolenCredential.email)}&password=${encodeURIComponent(stolenCredential.password)}`;
     }
+    if (endpoint === 'origin-direct' && mode === 'manual') {
+      if (manualVulnerableOriginUrl.trim()) {
+        extraParams += `&vulnerableOriginUrl=${encodeURIComponent(manualVulnerableOriginUrl.trim())}`;
+      }
+      if (manualSecureOriginUrl.trim()) {
+        extraParams += `&awsOriginUrl=${encodeURIComponent(manualSecureOriginUrl.trim())}`;
+      }
+    }
 
     const es = new EventSource(`/api/attack/${endpoint}?${extraParams}`);
     esRef.current = es;
@@ -860,7 +921,7 @@ export function AttackCard({
       doSave(localVulnRef.current, localAwsRef.current);
       es.close();
     };
-  }, [attackParams, endpoint, handleAttackEvent, mode, phase, startScenario, stolenCredential, title]);
+  }, [attackParams, endpoint, handleAttackEvent, manualSecureOriginUrl, manualVulnerableOriginUrl, mode, phase, startScenario, stolenCredential, title]);
 
   const reset = useCallback(() => {
     esRef.current?.close();
@@ -972,6 +1033,60 @@ export function AttackCard({
                 기본 계정으로 실행합니다. 먼저 브루트포스를 실행하면 탈취 계정을 자동 연동할 수 있습니다.
               </span>
             )}
+          </div>
+        )}
+
+        {endpoint === 'origin-direct' && mode === 'manual' && (
+          <div className="border-b border-slate-200 bg-sky-50/70 px-6 py-4">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+              <div className="max-w-3xl">
+                <div className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-700">
+                  Manual Origin Input
+                </div>
+                <p className="mt-1 text-sm text-slate-700">
+                  실습자가 취약 환경과 보안 환경의 원본 EC2 주소를 직접 입력하면, CloudFront 우회 전후의 직접 접근 차이를 이 카드에서 바로 비교할 수 있습니다.
+                </p>
+              </div>
+              {originSavedToast && (
+                <span className="text-xs font-medium text-sky-700">원본 주소가 저장되었습니다.</span>
+              )}
+            </div>
+            <div className="mt-3 grid gap-3 lg:grid-cols-[1fr_1fr_auto]">
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold uppercase tracking-[0.14em] text-red-600">
+                  Vulnerable Origin
+                </label>
+                <input
+                  type="text"
+                  value={manualVulnerableOriginUrl}
+                  onChange={(event) => setManualVulnerableOriginUrl(event.target.value)}
+                  placeholder="http://VULNERABLE_EC2_IP:3000"
+                  className="w-full rounded-lg border border-sky-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition-colors placeholder:text-slate-400 focus:border-sky-400"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-600">
+                  Secure Origin
+                </label>
+                <input
+                  type="text"
+                  value={manualSecureOriginUrl}
+                  onChange={(event) => setManualSecureOriginUrl(event.target.value)}
+                  placeholder="http://SECURE_EC2_IP:3000"
+                  className="w-full rounded-lg border border-sky-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition-colors placeholder:text-slate-400 focus:border-sky-400"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={saveManualOriginUrls}
+                className="self-end rounded-lg border border-sky-200 bg-white px-4 py-2 text-xs font-semibold text-sky-700 transition-colors hover:bg-sky-100"
+              >
+                저장
+              </button>
+            </div>
+            <p className="mt-2 text-xs text-slate-500">
+              입력하지 않은 항목은 서버에 미리 설정된 <code className="font-mono">VULNERABLE_ORIGIN_API_URL</code> 또는 <code className="font-mono">AWS_ORIGIN_API_URL</code>을 그대로 사용합니다.
+            </p>
           </div>
         )}
 

@@ -115,8 +115,14 @@ async function sendStageWithDelay(
 export async function GET(request: NextRequest) {
   const searchParams = new URL(request.url).searchParams;
   const mode = searchParams.get('mode') === 'auto' ? 'auto' : 'manual';
-  let vulnerableOriginUrl = URL_MAP[mode].vulnerable;
-  let awsOriginUrl = URL_MAP[mode].aws;
+  const manualVulnerableOriginOverride = normalizeApiBaseUrl(searchParams.get('vulnerableOriginUrl') || '');
+  const manualSecureOriginOverride = normalizeApiBaseUrl(searchParams.get('awsOriginUrl') || '');
+  let vulnerableOriginUrl =
+    mode === 'manual' && manualVulnerableOriginOverride
+      ? manualVulnerableOriginOverride
+      : URL_MAP[mode].vulnerable;
+  let awsOriginUrl =
+    mode === 'manual' && manualSecureOriginOverride ? manualSecureOriginOverride : URL_MAP[mode].aws;
 
   if (mode === 'auto' && (!vulnerableOriginUrl || !awsOriginUrl)) {
     const tf = await getTerraformOutputs();
