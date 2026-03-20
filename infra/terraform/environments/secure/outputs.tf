@@ -55,10 +55,10 @@ output "ebs_kms_key_arn" {
 
 output "db_password_secret_name" {
   description = "Secrets Manager secret name for secure DB password"
-  value       = module.secrets.db_password_secret_name
+  value       = data.terraform_remote_state.secure_kms.outputs.db_password_secret_name
 }
 
 output "jwt_secret_secret_name" {
   description = "Secrets Manager secret name for secure JWT secret"
-  value       = module.secrets.jwt_secret_secret_name
+  value       = data.terraform_remote_state.secure_kms.outputs.jwt_secret_secret_name
 }

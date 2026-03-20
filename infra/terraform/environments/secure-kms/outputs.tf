@@ -27,3 +27,23 @@ output "ebs_kms_alias_name" {
   description = "KMS alias name for secure environment root volume encryption"
   value       = module.kms_ebs.alias_name
 }
+
+output "db_password_secret_name" {
+  description = "Persistent secret name for the secure database password"
+  value       = module.secrets.db_password_secret_name
+}
+
+output "db_password_secret_arn" {
+  description = "Persistent secret ARN for the secure database password"
+  value       = module.secrets.db_password_secret_arn
+}
+
+output "jwt_secret_secret_name" {
+  description = "Persistent secret name for the secure JWT secret"
+  value       = module.secrets.jwt_secret_secret_name
+}
+
+output "jwt_secret_secret_arn" {
+  description = "Persistent secret ARN for the secure JWT secret"
+  value       = module.secrets.jwt_secret_secret_arn
+}
