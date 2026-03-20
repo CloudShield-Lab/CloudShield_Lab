@@ -14,6 +14,7 @@ on:
 env:
   AWS_REGION: ap-northeast-2
   TF_WORKING_DIR: infra/terraform/environments/secure
+  TF_KMS_WORKING_DIR: infra/terraform/environments/secure-kms
 
 concurrency:
   group: terraform-secure
@@ -52,6 +53,104 @@ jobs:
       - name: Terraform Validate
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform validate
+
+      - name: Check secure KMS bootstrap state
+        if: github.event.inputs.action == 'apply'
+        id: kms-state
+        run: |
+          if aws s3api head-object \
+            --bucket sentinelshare-terraform-state-833453046706-ap-northeast-2-an \
+            --key secure-kms/terraform.tfstate \
+            >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Detect secure KMS bootstrap mode
+        if: github.event.inputs.action == 'apply' && steps.kms-state.outputs.exists == 'false'
+        id: kms-bootstrap
+        run: |
+          normalize_key_id() {
+            if [ "$1" = "None" ]; then
+              echo ""
+            else
+              echo "$1"
+            fi
+          }
+
+          SECRETS_KEY_ID=$(aws kms list-aliases \
+            --region "${{ env.AWS_REGION }}" \
+            --query "Aliases[?AliasName=='alias/sentinelshare-secure-secrets'].TargetKeyId | [0]" \
+            --output text)
+          DATA_KEY_ID=$(aws kms list-aliases \
+            --region "${{ env.AWS_REGION }}" \
+            --query "Aliases[?AliasName=='alias/sentinelshare-secure-data'].TargetKeyId | [0]" \
+            --output text)
+          EBS_KEY_ID=$(aws kms list-aliases \
+            --region "${{ env.AWS_REGION }}" \
+            --query "Aliases[?AliasName=='alias/sentinelshare-secure-ebs'].TargetKeyId | [0]" \
+            --output text)
+
+          SECRETS_KEY_ID=$(normalize_key_id "$SECRETS_KEY_ID")
+          DATA_KEY_ID=$(normalize_key_id "$DATA_KEY_ID")
+          EBS_KEY_ID=$(normalize_key_id "$EBS_KEY_ID")
+
+          PRESENT_COUNT=0
+          [ -n "$SECRETS_KEY_ID" ] && PRESENT_COUNT=$((PRESENT_COUNT + 1))
+          [ -n "$DATA_KEY_ID" ] && PRESENT_COUNT=$((PRESENT_COUNT + 1))
+          [ -n "$EBS_KEY_ID" ] && PRESENT_COUNT=$((PRESENT_COUNT + 1))
+
+          if [ "$PRESENT_COUNT" -eq 0 ]; then
+            echo "mode=apply" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "$PRESENT_COUNT" -ne 3 ]; then
+            echo "Detected a partial secure KMS baseline in AWS without secure-kms state."
+            echo "secrets=$SECRETS_KEY_ID"
+            echo "data=$DATA_KEY_ID"
+            echo "ebs=$EBS_KEY_ID"
+            echo "Resolve the partial KMS baseline before running secure apply."
+            exit 1
+          fi
+
+          echo "mode=import" >> "$GITHUB_OUTPUT"
+          echo "secrets_key_id=$SECRETS_KEY_ID" >> "$GITHUB_OUTPUT"
+          echo "data_key_id=$DATA_KEY_ID" >> "$GITHUB_OUTPUT"
+          echo "ebs_key_id=$EBS_KEY_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Terraform Init (Secure KMS Bootstrap)
+        if: github.event.inputs.action == 'apply' && steps.kms-state.outputs.exists == 'false'
+        working-directory: ${{ env.TF_KMS_WORKING_DIR }}
+        run: terraform init
+
+      - name: Terraform Validate (Secure KMS Bootstrap)
+        if: github.event.inputs.action == 'apply' && steps.kms-state.outputs.exists == 'false'
+        working-directory: ${{ env.TF_KMS_WORKING_DIR }}
+        run: terraform validate
+
+      - name: Terraform Import (Secure KMS Bootstrap)
+        if: github.event.inputs.action == 'apply' && steps.kms-state.outputs.exists == 'false' && steps.kms-bootstrap.outputs.mode == 'import'
+        working-directory: ${{ env.TF_KMS_WORKING_DIR }}
+        run: |
+          terraform import module.kms.aws_kms_key.main "${{ steps.kms-bootstrap.outputs.secrets_key_id }}"
+          terraform import module.kms_data.aws_kms_key.main "${{ steps.kms-bootstrap.outputs.data_key_id }}"
+          terraform import module.kms_ebs.aws_kms_key.main "${{ steps.kms-bootstrap.outputs.ebs_key_id }}"
+
+          terraform import module.kms.aws_kms_alias.main alias/sentinelshare-secure-secrets
+          terraform import module.kms_data.aws_kms_alias.main alias/sentinelshare-secure-data
+          terraform import module.kms_ebs.aws_kms_alias.main alias/sentinelshare-secure-ebs
+
+      - name: Terraform Plan (Secure KMS Bootstrap)
+        if: github.event.inputs.action == 'apply' && steps.kms-state.outputs.exists == 'false'
+        working-directory: ${{ env.TF_KMS_WORKING_DIR }}
+        run: terraform plan -input=false -out=tfplan
+
+      - name: Terraform Apply (Secure KMS Bootstrap)
+        if: github.event.inputs.action == 'apply' && steps.kms-state.outputs.exists == 'false'
+        working-directory: ${{ env.TF_KMS_WORKING_DIR }}
+        run: terraform apply -input=false -auto-approve tfplan
 
       - name: Terraform Plan
         if: github.event.inputs.action == 'apply'

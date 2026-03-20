@@ -23,6 +23,16 @@ provider "aws" {
   region = "us-east-1"
 }
 
+data "terraform_remote_state" "secure_kms" {
+  backend = "s3"
+
+  config = {
+    bucket = "sentinelshare-terraform-state-833453046706-ap-northeast-2-an"
+    key    = "secure-kms/terraform.tfstate"
+    region = var.aws_region
+  }
+}
+
 module "network" {
   source     = "../../modules/network"
   env_name   = "secure"
@@ -34,30 +44,13 @@ module "s3" {
   env_name              = "secure"
   block_public_access   = true
   enable_kms_encryption = true
-  kms_key_arn           = module.kms_data.key_arn
-}
-
-module "kms" {
-  source   = "../../modules/kms"
-  env_name = "secure"
-}
-
-module "kms_data" {
-  source      = "../../modules/kms"
-  env_name    = "secure"
-  key_purpose = "data"
-}
-
-module "kms_ebs" {
-  source      = "../../modules/kms"
-  env_name    = "secure"
-  key_purpose = "ebs"
+  kms_key_arn           = data.terraform_remote_state.secure_kms.outputs.data_kms_key_arn
 }
 
 module "secrets" {
   source                  = "../../modules/secrets"
   env_name                = "secure"
-  kms_key_arn             = module.kms.key_arn
+  kms_key_arn             = data.terraform_remote_state.secure_kms.outputs.secrets_kms_key_arn
   db_password             = var.db_password
   jwt_secret              = var.jwt_secret
   db_password_secret_name = "secure-tf-db-password"
@@ -94,10 +87,10 @@ module "ec2" {
   secret_delivery_mode    = "secrets_manager"
   db_password_secret_name = module.secrets.db_password_secret_name
   jwt_secret_secret_name  = module.secrets.jwt_secret_secret_name
-  secrets_kms_key_arn     = module.kms.key_arn
-  data_kms_key_arn        = module.kms_data.key_arn
+  secrets_kms_key_arn     = data.terraform_remote_state.secure_kms.outputs.secrets_kms_key_arn
+  data_kms_key_arn        = data.terraform_remote_state.secure_kms.outputs.data_kms_key_arn
   enable_data_kms_access  = true
   root_volume_encrypted   = true
-  root_volume_kms_key_id  = module.kms_ebs.key_arn
+  root_volume_kms_key_id  = data.terraform_remote_state.secure_kms.outputs.ebs_kms_key_arn
   wazuh_manager_ip        = var.wazuh_manager_ip
 }

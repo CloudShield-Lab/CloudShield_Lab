@@ -46,6 +46,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - environment: secure-kms
+            working_directory: infra/terraform/environments/secure-kms
+            fail_on_findings: true
           - environment: secure
             working_directory: infra/terraform/environments/secure
             fail_on_findings: true
