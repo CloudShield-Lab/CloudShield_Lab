@@ -7,6 +7,7 @@ on:
     branches: [master, dev]
     paths:
       - 'sentinel-share-backend/**'
+      - '.github/ignore/**'
       - '.github/workflows/ci-backend.yml'
 
 env:
@@ -62,6 +63,7 @@ jobs:
           scanners: vuln
           severity: CRITICAL
           ignore-unfixed: true
+          trivyignores: .github/ignore/.trivyignore
           exit-code: '1'
 
       - name: Trivy filesystem secret scan
@@ -72,6 +74,7 @@ jobs:
           scan-type: fs
           scan-ref: ./sentinel-share-backend
           scanners: secret
+          trivyignores: .github/ignore/.trivyignore
           exit-code: '1'
 
       - name: Trivy image vulnerability scan
@@ -83,4 +86,5 @@ jobs:
           format: table
           severity: CRITICAL
           ignore-unfixed: true
+          trivyignores: .github/ignore/.trivyignore
           exit-code: '1'

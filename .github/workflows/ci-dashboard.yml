@@ -7,6 +7,7 @@ on:
     branches: [master, dev]
     paths:
       - 'attack-dashboard/**'
+      - '.github/ignore/**'
       - '.github/workflows/ci-dashboard.yml'
 
 env:
@@ -62,6 +63,7 @@ jobs:
           scanners: vuln
           severity: CRITICAL
           ignore-unfixed: true
+          trivyignores: .github/ignore/.trivyignore
           exit-code: '1'
 
       - name: Trivy filesystem secret scan
@@ -72,6 +74,7 @@ jobs:
           scan-type: fs
           scan-ref: ./attack-dashboard
           scanners: secret
+          trivyignores: .github/ignore/.trivyignore
           exit-code: '1'
 
       - name: Trivy image vulnerability scan
@@ -83,4 +86,5 @@ jobs:
           format: table
           severity: CRITICAL
           ignore-unfixed: true
+          trivyignores: .github/ignore/.trivyignore
           exit-code: '1'
