@@ -339,25 +339,34 @@ function BotScanEvidenceV2({
               const awsResult = awsResults[index];
               const vulnStatus = getEvidenceDisplayStatus(vulnResult, phase, index, vulnResults.length);
               const awsStatus = getEvidenceDisplayStatus(awsResult, phase, index, awsResults.length);
+              const discovery = vulnStatus === 'reached' ? vulnResult?.discovery : undefined;
 
               return (
-                <div key={scan.path} className="grid grid-cols-[1.2fr_1fr_1fr] items-center px-4 py-3 text-sm">
-                  <div>
-                    <div className="font-semibold text-slate-800">{scan.path}</div>
-                    <div className="text-xs text-slate-400">{scan.name}</div>
+                <div key={scan.path} className="px-4 py-3 text-sm">
+                  <div className="grid grid-cols-[1.2fr_1fr_1fr] items-start">
+                    <div>
+                      <div className="font-semibold text-slate-800">{scan.path}</div>
+                      <div className="text-xs text-slate-400">{scan.name}</div>
+                    </div>
+                    <div className="flex flex-col items-start gap-1">
+                      <span className={`w-fit rounded-lg border px-2.5 py-1 text-xs font-medium ${getEvidenceTone(vulnStatus)}`}>
+                        {getEvidenceBadge(vulnStatus, { reached: '원본 도달', blocked: '차단' })}
+                      </span>
+                      <span className="text-[11px] text-slate-400">{getBotEvidenceMeta('vulnerable', vulnResult, vulnStatus)}</span>
+                    </div>
+                    <div className="flex flex-col items-start gap-1">
+                      <span className={`w-fit rounded-lg border px-2.5 py-1 text-xs font-medium ${getEvidenceTone(awsStatus)}`}>
+                        {getEvidenceBadge(awsStatus, { reached: '원본 도달', blocked: '앞단 차단' })}
+                      </span>
+                      <span className="text-[11px] text-slate-400">{getBotEvidenceMeta('aws', awsResult, awsStatus)}</span>
+                    </div>
                   </div>
-                  <div className="flex flex-col items-start gap-1">
-                    <span className={`w-fit rounded-lg border px-2.5 py-1 text-xs font-medium ${getEvidenceTone(vulnStatus)}`}>
-                      {getEvidenceBadge(vulnStatus, { reached: '원본 도달', blocked: '차단' })}
-                    </span>
-                    <span className="text-[11px] text-slate-400">{getBotEvidenceMeta('vulnerable', vulnResult, vulnStatus)}</span>
-                  </div>
-                  <div className="flex flex-col items-start gap-1">
-                    <span className={`w-fit rounded-lg border px-2.5 py-1 text-xs font-medium ${getEvidenceTone(awsStatus)}`}>
-                      {getEvidenceBadge(awsStatus, { reached: '원본 도달', blocked: '앞단 차단' })}
-                    </span>
-                    <span className="text-[11px] text-slate-400">{getBotEvidenceMeta('aws', awsResult, awsStatus)}</span>
-                  </div>
+                  {discovery && (
+                    <div className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2">
+                      <div className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-red-500">Response Body</div>
+                      <pre className="overflow-x-auto whitespace-pre-wrap break-all font-mono text-[11px] leading-5 text-red-700">{discovery}</pre>
+                    </div>
+                  )}
                 </div>
               );
             })}

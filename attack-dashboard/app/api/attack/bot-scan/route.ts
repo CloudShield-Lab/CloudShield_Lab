@@ -79,12 +79,21 @@ async function scanPath(baseUrl: string, scanPathValue: string, attempt: number,
     const isHtmlFallback = res.status === 200 && contentType.includes('text/html') && !isJson;
     const edgeFiltered = isHtmlFallback || res.status === 403;
 
+    let discovery: string | undefined;
+    if (!edgeFiltered && res.status === 200) {
+      try {
+        const body = await res.text();
+        discovery = body.slice(0, 300);
+      } catch {}
+    }
+
     return {
       attempt,
       status: edgeFiltered ? 403 : res.status,
       latency,
       blocked: edgeFiltered,
       label: edgeFiltered ? `${label} EDGE FILTERED` : `${label} ORIGIN REACHED`,
+      ...(discovery !== undefined && { discovery }),
     };
   } catch {
     return {

@@ -11,6 +11,7 @@ export type AttackResult = {
   label?: string;
   error?: string;
   url?: string;
+  discovery?: string;
 };
 
 export type AttackEvent =
@@ -111,7 +112,6 @@ export type ArchitectureScenario = {
 export type AttackEndpoint =
   | 'bruteforce'
   | 's3-access'
-  | 'ratelimit'
   | 'header-scan'
   | 'sqli-xss'
   | 'bot-scan'
