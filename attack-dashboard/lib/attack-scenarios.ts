@@ -49,38 +49,8 @@ export const attackScenarioConfigs: AttackScenarioConfig[] = [
     ],
   },
   {
-    key: 'rce-injection',
-    index: 2,
-    title: 'RCE / Log4Shell JNDI 헤더 인젝션',
-    shortTitle: 'RCE / Log4Shell',
-    description:
-      'HTTP 헤더에 JNDI 페이로드를 삽입해 취약 환경에서 페이로드가 애플리케이션 로그까지 도달하는 반면, 보안 환경의 WAF KnownBadInputsRuleSet이 앱 도달 전에 차단하는 차이를 비교합니다.',
-    totalRequests: 1,
-    vulnNote:
-      '취약 환경은 WAF가 없어 JNDI 페이로드가 포함된 헤더가 그대로 EC2와 애플리케이션 로그까지 전달됩니다. Log4j 같은 취약 라이브러리가 있다면 실제 원격 코드 실행으로 이어질 수 있습니다.',
-    awsNote:
-      '보안 환경은 WAF AWSManagedRulesKnownBadInputsRuleSet이 ${jndi:...} 패턴을 탐지해 애플리케이션 도달 전에 403으로 차단합니다.',
-    flowSteps: [
-      {
-        title: '1. JNDI 페이로드 헤더 삽입',
-        vulnerable: '${jndi:ldap://...} 패턴이 User-Agent 등 HTTP 헤더에 포함된 요청이 취약 환경으로 직접 전달됩니다.',
-        secure: '동일한 요청이 CloudFront를 거쳐 WAF 검사 단계로 먼저 전달됩니다.',
-      },
-      {
-        title: '2. WAF 탐지 여부 비교',
-        vulnerable: 'WAF가 없어 JNDI 문자열이 EC2에 도달하고 애플리케이션 로그에 그대로 기록됩니다.',
-        secure: 'WAF KnownBadInputs 규칙이 ${jndi:...} 패턴을 즉시 탐지해 403으로 차단합니다.',
-      },
-      {
-        title: '3. 실제 위협 해석',
-        vulnerable: 'Log4j 취약 버전이라면 JNDI lookup이 외부 서버로 콜백을 시도합니다. 취약 라이브러리 여부와 무관하게 페이로드가 앱 내부까지 도달합니다.',
-        secure: '페이로드가 애플리케이션에 전혀 도달하지 않아 취약 라이브러리 여부와 무관하게 안전합니다.',
-      },
-    ],
-  },
-  {
     key: 'bot-scan',
-    index: 3,
+    index: 2,
     title: '비정상 스캐닝 / 봇 요청 차단 비교',
     shortTitle: '봇 요청 차단 비교',
     description:
@@ -105,6 +75,36 @@ export const attackScenarioConfigs: AttackScenarioConfig[] = [
         title: '3. 영향 해석',
         vulnerable: '불필요한 스캔 요청이 서비스 계층까지 닿는 흐름을 확인합니다.',
         secure: '의미 없는 탐색 요청이 앞단 보호 계층에서 조기에 제거됨을 보여줍니다.',
+      },
+    ],
+  },
+  {
+    key: 'rce-injection',
+    index: 3,
+    title: 'RCE / Log4Shell JNDI 헤더 인젝션',
+    shortTitle: 'RCE / Log4Shell',
+    description:
+      'HTTP 헤더에 JNDI 페이로드를 삽입해 취약 환경에서 페이로드가 애플리케이션 로그까지 도달하는 반면, 보안 환경의 WAF KnownBadInputsRuleSet이 앱 도달 전에 차단하는 차이를 비교합니다.',
+    totalRequests: 1,
+    vulnNote:
+      '취약 환경은 WAF가 없어 JNDI 페이로드가 포함된 헤더가 그대로 EC2와 애플리케이션 로그까지 전달됩니다. Log4j 같은 취약 라이브러리가 있다면 실제 원격 코드 실행으로 이어질 수 있습니다.',
+    awsNote:
+      '보안 환경은 WAF AWSManagedRulesKnownBadInputsRuleSet이 ${jndi:...} 패턴을 탐지해 애플리케이션 도달 전에 403으로 차단합니다.',
+    flowSteps: [
+      {
+        title: '1. JNDI 페이로드 헤더 삽입',
+        vulnerable: '${jndi:ldap://...} 패턴이 User-Agent 등 HTTP 헤더에 포함된 요청이 취약 환경으로 직접 전달됩니다.',
+        secure: '동일한 요청이 CloudFront를 거쳐 WAF 검사 단계로 먼저 전달됩니다.',
+      },
+      {
+        title: '2. WAF 탐지 여부 비교',
+        vulnerable: 'WAF가 없어 JNDI 문자열이 EC2에 도달하고 애플리케이션 로그에 그대로 기록됩니다.',
+        secure: 'WAF KnownBadInputs 규칙이 ${jndi:...} 패턴을 즉시 탐지해 403으로 차단합니다.',
+      },
+      {
+        title: '3. 실제 위협 해석',
+        vulnerable: 'Log4j 취약 버전이라면 JNDI lookup이 외부 서버로 콜백을 시도합니다. 취약 라이브러리 여부와 무관하게 페이로드가 앱 내부까지 도달합니다.',
+        secure: '페이로드가 애플리케이션에 전혀 도달하지 않아 취약 라이브러리 여부와 무관하게 안전합니다.',
       },
     ],
   },
