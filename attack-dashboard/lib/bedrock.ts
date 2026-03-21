@@ -2,7 +2,67 @@ import {
   BedrockRuntimeClient,
   InvokeModelWithResponseStreamCommand,
 } from '@aws-sdk/client-bedrock-runtime';
-import type { AnalysisSession } from '@/types';
+import type { AnalysisSession, AttackResult } from '@/types';
+
+function formatAttackChainSection(
+  vulnResults: AttackResult[],
+  secureResults: AttackResult[],
+  lang: 'ko' | 'en',
+): string {
+  if (vulnResults.length === 0 && secureResults.length === 0) return '';
+
+  const MAX = 40;
+
+  const formatResult = (r: AttackResult, lang: 'ko' | 'en') => {
+    const status = r.status > 0 ? `HTTP ${r.status}` : 'ERR';
+    const label = r.label ?? (r.blocked ? (lang === 'ko' ? '차단' : 'BLOCKED') : (lang === 'ko' ? '통과' : 'PASSED'));
+    const url = r.url ? ` [${r.url}]` : '';
+    return `  ${lang === 'ko' ? '시도' : 'Attempt'} ${r.attempt}: ${status} — ${label}${url} (${r.latency}ms)`;
+  };
+
+  const vulnSample = vulnResults.slice(0, MAX);
+  const secureSample = secureResults.slice(0, MAX);
+
+  if (lang === 'ko') {
+    let section = '\n\n### 공격 체인 실행 결과 (공격자 시점)';
+    section += '\n서버 액세스 로그에 기록되지 않는 단계(S3 직접 접근 등)의 결과도 포함됩니다.';
+
+    section += `\n\n**취약 환경 (${vulnResults.length}건${vulnResults.length > MAX ? `, 상위 ${MAX}건 표시` : ''}):**`;
+    if (vulnSample.length > 0) {
+      section += '\n' + vulnSample.map((r) => formatResult(r, 'ko')).join('\n');
+    } else {
+      section += '\n  (없음)';
+    }
+
+    section += `\n\n**보안 환경 (${secureResults.length}건${secureResults.length > MAX ? `, 상위 ${MAX}건 표시` : ''}):**`;
+    if (secureSample.length > 0) {
+      section += '\n' + secureSample.map((r) => formatResult(r, 'ko')).join('\n');
+    } else {
+      section += '\n  (없음)';
+    }
+
+    return section;
+  }
+
+  let section = '\n\n### Attack Chain Execution Results (Attacker\'s Perspective)';
+  section += '\nIncludes steps not recorded in server access logs (e.g., direct S3 access).';
+
+  section += `\n\n**Vulnerable environment (${vulnResults.length} steps${vulnResults.length > MAX ? `, showing top ${MAX}` : ''}):**`;
+  if (vulnSample.length > 0) {
+    section += '\n' + vulnSample.map((r) => formatResult(r, 'en')).join('\n');
+  } else {
+    section += '\n  (none)';
+  }
+
+  section += `\n\n**Secure environment (${secureResults.length} steps${secureResults.length > MAX ? `, showing top ${MAX}` : ''}):**`;
+  if (secureSample.length > 0) {
+    section += '\n' + secureSample.map((r) => formatResult(r, 'en')).join('\n');
+  } else {
+    section += '\n  (none)';
+  }
+
+  return section;
+}
 
 function formatAccessLogsSection(
   rawLogs: { vulnerable: string[]; secure: string[] },
@@ -53,6 +113,7 @@ const REGION = process.env.BEDROCK_REGION || 'us-east-1';
 
 
 function buildPrompt(session: AnalysisSession, lang: 'ko' | 'en'): { system: string; user: string } {
+  const chainSection = formatAttackChainSection(session.vulnResults, session.secureResults, lang);
   const rawLogsSection = session.rawLogs ? formatAccessLogsSection(session.rawLogs, lang) : '';
 
   if (lang === 'ko') {
@@ -65,23 +126,24 @@ function buildPrompt(session: AnalysisSession, lang: 'ko' | 'en'): { system: str
 **실행 모드:** ${session.mode === 'auto' ? '자동 배포 (Terraform)' : '수동 배포'}
 **실행 시각:** ${new Date(session.timestamp).toLocaleString('ko-KR')}
 
-아래는 공격 시간대에 취약/보안 환경 서버가 실제로 수신한 HTTP 액세스 로그입니다.
-보안 환경 로그 건수가 적거나 없는 경우, WAF/CloudFront가 서버 도달 전 요청을 선제 차단한 것을 의미합니다.
-${rawLogsSection}
+아래 두 가지 데이터를 교차 분석해 공격의 전모를 파악하세요.
+- **공격 체인 실행 결과**: attack-dashboard가 공격을 수행하며 각 단계에서 받은 실제 HTTP 응답 (공격자 시점)
+- **서버 수신 액세스 로그**: 취약/보안 환경 백엔드가 실제로 수신한 요청 (서버 시점, WAF 차단된 요청은 미포함)
+${chainSection}${rawLogsSection}
 
 다음 5가지 섹션으로 분석해주세요:
 
 ## 1. 공격 개요
-시나리오 설명 및 공격 목적, 실제 공격자가 이 기법을 사용하는 맥락을 설명하세요.
+두 데이터를 근거로 어떤 공격이 어떤 순서로 수행됐는지 설명하세요. 공격 목적과 실제 공격자가 이 기법을 사용하는 맥락도 함께 서술하세요.
 
 ## 2. 취약 환경 영향 분석
-서버 액세스 로그를 근거로 취약 환경에서의 공격 결과와 보안 위험을 분석하세요. 시도 횟수, 성공한 계정, 사용된 패스워드 등 구체적인 수치를 로그에서 직접 추출해 제시하세요.
+공격 체인 결과와 서버 액세스 로그를 교차해 취약 환경에서의 공격 결과와 실질적 피해를 분석하세요. 어느 단계에서 성공했는지, 어떤 계정/데이터가 노출됐는지 구체적으로 제시하세요.
 
 ## 3. 보안 환경 방어 효과
-보안 환경의 차단 메커니즘(WAF, CloudFront 등)과 효과를 설명하세요. 서버 액세스 로그가 없거나 적다면 그것이 의미하는 바(WAF 선제 차단으로 서버 미도달)를 명시하고, 두 환경 간 로그 건수 차이를 방어 효과의 근거로 분석하세요.
+공격 체인 결과(공격자가 받은 응답)와 서버 액세스 로그(서버 도달 여부)를 함께 분석해 어느 계층에서 어떻게 차단됐는지 설명하세요. 두 데이터 간 불일치(예: 공격자는 403을 받았지만 서버 로그엔 없음 → WAF 선제 차단)도 근거로 활용하세요.
 
-## 4. 액세스 로그 기반 공격 재구성
-액세스 로그를 기반으로 공격자의 행동을 시간순으로 재구성하세요. 어떤 IP에서, 어떤 계정을, 어떤 패스워드로 시도했는지, 언제 성공했는지 구체적으로 서술하세요.
+## 4. 공격 재구성
+두 데이터를 종합해 공격자의 행동을 시간순으로 재구성하세요. 어떤 IP에서 어떤 단계를 시도했고, 어디서 성공/차단됐는지 구체적으로 서술하세요.
 
 ## 5. 환경별 보안 평가 및 결론
 아래 형식으로 두 환경을 각각 평가하세요:
@@ -93,7 +155,7 @@ ${rawLogsSection}
 
 **[보안 환경]**
 - 보안 수준: (매우 낮음/낮음/보통/높음 중 선택 + 한 줄 근거)
-- 방어 효과: (어떤 메커니즘이 어떻게 작동했는지)
+- 방어 효과: (어떤 계층의 어떤 메커니즘이 어떻게 작동했는지)
 - 개선 가능 사항: (보안 환경이더라도 보완할 점)`,
     };
   }
@@ -107,23 +169,24 @@ ${rawLogsSection}
 **Deployment Mode:** ${session.mode === 'auto' ? 'Auto (Terraform)' : 'Manual'}
 **Timestamp:** ${new Date(session.timestamp).toLocaleString('en-US')}
 
-Below are the HTTP access logs actually received by the vulnerable and secure environment servers during the attack window.
-If the secure environment shows few or no logs, it means WAF/CloudFront blocked requests before they reached the server.
-${rawLogsSection}
+Cross-analyze the two data sources below to understand the full scope of the attack:
+- **Attack chain execution results**: Actual HTTP responses received at each attack step by the dashboard (attacker's perspective)
+- **Server access logs**: Requests actually received by the vulnerable/secure backend servers (server's perspective — WAF-blocked requests are absent)
+${chainSection}${rawLogsSection}
 
 Please analyze using the following 5 sections:
 
 ## 1. Attack Overview
-Describe the scenario, attack objectives, and the real-world context in which attackers use this technique.
+Using both data sources, describe what attack was performed and in what order. Include the attack objective and real-world context.
 
 ## 2. Vulnerable Environment Impact Analysis
-Using the server access logs, analyze the attack results and security risks in the vulnerable environment. Extract specific evidence directly from the logs (attempt counts, compromised accounts, passwords used, etc.).
+Cross-reference the attack chain results and server access logs to analyze the attack outcome and actual damage in the vulnerable environment. Specify at which step the attack succeeded and what accounts/data were exposed.
 
 ## 3. Secure Environment Defense Effectiveness
-Explain the defense mechanisms (WAF, CloudFront, etc.) and their effectiveness. If server access logs are absent or minimal, explicitly state what that means (WAF pre-blocking prevented server reach), and use the difference in log volume between environments as evidence of defense effectiveness.
+Analyze both the attack chain results (what the attacker received) and server access logs (what reached the server) to explain which layer blocked the attack and how. Use discrepancies between the two (e.g., attacker got 403 but no server log entry → WAF pre-blocked) as evidence.
 
-## 4. Attack Reconstruction from Access Logs
-Using the access logs, reconstruct the attacker's actions in chronological order. Detail which IP, which accounts, which passwords were attempted, and when a breach occurred.
+## 4. Attack Reconstruction
+Synthesize both data sources to reconstruct the attacker's actions in chronological order. Detail which IP attempted which steps, and where success or blocking occurred.
 
 ## 5. Per-Environment Security Assessment & Conclusion
 Evaluate each environment separately using the format below:
@@ -135,7 +198,7 @@ Evaluate each environment separately using the format below:
 
 **[Secure Environment]**
 - Security Level: (Critical/Low/Moderate/High — one-line rationale)
-- Defense Effectiveness: (which mechanisms worked and how)
+- Defense Effectiveness: (which layer, which mechanism, how it worked)
 - Areas for Improvement: (gaps even in the secure environment)`,
   };
 }
