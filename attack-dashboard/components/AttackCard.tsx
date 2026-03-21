@@ -52,12 +52,48 @@ const SQLI_XSS_ATTEMPTS = [
 ];
 
 const BOT_SCAN_ATTEMPTS = [
-  { name: 'Admin Probe', path: '/admin' },
-  { name: 'WordPress Login Probe', path: '/wp-login.php' },
-  { name: 'Env File Probe', path: '/.env' },
-  { name: 'phpMyAdmin Probe', path: '/phpmyadmin' },
-  { name: 'Server Status Probe', path: '/server-status' },
-  { name: 'Hidden Config Probe', path: '/config.bak' },
+  {
+    name: 'Admin Probe',
+    path: '/admin',
+    severity: 'high' as const,
+    findingHeadline: '관리자 패널 노출 · 유저 2명 정보 확인',
+    wafRule: 'AWSManagedRulesCommonRuleSet',
+  },
+  {
+    name: 'WordPress Login Probe',
+    path: '/wp-login.php',
+    severity: 'info' as const,
+    findingHeadline: 'WordPress 6.4.2 스택 핑거프린팅',
+    wafRule: 'AWSManagedRulesBotControlRuleSet',
+  },
+  {
+    name: 'Env File Probe',
+    path: '/.env',
+    severity: 'critical' as const,
+    findingHeadline: 'DB_PASSWORD · JWT_SECRET · AWS 키 노출',
+    wafRule: 'SuspiciousPathScanRule',
+  },
+  {
+    name: 'phpMyAdmin Probe',
+    path: '/phpmyadmin',
+    severity: 'medium' as const,
+    findingHeadline: 'DB 관리 패널 접근 가능 · 4개 DB 확인',
+    wafRule: 'AWSManagedRulesCommonRuleSet',
+  },
+  {
+    name: 'Server Status Probe',
+    path: '/server-status',
+    severity: 'medium' as const,
+    findingHeadline: '내부 IP 10.1.100.42 · 메모리 · 업타임 노출',
+    wafRule: 'SuspiciousPathScanRule',
+  },
+  {
+    name: 'Hidden Config Probe',
+    path: '/config.bak',
+    severity: 'high' as const,
+    findingHeadline: 'DB + JWT + S3 자격증명 평문 노출',
+    wafRule: 'SuspiciousPathScanRule',
+  },
 ];
 
 const MANUAL_VULNERABLE_ORIGIN_STORAGE_KEY = 'sentinelshare_manual_vulnerable_origin_url';
@@ -282,6 +318,13 @@ function SqliXssEvidenceV2({
   );
 }
 
+const SEVERITY_STYLE = {
+  critical: { badge: 'bg-red-600 text-white', text: 'text-red-700', label: 'CRITICAL' },
+  high:     { badge: 'bg-orange-500 text-white', text: 'text-orange-700', label: 'HIGH' },
+  medium:   { badge: 'bg-amber-400 text-white', text: 'text-amber-700', label: 'MEDIUM' },
+  info:     { badge: 'bg-sky-400 text-white', text: 'text-sky-700', label: 'INFO' },
+};
+
 function BotScanEvidenceV2({
   phase,
   vulnResults,
@@ -291,32 +334,13 @@ function BotScanEvidenceV2({
   vulnResults: AttackResult[];
   awsResults: AttackResult[];
 }) {
-  const summary = useMemo(() => {
-    const vulnerable = BOT_SCAN_ATTEMPTS.map((_, index) =>
-      getEvidenceDisplayStatus(vulnResults[index], phase, index, vulnResults.length),
-    );
-    const secure = BOT_SCAN_ATTEMPTS.map((_, index) =>
-      getEvidenceDisplayStatus(awsResults[index], phase, index, awsResults.length),
-    );
-
-    return {
-      vulnerableReached: vulnerable.filter((status) => status === 'reached').length,
-      vulnerableFailed: vulnerable.filter((status) => status === 'failed').length,
-      vulnerablePending: vulnerable.filter((status) => status === 'pending' || status === 'running').length,
-      secureBlocked: secure.filter((status) => status === 'blocked').length,
-      secureReached: secure.filter((status) => status === 'reached').length,
-      secureFailed: secure.filter((status) => status === 'failed').length,
-      secureNotConfigured: secure.filter((status) => status === 'not_configured').length,
-      securePending: secure.filter((status) => status === 'pending' || status === 'running').length,
-    };
-  }, [awsResults, phase, vulnResults]);
-
   return (
     <EvidenceSection
       title="Scan Evidence"
-      description="실행 전 대기 상태와 실행 후 실제 원본 도달, 앞단 차단, 연결 실패를 분리해서 보여주므로 결과 해석이 더 쉬워집니다."
+      description="스캔 경로별 취약 환경 발견 내용과 보안 환경 WAF 차단 결과를 실시간으로 보여줍니다."
     >
       <div className="grid gap-4 lg:grid-cols-[1.6fr_0.9fr]">
+        {/* 왼쪽: 경로별 상세 테이블 */}
         <div className="overflow-hidden rounded-xl border border-slate-200">
           <div className="grid grid-cols-[1.2fr_1fr_1fr] bg-slate-50 px-4 py-3 text-xs font-semibold text-slate-600">
             <span>스캔 경로</span>
@@ -346,7 +370,7 @@ function BotScanEvidenceV2({
                     </div>
                     <div className="flex flex-col items-start gap-1">
                       <span className={`w-fit rounded-lg border px-2.5 py-1 text-xs font-medium ${getEvidenceTone(awsStatus)}`}>
-                        {getEvidenceBadge(awsStatus, { reached: '원본 도달', blocked: '앞단 차단' })}
+                        {getEvidenceBadge(awsStatus, { reached: '원본 도달', blocked: 'WAF 차단' })}
                       </span>
                       <span className="text-[11px] text-slate-400">{getBotEvidenceMeta('aws', awsResult, awsStatus)}</span>
                     </div>
@@ -363,25 +387,107 @@ function BotScanEvidenceV2({
           </div>
         </div>
 
-        <div className="grid gap-3">
-          <div className="rounded-xl border border-red-200 bg-red-50 p-4">
-            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-red-600">취약 환경</div>
-            <div className="mt-3 text-2xl font-bold text-red-700">{summary.vulnerableReached}</div>
-            <div className="mt-1 text-sm text-red-700">원본 도달 경로 수</div>
-            <div className="mt-3 space-y-1 border-t border-red-200 pt-3 text-sm text-slate-600">
-              <div>연결 실패: <span className="font-semibold text-slate-800">{summary.vulnerableFailed}</span></div>
-              <div>대기/진행 중: <span className="font-semibold text-slate-800">{summary.vulnerablePending}</span></div>
+        {/* 오른쪽: 스캐너 리포트 */}
+        <div className="flex flex-col gap-3">
+          {/* 취약 환경 발견 리포트 */}
+          <div className="flex-1 overflow-hidden rounded-xl border border-red-200 bg-[#1a0505]">
+            <div className="border-b border-red-900/40 px-3 py-2">
+              <span className="font-mono text-[10px] font-semibold uppercase tracking-widest text-red-400">
+                ▶ vuln · scanner findings
+              </span>
+            </div>
+            <div className="space-y-0 p-2">
+              {BOT_SCAN_ATTEMPTS.map((scan, index) => {
+                const vulnResult = vulnResults[index];
+                const vulnStatus = getEvidenceDisplayStatus(vulnResult, phase, index, vulnResults.length);
+                const style = SEVERITY_STYLE[scan.severity];
+
+                if (vulnStatus === 'pending') return null;
+                if (vulnStatus === 'running') {
+                  return (
+                    <div key={scan.path} className="flex items-center gap-2 rounded px-2 py-1">
+                      <span className="font-mono text-[10px] text-red-600 animate-pulse">scanning {scan.path}...</span>
+                    </div>
+                  );
+                }
+                if (vulnStatus === 'failed') {
+                  return (
+                    <div key={scan.path} className="flex items-center gap-2 rounded px-2 py-1">
+                      <span className="w-[58px] shrink-0 rounded px-1.5 py-0.5 text-center font-mono text-[9px] font-bold bg-slate-600 text-slate-300">ERR</span>
+                      <span className="font-mono text-[10px] text-slate-500">{scan.path}</span>
+                    </div>
+                  );
+                }
+                return (
+                  <div key={scan.path} className="flex items-start gap-2 rounded px-2 py-1">
+                    <span className={`mt-px w-[58px] shrink-0 rounded px-1.5 py-0.5 text-center font-mono text-[9px] font-bold ${style.badge}`}>
+                      {style.label}
+                    </span>
+                    <div className="min-w-0">
+                      <span className="font-mono text-[10px] font-semibold text-red-300">{scan.path}</span>
+                      <p className={`mt-0.5 font-mono text-[10px] leading-4 ${style.text}`}>{scan.findingHeadline}</p>
+                    </div>
+                  </div>
+                );
+              })}
+              {vulnResults.length === 0 && phase !== 'running' && (
+                <p className="px-2 py-3 font-mono text-[10px] text-red-800">시뮬레이션 대기 중...</p>
+              )}
             </div>
           </div>
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-600">보안 환경</div>
-            <div className="mt-3 text-2xl font-bold text-emerald-700">{summary.secureBlocked}</div>
-            <div className="mt-1 text-sm text-emerald-700">앞단 차단 경로 수</div>
-            <div className="mt-3 space-y-1 border-t border-emerald-200 pt-3 text-sm text-slate-600">
-              <div>원본 도달: <span className="font-semibold text-slate-800">{summary.secureReached}</span></div>
-              <div>연결 실패: <span className="font-semibold text-slate-800">{summary.secureFailed}</span></div>
-              <div>미구성: <span className="font-semibold text-slate-800">{summary.secureNotConfigured}</span></div>
-              <div>대기/진행 중: <span className="font-semibold text-slate-800">{summary.securePending}</span></div>
+
+          {/* 보안 환경 WAF 차단 로그 */}
+          <div className="flex-1 overflow-hidden rounded-xl border border-emerald-200 bg-[#011a0a]">
+            <div className="border-b border-emerald-900/40 px-3 py-2">
+              <span className="font-mono text-[10px] font-semibold uppercase tracking-widest text-emerald-400">
+                ▶ secure · waf block log
+              </span>
+            </div>
+            <div className="space-y-0 p-2">
+              {BOT_SCAN_ATTEMPTS.map((scan, index) => {
+                const awsResult = awsResults[index];
+                const awsStatus = getEvidenceDisplayStatus(awsResult, phase, index, awsResults.length);
+
+                if (awsStatus === 'pending') return null;
+                if (awsStatus === 'running') {
+                  return (
+                    <div key={scan.path} className="flex items-center gap-2 rounded px-2 py-1">
+                      <span className="font-mono text-[10px] text-emerald-600 animate-pulse">checking {scan.path}...</span>
+                    </div>
+                  );
+                }
+                if (awsStatus === 'not_configured') {
+                  return (
+                    <div key={scan.path} className="flex items-center gap-2 rounded px-2 py-1">
+                      <span className="font-mono text-[10px] text-slate-500">{scan.path} — 미구성</span>
+                    </div>
+                  );
+                }
+                if (awsStatus === 'blocked') {
+                  return (
+                    <div key={scan.path} className="flex items-start gap-2 rounded px-2 py-1">
+                      <span className="mt-px w-[58px] shrink-0 rounded bg-emerald-700 px-1.5 py-0.5 text-center font-mono text-[9px] font-bold text-emerald-100">
+                        BLOCKED
+                      </span>
+                      <div className="min-w-0">
+                        <span className="font-mono text-[10px] font-semibold text-emerald-300">{scan.path}</span>
+                        <p className="mt-0.5 font-mono text-[10px] leading-4 text-emerald-600">{scan.wafRule}</p>
+                      </div>
+                    </div>
+                  );
+                }
+                return (
+                  <div key={scan.path} className="flex items-start gap-2 rounded px-2 py-1">
+                    <span className="mt-px w-[58px] shrink-0 rounded bg-amber-700 px-1.5 py-0.5 text-center font-mono text-[9px] font-bold text-amber-100">
+                      PASSED
+                    </span>
+                    <span className="font-mono text-[10px] text-amber-400">{scan.path}</span>
+                  </div>
+                );
+              })}
+              {awsResults.length === 0 && phase !== 'running' && (
+                <p className="px-2 py-3 font-mono text-[10px] text-emerald-900">시뮬레이션 대기 중...</p>
+              )}
             </div>
           </div>
         </div>
