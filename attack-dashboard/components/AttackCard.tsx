@@ -334,6 +334,14 @@ function BotScanEvidenceV2({
   vulnResults: AttackResult[];
   awsResults: AttackResult[];
 }) {
+  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
+  const toggleExpanded = (path: string) =>
+    setExpandedPaths((prev) => {
+      const next = new Set(prev);
+      next.has(path) ? next.delete(path) : next.add(path);
+      return next;
+    });
+
   return (
     <EvidenceSection
       title="Scan Evidence"
@@ -422,9 +430,19 @@ function BotScanEvidenceV2({
                     </div>
                     <p className={`mt-1 text-[11px] leading-4 ${style.text}`}>{scan.findingHeadline}</p>
                     {discovery && (
-                      <pre className="mt-1.5 max-h-[96px] overflow-y-auto rounded border border-red-200 bg-white px-2 py-1.5 font-mono text-[10px] leading-[1.6] text-red-700 whitespace-pre-wrap break-all">
-                        {discovery}
-                      </pre>
+                      <div className="mt-1.5">
+                        <button
+                          onClick={() => toggleExpanded(scan.path)}
+                          className="text-[10px] font-medium text-red-500 hover:text-red-700 underline underline-offset-2"
+                        >
+                          {expandedPaths.has(scan.path) ? '접기 ▲' : '발견 내용 보기 ▼'}
+                        </button>
+                        {expandedPaths.has(scan.path) && (
+                          <pre className="mt-1 max-h-[96px] overflow-y-auto rounded border border-red-200 bg-white px-2 py-1.5 font-mono text-[10px] leading-[1.6] text-red-700 whitespace-pre-wrap break-all">
+                            {discovery}
+                          </pre>
+                        )}
+                      </div>
                     )}
                   </div>
                 );

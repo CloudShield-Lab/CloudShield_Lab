@@ -50,8 +50,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 2초 버퍼: 첫 요청 로그가 startTime보다 약간 앞에 기록될 수 있음 (clock skew)
-    const fromTime = new Date(new Date(session.startTime).getTime() - 2000).toISOString();
+    // 10초 버퍼: EC2 클럭이 attack-dashboard보다 느릴 경우 첫 요청 로그가 startTime 이전으로 기록됨
+    const fromTime = new Date(new Date(session.startTime).getTime() - 10_000).toISOString();
     const [vulnLogs, secureLogs] = await Promise.all([
       vulnUrl ? fetchRawLogs(vulnUrl, fromTime, toTime) : Promise.resolve([]),
       secureUrl ? fetchRawLogs(secureUrl, fromTime, toTime) : Promise.resolve([]),
