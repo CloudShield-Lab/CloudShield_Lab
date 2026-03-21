@@ -38,6 +38,7 @@ export type AttackEvent =
       email?: string;
       password?: string;
       url?: string;
+      discovery?: string;
     }
   | { type: 'complete' }
   | { type: 'error'; message: string };

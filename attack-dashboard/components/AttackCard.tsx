@@ -822,6 +822,7 @@ export function AttackCard({
           label: event.label,
           error: event.error,
           url: event.url,
+          discovery: event.discovery,
         };
 
         if (event.env === 'vulnerable') {
