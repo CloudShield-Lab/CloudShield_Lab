@@ -19,7 +19,7 @@ interface ScanResult {
   dangerousFound: string[];
   status: number;
   latency: number;
-  cfErrorPage?: boolean;
+  wafBlocked?: boolean;
 }
 
 interface HeaderScanEvent {
@@ -30,7 +30,7 @@ interface HeaderScanEvent {
   status?: number;
   latency?: number;
   message?: string;
-  cfErrorPage?: boolean;
+  wafBlocked?: boolean;
 }
 
 interface Props {
@@ -119,7 +119,7 @@ export function HeaderScanCard({ index, title, description, vulnNote, awsNote, m
           dangerousFound: event.dangerousFound || [],
           status: event.status ?? 0,
           latency: event.latency ?? 0,
-          cfErrorPage: event.cfErrorPage,
+          wafBlocked: event.wafBlocked,
         };
         if (event.env === 'vulnerable') {
           setVulnScan(result);
@@ -241,9 +241,9 @@ export function HeaderScanCard({ index, title, description, vulnNote, awsNote, m
           </div>
           <p className="min-h-[44px] text-xs leading-5 text-slate-500">{awsNote}</p>
           {awsScan && (
-            awsScan.cfErrorPage ? (
-              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                <span className="font-semibold">CloudFront 오류 페이지 응답</span> — 백엔드가 응답하지 않아 S3 에러 페이지가 반환되었습니다. 헤더는 앱이 아닌 CF/S3 인프라 응답입니다.
+            awsScan.wafBlocked ? (
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+                <span className="font-semibold">WAF 차단</span> — SuspiciousPathScanRule이 /server-status 경로를 선제 차단했습니다. 백엔드에 도달하지 못했습니다.
               </div>
             ) : (
               <div className="flex gap-3 font-mono text-xs text-slate-500">
@@ -263,9 +263,9 @@ export function HeaderScanCard({ index, title, description, vulnNote, awsNote, m
         <div className="border-t border-slate-200 p-4">
           <div className="mb-3 flex items-center gap-3">
             <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">헤더 비교</span>
-            {awsScan?.cfErrorPage && (
-              <span className="rounded-full border border-amber-300 bg-amber-50 px-2.5 py-0.5 text-[10px] font-semibold text-amber-700">
-                보안 환경 열 = CF/S3 인프라 응답 (앱 헤더 아님)
+            {awsScan?.wafBlocked && (
+              <span className="rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-700">
+                보안 환경 = WAF 차단 — 백엔드 헤더 수집 불가
               </span>
             )}
           </div>
@@ -304,12 +304,8 @@ export function HeaderScanCard({ index, title, description, vulnNote, awsNote, m
                       <td className="py-1.5 pl-4">
                         {awsScan?.status === -1 ? (
                           <span className="text-slate-300">미설정</span>
-                        ) : awsScan?.cfErrorPage ? (
-                          awsVal !== undefined ? (
-                            <span className="text-amber-600">{awsVal}</span>
-                          ) : (
-                            <span className="text-slate-300">—</span>
-                          )
+                        ) : awsScan?.wafBlocked ? (
+                          <span className="font-semibold text-emerald-600">차단됨</span>
                         ) : awsVal !== undefined ? (
                           <span className={isSecurity ? 'font-semibold text-emerald-600' : isDangerous ? 'text-amber-600' : 'text-slate-600'}>
                             {awsVal}

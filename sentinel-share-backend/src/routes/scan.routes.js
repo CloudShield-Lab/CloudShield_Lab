@@ -68,6 +68,9 @@ router.get('/phpmyadmin', (_req, res) => {
 });
 
 router.get('/server-status', (_req, res) => {
+  // 의도적으로 위험 헤더 노출 (데모: 헤더 강화 미적용 서버 시뮬레이션)
+  res.setHeader('X-Powered-By', 'Express');
+  res.setHeader('Server', 'Node.js/20.11.0');
   res.json({
     hostname: 'ip-10-1-100-42.ap-northeast-2.compute.internal',
     internal_ip: '10.1.100.42',

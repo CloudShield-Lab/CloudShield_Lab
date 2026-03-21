@@ -54,27 +54,27 @@ export const attackScenarioConfigs: AttackScenarioConfig[] = [
     title: 'HTTP 헤더 정보 노출',
     shortTitle: 'HTTP 헤더 스캔',
     description:
-      '응답 헤더를 분석해 기술 스택 노출 여부를 비교합니다. 취약 환경은 서버 헤더가 노출되고, 보안 환경은 CloudFront와 보안 헤더 설정으로 정보 노출이 줄어듭니다.',
+      '/server-status 같은 정보 노출 경로에 접근해 기술 스택 탐지를 시도합니다. 취약 환경은 서버 내부 정보가 그대로 노출되고, 보안 환경은 WAF가 해당 경로를 차단합니다.',
     totalRequests: 1,
     vulnNote:
-      '취약 환경은 Express 기본 헤더와 서버 정보가 그대로 노출되어 공격자가 기술 스택을 쉽게 파악할 수 있습니다.',
+      '취약 환경은 WAF가 없어 /server-status 경로에 직접 접근 가능합니다. X-Powered-By, Server 헤더와 함께 서버 내부 정보가 그대로 노출됩니다.',
     awsNote:
-      '보안 환경은 CloudFront가 불필요한 헤더를 줄이고 보안 헤더를 추가해 정보 노출을 최소화합니다.',
+      '보안 환경은 WAF SuspiciousPathScanRule이 /server-status 경로를 선제 차단합니다. 백엔드에 도달하기 전에 요청이 막힙니다.',
     flowSteps: [
       {
-        title: '1. HTTP GET 요청 전송',
-        vulnerable: '공격자가 취약 환경 API로 직접 GET 요청을 보내 응답 헤더를 수집합니다.',
-        secure: '동일 요청이 CloudFront를 거치며 헤더 변형이 적용됩니다.',
+        title: '1. 정보 노출 경로 스캔',
+        vulnerable: '공격자가 /server-status에 직접 GET 요청 — WAF 없어 백엔드에 도달합니다.',
+        secure: 'CloudFront → WAF 검사 단계에서 SuspiciousPathScanRule에 의해 차단됩니다.',
       },
       {
-        title: '2. 위험 헤더 식별',
-        vulnerable: 'X-Powered-By, Server 등 기술 스택 정보가 노출됩니다.',
-        secure: 'CloudFront가 노출 헤더를 줄이고 CDN 관련 헤더 중심으로 바꿉니다.',
+        title: '2. 위험 헤더 및 서버 정보 노출',
+        vulnerable: 'X-Powered-By: Express, Server: Node.js 헤더와 내부 IP, 메모리 등 서버 정보가 응답됩니다.',
+        secure: 'WAF가 차단했으므로 응답 자체가 없습니다. 헤더 수집 불가.',
       },
       {
-        title: '3. 보안 헤더 비교',
-        vulnerable: 'HSTS, X-Content-Type-Options 같은 보안 헤더가 부족한 상태입니다.',
-        secure: '보안 헤더가 추가된 상태를 통해 하드닝 효과를 확인합니다.',
+        title: '3. 방어 결과 비교',
+        vulnerable: '기술 스택과 서버 내부 구조가 완전히 파악됩니다.',
+        secure: 'WAF 차단으로 공격자는 서버 정보를 전혀 얻지 못합니다.',
       },
     ],
   },

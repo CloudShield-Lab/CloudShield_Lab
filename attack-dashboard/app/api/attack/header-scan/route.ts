@@ -15,6 +15,9 @@ const URL_MAP = {
   },
 };
 
+// WAF SuspiciousPathScanRule 대상 경로 — 보안 환경에서 차단됨
+const SCAN_PATH = '/server-status';
+
 const DANGEROUS_HEADERS = ['x-powered-by', 'server', 'via', 'x-aspnet-version', 'x-aspnetmvc-version', 'x-runtime', 'x-generator', 'x-version'];
 const STAGE_STEP_MS = 200;
 
@@ -27,13 +30,13 @@ interface ScanResult {
   latency: number;
   headers: Record<string, string>;
   dangerousFound: string[];
-  cfErrorPage: boolean;
+  wafBlocked: boolean;
 }
 
 async function scanHeaders(baseUrl: string): Promise<ScanResult> {
   const start = Date.now();
   try {
-    const res = await fetch(`${baseUrl}/api/health`, {
+    const res = await fetch(`${baseUrl}${SCAN_PATH}`, {
       method: 'GET',
       signal: AbortSignal.timeout(8000),
     });
@@ -43,17 +46,17 @@ async function scanHeaders(baseUrl: string): Promise<ScanResult> {
       headers[key.toLowerCase()] = value;
     });
 
-    // CloudFront custom_error_response: 백엔드 오류 → S3 에러 페이지(text/html) 감지.
-    // API 엔드포인트는 항상 application/json 반환 — text/html이면 CF/S3 인프라 응답.
+    // CloudFront custom_error_response: WAF 403 → 200+text/html 변환 감지.
+    // WAF가 /server-status 경로를 차단하면 CF가 HTML 에러 페이지로 변환해 반환.
     const isHtmlResponse = (headers['content-type'] || '').includes('text/html');
     if (isHtmlResponse) {
-      return { status: res.status, latency, headers, dangerousFound: [], cfErrorPage: true };
+      return { status: res.status, latency, headers: {}, dangerousFound: [], wafBlocked: true };
     }
 
     const dangerousFound = DANGEROUS_HEADERS.filter((h) => headers[h] !== undefined);
-    return { status: res.status, latency, headers, dangerousFound, cfErrorPage: false };
+    return { status: res.status, latency, headers, dangerousFound, wafBlocked: false };
   } catch {
-    return { status: 0, latency: Date.now() - start, headers: {}, dangerousFound: [], cfErrorPage: false };
+    return { status: 0, latency: Date.now() - start, headers: {}, dangerousFound: [], wafBlocked: false };
   }
 }
 
@@ -86,31 +89,35 @@ export async function GET(request: NextRequest) {
     try {
       await send({ type: 'start' });
 
-      await send({ type: 'stage', env: 'vulnerable', attempt: 1, stage: 'attacker', status: 'reached', title: '헤더 스캔 시작', description: `취약 환경(${VULNERABLE_URL})에 GET 요청을 전송하여 응답 헤더를 수집합니다.`, severity: 'critical' });
+      await send({ type: 'stage', env: 'vulnerable', attempt: 1, stage: 'attacker', status: 'reached', title: '헤더 스캔 시작', description: `취약 환경에 GET ${SCAN_PATH} 요청 — 서버 기술 스택 정보를 수집합니다.`, severity: 'critical' });
       await sleep(STAGE_STEP_MS);
-      await send({ type: 'stage', env: 'aws', attempt: 1, stage: 'attacker', status: 'reached', title: '헤더 스캔 시작', description: `보안 환경(${AWS_URL || 'NOT CONFIGURED'})에 GET 요청을 전송하여 응답 헤더를 수집합니다.`, severity: 'critical' });
+      await send({ type: 'stage', env: 'aws', attempt: 1, stage: 'attacker', status: 'reached', title: '헤더 스캔 시작', description: `보안 환경에 동일한 GET ${SCAN_PATH} 요청을 시도합니다.`, severity: 'critical' });
       await sleep(STAGE_STEP_MS);
-      await send({ type: 'stage', env: 'aws', attempt: 1, stage: 'cloudfront', status: 'passed', title: 'CloudFront 경유', description: '보안 환경 요청은 CloudFront 엣지를 통과하며 헤더가 변환됩니다.', severity: 'info' });
+      await send({ type: 'stage', env: 'aws', attempt: 1, stage: 'cloudfront', status: 'passed', title: 'CloudFront 경유', description: '요청이 CloudFront 엣지를 통과합니다.', severity: 'info' });
       await sleep(STAGE_STEP_MS);
-      if (AWS_URL) {
-        await send({ type: 'stage', env: 'aws', attempt: 1, stage: 'waf', status: 'passed', title: 'WAF 검사 통과', description: '헤더 스캔 요청은 공격 패턴에 해당하지 않아 WAF를 통과합니다.', severity: 'info' });
-        await sleep(STAGE_STEP_MS);
-      }
 
       const [vulnScan, awsScan] = await Promise.all([
         scanHeaders(VULNERABLE_URL),
         AWS_URL
           ? scanHeaders(AWS_URL)
-          : Promise.resolve({ status: -1, latency: 0, headers: {} as Record<string, string>, dangerousFound: [], cfErrorPage: false }),
+          : Promise.resolve({ status: -1, latency: 0, headers: {} as Record<string, string>, dangerousFound: [], wafBlocked: false }),
       ]);
 
-      await send({ type: 'stage', env: 'vulnerable', attempt: 1, stage: 'ecs', status: vulnScan.status > 0 ? 'reached' : 'failed', title: 'EC2 응답 수신', description: `HTTP ${vulnScan.status} — ${vulnScan.latency}ms`, severity: 'warning' });
+      // 취약 환경: WAF 없음 — 백엔드 직접 도달
+      await send({ type: 'stage', env: 'vulnerable', attempt: 1, stage: 'ecs', status: vulnScan.status > 0 ? 'reached' : 'failed', title: 'EC2 직접 도달', description: `HTTP ${vulnScan.status} — WAF 없이 백엔드에 직접 도달했습니다.`, severity: 'critical' });
       await sleep(STAGE_STEP_MS);
+      if (vulnScan.status > 0) {
+        await send({ type: 'stage', env: 'vulnerable', attempt: 1, stage: 'app', status: 'passed', title: '서버 정보 노출', description: `위험 헤더 ${vulnScan.dangerousFound.length}개 수집 완료 — 기술 스택 식별됨`, severity: 'critical' });
+        await sleep(STAGE_STEP_MS);
+      }
+
+      // 보안 환경: WAF가 경로 차단 여부에 따라 분기
       if (AWS_URL) {
-        if (awsScan.cfErrorPage) {
-          // CF가 S3 에러 페이지를 반환한 경우 — EC2 노드가 아닌 CloudFront 단계에서 처리됨으로 표시
-          await send({ type: 'stage', env: 'aws', attempt: 1, stage: 'cloudfront', status: 'blocked', title: 'CF 오류 페이지 반환', description: 'CloudFront가 백엔드 대신 S3 오류 페이지를 반환했습니다. 백엔드 앱 헤더를 수집할 수 없습니다.', severity: 'warning' });
+        if (awsScan.wafBlocked) {
+          await send({ type: 'stage', env: 'aws', attempt: 1, stage: 'waf', status: 'blocked', title: 'WAF 경로 차단', description: `WAF SuspiciousPathScanRule이 ${SCAN_PATH} 경로를 차단했습니다. 백엔드에 도달하지 못했습니다.`, severity: 'success' });
         } else {
+          await send({ type: 'stage', env: 'aws', attempt: 1, stage: 'waf', status: 'passed', title: 'WAF 통과', description: '요청이 WAF를 통과했습니다.', severity: 'warning' });
+          await sleep(STAGE_STEP_MS);
           await send({ type: 'stage', env: 'aws', attempt: 1, stage: 'ecs', status: awsScan.status > 0 ? 'reached' : 'failed', title: 'EC2 응답 수신', description: `HTTP ${awsScan.status} — ${awsScan.latency}ms`, severity: 'warning' });
         }
         await sleep(STAGE_STEP_MS);
@@ -123,7 +130,7 @@ export async function GET(request: NextRequest) {
         dangerousFound: vulnScan.dangerousFound,
         status: vulnScan.status,
         latency: vulnScan.latency,
-        cfErrorPage: vulnScan.cfErrorPage,
+        wafBlocked: vulnScan.wafBlocked,
       });
 
       await send({
@@ -133,12 +140,11 @@ export async function GET(request: NextRequest) {
         dangerousFound: awsScan.dangerousFound,
         status: awsScan.status,
         latency: awsScan.latency,
-        cfErrorPage: awsScan.cfErrorPage,
+        wafBlocked: awsScan.wafBlocked,
       });
 
-      // Also emit result events so AttackCard stats work if used
-      await send({ type: 'result', env: 'vulnerable', attempt: 1, status: vulnScan.status, latency: vulnScan.latency, blocked: false, label: `${vulnScan.dangerousFound.length} DANGEROUS HEADERS` });
-      await send({ type: 'result', env: 'aws', attempt: 1, status: awsScan.status, latency: awsScan.latency, blocked: false, label: `${awsScan.dangerousFound.length} DANGEROUS HEADERS` });
+      await send({ type: 'result', env: 'vulnerable', attempt: 1, status: vulnScan.status, latency: vulnScan.latency, blocked: false, label: vulnScan.dangerousFound.length > 0 ? `${vulnScan.dangerousFound.length} DANGEROUS HEADERS EXPOSED` : 'NO DANGEROUS HEADERS' });
+      await send({ type: 'result', env: 'aws', attempt: 1, status: awsScan.status, latency: awsScan.latency, blocked: awsScan.wafBlocked, label: awsScan.wafBlocked ? 'WAF BLOCKED — PATH SCAN DENIED' : `${awsScan.dangerousFound.length} DANGEROUS HEADERS` });
 
       await send({ type: 'complete' });
     } catch (e) {
