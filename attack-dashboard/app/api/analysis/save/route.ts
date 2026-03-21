@@ -50,9 +50,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // 2초 버퍼: 첫 요청 로그가 startTime보다 약간 앞에 기록될 수 있음 (clock skew)
+    const fromTime = new Date(new Date(session.startTime).getTime() - 2000).toISOString();
     const [vulnLogs, secureLogs] = await Promise.all([
-      vulnUrl ? fetchRawLogs(vulnUrl, session.startTime, toTime) : Promise.resolve([]),
-      secureUrl ? fetchRawLogs(secureUrl, session.startTime, toTime) : Promise.resolve([]),
+      vulnUrl ? fetchRawLogs(vulnUrl, fromTime, toTime) : Promise.resolve([]),
+      secureUrl ? fetchRawLogs(secureUrl, fromTime, toTime) : Promise.resolve([]),
     ]);
 
     session.rawLogs = { vulnerable: vulnLogs, secure: secureLogs };

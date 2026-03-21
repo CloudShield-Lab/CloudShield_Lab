@@ -380,16 +380,16 @@ function BotScanEvidenceV2({
           </div>
         </div>
 
-        {/* 오른쪽: 스캐너 리포트 */}
-        <div className="flex flex-col gap-3">
+        {/* 오른쪽: 스캐너 리포트 — 높이 고정, 내부 스크롤 */}
+        <div className="flex h-[480px] flex-col gap-3">
           {/* 취약 환경 발견 리포트 */}
-          <div className="flex-1 overflow-hidden rounded-xl border border-red-200 bg-red-50">
-            <div className="border-b border-red-200 bg-red-100 px-3 py-2">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-red-200 bg-red-50">
+            <div className="flex-shrink-0 border-b border-red-200 bg-red-100 px-3 py-2">
               <span className="text-[10px] font-semibold uppercase tracking-widest text-red-600">
                 취약 환경 · 스캐너 발견 리포트
               </span>
             </div>
-            <div className="divide-y divide-red-100">
+            <div className="flex-1 divide-y divide-red-100 overflow-y-auto">
               {BOT_SCAN_ATTEMPTS.map((scan, index) => {
                 const vulnResult = vulnResults[index];
                 const vulnStatus = getEvidenceDisplayStatus(vulnResult, phase, index, vulnResults.length);
@@ -436,13 +436,13 @@ function BotScanEvidenceV2({
           </div>
 
           {/* 보안 환경 WAF 차단 로그 */}
-          <div className="flex-1 overflow-hidden rounded-xl border border-emerald-200 bg-emerald-50">
-            <div className="border-b border-emerald-200 bg-emerald-100 px-3 py-2">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-emerald-200 bg-emerald-50">
+            <div className="flex-shrink-0 border-b border-emerald-200 bg-emerald-100 px-3 py-2">
               <span className="text-[10px] font-semibold uppercase tracking-widest text-emerald-700">
                 보안 환경 · WAF 차단 로그
               </span>
             </div>
-            <div className="divide-y divide-emerald-100">
+            <div className="flex-1 divide-y divide-emerald-100 overflow-y-auto">
               {BOT_SCAN_ATTEMPTS.map((scan, index) => {
                 const awsResult = awsResults[index];
                 const awsStatus = getEvidenceDisplayStatus(awsResult, phase, index, awsResults.length);
