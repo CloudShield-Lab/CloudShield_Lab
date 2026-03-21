@@ -14,15 +14,10 @@ function formatAttackChainSection(
   const MAX = 40;
 
   const formatResult = (r: AttackResult, lang: 'ko' | 'en') => {
-    const status = r.status > 0 ? `HTTP ${r.status}` : 'ERR';
-    const label = r.label ?? (r.blocked ? (lang === 'ko' ? '차단' : 'BLOCKED') : (lang === 'ko' ? '통과' : 'PASSED'));
-    const isS3Direct = r.url && r.url.includes('amazonaws.com');
-    const urlNote = isS3Direct
-      ? lang === 'ko'
-        ? ` [S3 직접 접근 — WAF/CloudFront 비경유: ${r.url}]`
-        : ` [S3 direct access — bypasses WAF/CloudFront: ${r.url}]`
-      : r.url ? ` [${r.url}]` : '';
-    return `  ${lang === 'ko' ? '시도' : 'Attempt'} ${r.attempt}: ${status} — ${label}${urlNote} (${r.latency}ms)`;
+    const status = r.status > 0 ? `HTTP ${r.status}` : 'ERR (timeout/refused)';
+    const urlNote = r.url ? ` [${r.url}]` : '';
+    const latencyNote = r.latency > 0 ? ` (${r.latency}ms)` : '';
+    return `  ${lang === 'ko' ? '시도' : 'Attempt'} ${r.attempt}: ${status}${urlNote}${latencyNote}`;
   };
 
   const vulnSample = vulnResults.slice(0, MAX);
@@ -30,7 +25,7 @@ function formatAttackChainSection(
 
   if (lang === 'ko') {
     let section = '\n\n### 공격 체인 실행 결과 (공격자 시점)';
-    section += '\n서버 액세스 로그에 기록되지 않는 단계(S3 직접 접근 등)의 결과도 포함됩니다.';
+    section += '\n공격자(attack-dashboard)가 각 단계에서 실제로 수신한 HTTP 상태 코드와 응답 지연 시간입니다. 차단 주체(WAF·SG·S3 정책 등)는 이 데이터만으로 단정할 수 없으며, 서버 액세스 로그와 교차 분석이 필요합니다.';
 
     section += `\n\n**취약 환경 (${vulnResults.length}건${vulnResults.length > MAX ? `, 상위 ${MAX}건 표시` : ''}):**`;
     if (vulnSample.length > 0) {
@@ -50,7 +45,7 @@ function formatAttackChainSection(
   }
 
   let section = '\n\n### Attack Chain Execution Results (Attacker\'s Perspective)';
-  section += '\nIncludes steps not recorded in server access logs (e.g., direct S3 access).';
+  section += '\nThese are the raw HTTP status codes and latencies received by the attack-dashboard at each step. The blocking entity (WAF, SG, S3 policy, etc.) cannot be determined from this data alone — cross-reference with server access logs to infer what happened.';
 
   section += `\n\n**Vulnerable environment (${vulnResults.length} steps${vulnResults.length > MAX ? `, showing top ${MAX}` : ''}):**`;
   if (vulnSample.length > 0) {
@@ -120,105 +115,99 @@ function getScenarioContext(scenario: string, lang: 'ko' | 'en'): string {
   const ctx: Record<string, { ko: string; en: string }> = {
     'origin-direct': {
       ko: `
-### 시나리오 아키텍처 참고 (AI 분석 정확도용)
-- 이 공격은 CloudFront를 우회해 EC2 원본 서버에 직접 HTTP 요청을 보내는 시도입니다.
-- WAF는 CloudFront에 연결되어 있으므로, 직접 접근 경로에서는 WAF가 관여하지 않습니다.
-- 보안 환경의 EC2 Security Group은 CloudFront prefix list(pl-22a6434b)만 허용 → 직접 접근은 SG 레벨에서 네트워크 차단됩니다 (앱/WAF 도달 전 TCP 연결 자체가 거부됨).
-- 따라서 보안 환경 차단 시 서버 HTTP 로그에 해당 요청이 전혀 남지 않습니다 (SG가 패킷을 드롭).
-- 취약 환경의 SG는 0.0.0.0/0을 허용하므로 직접 접근이 EC2 앱까지 도달합니다.`,
+### 환경 아키텍처 구성
+- 이 공격은 CloudFront를 거치지 않고 EC2 원본 서버에 직접 요청을 보내는 시도입니다.
+- WAF는 CloudFront에 연결되어 있어 이 요청 경로에는 관여하지 않습니다.
+- 취약 환경: EC2가 외부에 직접 노출되어 있습니다.
+- 보안 환경: EC2 Security Group이 CloudFront 소스에서 오는 트래픽만 허용하도록 구성되어 있습니다.
+- SG에서 거부된 요청은 앱까지 도달하지 않으므로 서버 액세스 로그에 남지 않습니다.`,
       en: `
-### Scenario Architecture Notes (for accurate AI analysis)
-- This attack attempts to bypass CloudFront and send HTTP requests directly to the EC2 origin server.
-- WAF is attached to CloudFront, so it does NOT participate in the direct-access path.
-- The secure environment's EC2 Security Group allows only the CloudFront prefix list (pl-22a6434b) → direct access is blocked at the network/SG layer before reaching the app or WAF (TCP connection is refused).
-- Therefore, if blocked in the secure environment, NO server HTTP logs will contain the request (SG drops the packet).
-- The vulnerable environment's SG allows 0.0.0.0/0, so direct access reaches the EC2 app.`,
+### Environment Architecture
+- This attack sends requests directly to the EC2 origin server, bypassing CloudFront.
+- WAF is attached to CloudFront and is not involved in this request path.
+- Vulnerable environment: EC2 is directly exposed to the internet.
+- Secure environment: EC2 Security Group is configured to allow traffic only from CloudFront sources.
+- Requests rejected at the SG level never reach the app and will not appear in server access logs.`,
     },
-    'header-scan': {
+    'rce-injection': {
       ko: `
-### 시나리오 아키텍처 참고 (AI 분석 정확도용)
-- 이 공격은 HTTP 응답 헤더를 분석해 기술 스택(서버, 프레임워크, 버전 등)을 핑거프린팅하는 정찰 기법입니다.
-- 요청 자체는 정상 GET이므로 WAF가 차단하지 않습니다 — 차이는 응답 헤더에 있습니다.
-- 보안 환경: CloudFront가 X-Powered-By, Server 등 백엔드 식별 헤더를 제거하거나 덮어씁니다.
-- 취약 환경: 백엔드가 응답 헤더를 그대로 노출(X-Powered-By: Express, Server: Node.js 등).
-- 이 시나리오에서 서버 HTTP 로그는 두 환경 모두 존재하지만, 차이는 응답 내용(헤더)에 있습니다.`,
+### 환경 아키텍처 구성
+- 이 공격은 HTTP 헤더(User-Agent 등)에 JNDI 페이로드를 삽입해 원격 코드 실행을 시도합니다.
+- 요청 흐름: 공격자 → CloudFront → WAF → EC2 앱 (두 환경 모두 동일)
+- 취약 환경: WAF 없음 — 페이로드가 그대로 EC2 앱과 로그까지 전달됩니다.
+- 보안 환경: WAF에 알려진 악성 입력 패턴 탐지 규칙이 있습니다.
+- 두 환경 모두 정상 요청은 HTTP 200이 예상되므로, 차이는 페이로드 포함 요청에 대한 응답에 있습니다.`,
       en: `
-### Scenario Architecture Notes (for accurate AI analysis)
-- This attack is a reconnaissance technique that fingerprints the technology stack (server, framework, versions) by analyzing HTTP response headers.
-- Requests are standard GETs, so WAF does not block them — the difference lies in the response headers.
-- Secure environment: CloudFront strips or overwrites backend-identifying headers (X-Powered-By, Server, etc.).
-- Vulnerable environment: Backend exposes headers verbatim (e.g., X-Powered-By: Express, Server: Node.js).
-- Server HTTP logs will exist in both environments; the difference is in the response content (headers), not blocking.`,
+### Environment Architecture
+- This attack injects JNDI payloads into HTTP headers (e.g., User-Agent) to attempt remote code execution.
+- Request flow: Attacker → CloudFront → WAF → EC2 app (same for both environments)
+- Vulnerable environment: no WAF — payloads are forwarded as-is to the EC2 app and logged.
+- Secure environment: WAF has rules for detecting known malicious input patterns.
+- Both environments return HTTP 200 for normal requests; the difference lies in how payload-carrying requests are handled.`,
     },
     'bot-scan': {
       ko: `
-### 시나리오 아키텍처 참고 (AI 분석 정확도용)
-- 이 공격은 자동화된 스캐너가 /admin, /.env, /wp-login.php 등 민감한 경로를 탐색하는 시나리오입니다.
-- 요청 흐름: 공격자 → CloudFront → WAF → EC2 앱 (보안 환경에서 WAF가 차단).
-- 보안 환경: WAF AWSManagedRulesCommonRuleSet + BotControlRuleSet이 탐색 패턴을 감지해 차단 → EC2에 도달하지 않으므로 서버 로그에 없음.
-- 취약 환경: WAF 없음 → EC2 앱이 직접 수신 → 서버 로그에 기록됨.
-- 취약 환경 백엔드에는 시연용 모의 민감 데이터 엔드포인트가 구성되어 있어 실제 응답 본문이 반환됩니다.
-- CloudFront는 중간에 있지만 요청을 차단하지 않고 WAF로 전달하는 역할만 합니다 (차단 주체는 WAF).`,
+### 환경 아키텍처 구성
+- 자동화 스캐너가 /admin, /.env, /wp-login.php 등 민감한 경로를 탐색하는 시나리오입니다.
+- 요청 흐름: 공격자 → CloudFront → WAF → EC2 앱
+- 취약 환경: WAF 없음 — 모든 요청이 EC2 앱까지 전달됩니다.
+- 보안 환경: WAF에 의심 경로 탐지 규칙이 구성되어 있습니다.
+- 취약 환경 백엔드에는 시연 목적으로 해당 경로에 실제 응답을 반환하는 엔드포인트가 있습니다.`,
       en: `
-### Scenario Architecture Notes (for accurate AI analysis)
-- This attack simulates an automated scanner probing sensitive paths like /admin, /.env, /wp-login.php.
-- Request flow: Attacker → CloudFront → WAF → EC2 app (WAF blocks in the secure environment).
-- Secure environment: WAF AWSManagedRulesCommonRuleSet + BotControlRuleSet detects scan patterns and blocks → request never reaches EC2, so absent from server logs.
-- Vulnerable environment: No WAF → EC2 app receives directly → logged in server access logs.
-- The vulnerable backend has mock sensitive-data endpoints configured for demo purposes, returning realistic fake response bodies.
-- CloudFront is in the path but only forwards to WAF — the blocking entity is WAF, not CloudFront itself.`,
+### Environment Architecture
+- An automated scanner probes sensitive paths like /admin, /.env, /wp-login.php.
+- Request flow: Attacker → CloudFront → WAF → EC2 app
+- Vulnerable environment: no WAF — all requests reach the EC2 app.
+- Secure environment: WAF has rules configured for detecting suspicious path patterns.
+- The vulnerable backend has demo endpoints at these paths that return actual responses.`,
     },
     'sqli-xss': {
       ko: `
-### 시나리오 아키텍처 참고 (AI 분석 정확도용)
-- 이 공격은 쿼리 파라미터/입력값에 SQL 인젝션 페이로드와 XSS 스크립트를 삽입하는 시나리오입니다.
-- 보안 환경: WAF AWSManagedRulesSQLiRuleSet + AWSManagedRulesCommonRuleSet(XSS 룰)이 요청을 검사해 차단 → EC2/DB에 도달하지 않음.
-- 취약 환경: 별도 WAF 없음 + 앱 내 입력 검증 없음 → SQL 인젝션이 DB에 직접 도달 가능.
-- 보안 환경에서 WAF가 차단한 요청은 서버 HTTP 로그에 없고, 공격자는 403을 수신합니다.
-- SQL 인젝션 성공 시 DB 레코드 유출, XSS 성공 시 사용자 브라우저에서 스크립트 실행 가능.`,
+### 환경 아키텍처 구성
+- SQL 인젝션·XSS 페이로드를 요청 본문과 쿼리 파라미터에 삽입하는 시나리오입니다.
+- 요청 흐름: 공격자 → CloudFront → WAF → EC2 앱 → PostgreSQL DB
+- 취약 환경: WAF 없음, 앱 레벨 입력 검증도 없습니다.
+- 보안 환경: WAF가 요청 본문과 쿼리 파라미터의 인젝션 패턴을 검사합니다.
+- WAF에서 차단된 요청은 서버 액세스 로그에 남지 않습니다.`,
       en: `
-### Scenario Architecture Notes (for accurate AI analysis)
-- This attack injects SQL injection payloads and XSS scripts into query parameters and input fields.
-- Secure environment: WAF AWSManagedRulesSQLiRuleSet + AWSManagedRulesCommonRuleSet (XSS rules) inspect and block requests → never reaches EC2 or DB.
-- Vulnerable environment: No WAF + no app-level input validation → SQL injection reaches the database directly.
-- Requests blocked by WAF in the secure environment will be absent from server HTTP logs; the attacker receives a 403.
-- Successful SQL injection can leak DB records; successful XSS can execute scripts in the victim's browser.`,
+### Environment Architecture
+- SQL injection and XSS payloads are injected into request body and query parameters.
+- Request flow: Attacker → CloudFront → WAF → EC2 app → PostgreSQL DB
+- Vulnerable environment: no WAF, no app-level input validation.
+- Secure environment: WAF inspects request body and query parameters for injection patterns.
+- Requests blocked by WAF will not appear in server access logs.`,
     },
     'bruteforce': {
       ko: `
-### 시나리오 아키텍처 참고 (AI 분석 정확도용)
-- 이 공격은 대량의 이메일/패스워드 조합을 /api/auth/login에 반복 시도하는 크리덴셜 스터핑입니다.
-- 보안 환경: WAF 속도 제한(Rate Limit) 규칙이 동일 IP의 반복 요청을 일정 임계치 이후 차단 → 429 응답.
-- 취약 환경: WAF 없음 → 모든 시도가 EC2 앱 → DB 인증까지 도달 → 올바른 크리덴셜로 로그인 성공 가능.
-- 앱 코드에 authLimiter(Express rate-limit)는 의도적으로 없음 — rate limit은 WAF 담당 아키텍처.
-- 보안 환경에서도 임계치 이전 요청은 EC2에 도달하므로 서버 로그 초반부에는 요청이 기록됩니다.
-- 탈취 성공 계정(HTTP 200 응답)은 실제 DB에 존재하는 시연용 계정입니다.`,
+### 환경 아키텍처 구성
+- POST /api/auth/login 엔드포인트에 대량의 크리덴셜 조합을 반복 시도하는 공격입니다.
+- 요청 흐름: 공격자 → CloudFront → WAF → EC2 앱 → PostgreSQL DB (인증)
+- 취약 환경: WAF 없음, 앱 코드에도 별도 속도 제한 없습니다.
+- 보안 환경: WAF에 해당 로그인 엔드포인트에 대한 Rate Limit 규칙이 있습니다.
+- HTTP 200 = 로그인 성공, 401 = 크리덴셜 불일치, 429 = 요청 횟수 제한`,
       en: `
-### Scenario Architecture Notes (for accurate AI analysis)
-- This attack is a credential stuffing attempt — repeatedly trying email/password combinations against /api/auth/login.
-- Secure environment: WAF Rate Limit rule throttles repeated requests from the same IP after a threshold → 429 responses.
-- Vulnerable environment: No WAF → all attempts reach EC2 app → DB authentication → correct credentials can succeed.
-- The app code intentionally has no authLimiter (Express rate-limit) — rate limiting is the WAF's responsibility by architecture design.
-- In the secure environment, requests below the threshold do reach EC2, so early server logs will contain some entries.
-- Successfully compromised accounts (HTTP 200 responses) are real demo accounts seeded in the database.`,
+### Environment Architecture
+- Large volumes of credential combinations are repeatedly attempted against POST /api/auth/login.
+- Request flow: Attacker → CloudFront → WAF → EC2 app → PostgreSQL DB (auth)
+- Vulnerable environment: no WAF, no rate limiting in app code.
+- Secure environment: WAF has a rate limit rule on the login endpoint.
+- HTTP 200 = login success, 401 = wrong credentials, 429 = rate-limited`,
     },
     's3-access': {
       ko: `
-### 시나리오 아키텍처 참고 (AI 분석 정확도용)
-- 이 공격은 다단계 체인입니다: (1) 사용자 열거 → (2) 크리덴셜 탈취 → (3) 악성 파일 업로드 → (4) S3 직접 URL 접근.
-- 단계 1~3: CloudFront → WAF → EC2 경로를 통해 API 호출 → WAF가 이 단계들을 보호.
-- 단계 4 (S3 직접 URL 접근): CloudFront를 전혀 경유하지 않음 → S3 엔드포인트에 직접 요청 → WAF 비관여.
-- 단계 4의 유일한 방어: S3 Block Public Access 설정 + 버킷 정책 (보안 환경: 차단 / 취약 환경: 공개 허용).
-- 단계 4는 EC2 앱을 거치지 않으므로 서버 HTTP 액세스 로그에 기록되지 않습니다.
-- 공격 체인 실행 결과에 's3.amazonaws.com' URL이 포함된 항목이 단계 4입니다.`,
+### 환경 아키텍처 구성
+- 다단계 공격 체인입니다: 사용자 열거 → 크리덴셜 탈취 → 파일 업로드 → S3 직접 URL 접근.
+- 단계 1~3: 공격자 → CloudFront → WAF → EC2 앱 경로로 API 호출
+- 단계 4 (S3 직접 URL): EC2 앱을 경유하지 않고 S3 엔드포인트에 직접 요청 — 서버 액세스 로그에 나타나지 않습니다.
+- 취약 환경 S3: 퍼블릭 읽기 접근이 허용되어 있습니다.
+- 보안 환경 S3: 퍼블릭 접근이 차단되어 있으며 허가된 주체만 접근 가능합니다.`,
       en: `
-### Scenario Architecture Notes (for accurate AI analysis)
-- This attack is a multi-step chain: (1) user enumeration → (2) credential theft → (3) malicious file upload → (4) S3 direct URL access.
-- Steps 1–3: API calls via CloudFront → WAF → EC2 → WAF protects these steps.
-- Step 4 (S3 direct URL access): Completely bypasses CloudFront → requests go directly to the S3 endpoint → WAF is NOT involved.
-- The only defense at step 4: S3 Block Public Access + bucket policy (secure env: blocked / vulnerable env: publicly readable).
-- Step 4 bypasses the EC2 app entirely, so it will NOT appear in server HTTP access logs.
-- In the attack chain results, entries with 's3.amazonaws.com' URLs represent step 4.`,
+### Environment Architecture
+- Multi-step attack chain: user enumeration → credential theft → file upload → S3 direct URL access.
+- Steps 1–3: API calls via Attacker → CloudFront → WAF → EC2 app
+- Step 4 (S3 direct URL): request goes directly to the S3 endpoint, bypassing the EC2 app — will not appear in server access logs.
+- Vulnerable environment S3: public read access is enabled.
+- Secure environment S3: public access is blocked; only authorized principals can access.`,
     },
   };
 
