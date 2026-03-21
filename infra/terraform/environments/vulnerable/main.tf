@@ -41,6 +41,6 @@ module "ec2" {
   secret_delivery_mode = "raw"
   db_password          = var.db_password
   jwt_secret           = var.jwt_secret
-  frontend_origin      = "http://${module.s3.frontend_website_endpoint}"
+  frontend_origin      = "*"
   wazuh_manager_ip     = var.wazuh_manager_ip
 }

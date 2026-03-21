@@ -30,7 +30,8 @@ app.use((req, res, next) => {
 
   return cors({
     origin(requestOrigin, callback) {
-      if (!requestOrigin || allowedOrigins.includes(requestOrigin)) {
+      // allowedOrigins에 '*'가 포함되면 모든 Origin 허용 (취약 환경 데모용)
+      if (!requestOrigin || allowedOrigins.includes('*') || allowedOrigins.includes(requestOrigin)) {
         return callback(null, true);
       }
       const err = new Error(`CORS blocked for origin: ${requestOrigin}`);

@@ -51,30 +51,30 @@ export const attackScenarioConfigs: AttackScenarioConfig[] = [
   {
     key: 'header-scan',
     index: 2,
-    title: 'HTTP 헤더 정보 노출',
-    shortTitle: 'HTTP 헤더 스캔',
+    title: 'CORS 정책 우회 시도',
+    shortTitle: 'CORS 우회',
     description:
-      '/server-status 같은 정보 노출 경로에 접근해 기술 스택 탐지를 시도합니다. 취약 환경은 서버 내부 정보가 그대로 노출되고, 보안 환경은 WAF가 해당 경로를 차단합니다.',
+      '임의의 Origin에서 API 요청을 보내 CORS 정책이 올바르게 설정됐는지 확인합니다. 취약 환경은 모든 Origin을 허용하고, 보안 환경은 CloudFront 도메인만 허용합니다.',
     totalRequests: 1,
     vulnNote:
-      '취약 환경은 WAF가 없어 /server-status 경로에 직접 접근 가능합니다. X-Powered-By, Server 헤더와 함께 서버 내부 정보가 그대로 노출됩니다.',
+      '취약 환경은 CORS_ORIGIN=* 설정으로 모든 Origin을 허용합니다. 공격자 사이트에서도 API를 자유롭게 호출할 수 있어 사용자 데이터가 탈취될 수 있습니다.',
     awsNote:
-      '보안 환경은 WAF SuspiciousPathScanRule이 /server-status 경로를 선제 차단합니다. 백엔드에 도달하기 전에 요청이 막힙니다.',
+      '보안 환경은 CloudFront 도메인만 허용 Origin으로 설정돼 있습니다. 다른 Origin의 요청은 CORS 오류로 차단됩니다.',
     flowSteps: [
       {
-        title: '1. 정보 노출 경로 스캔',
-        vulnerable: '공격자가 /server-status에 직접 GET 요청 — WAF 없어 백엔드에 도달합니다.',
-        secure: 'CloudFront → WAF 검사 단계에서 SuspiciousPathScanRule에 의해 차단됩니다.',
+        title: '1. 임의 Origin으로 요청 전송',
+        vulnerable: '공격자가 https://evil.com Origin 헤더를 붙여 API를 직접 호출합니다.',
+        secure: '동일한 Origin 헤더로 CloudFront를 통해 요청이 전달됩니다.',
       },
       {
-        title: '2. 위험 헤더 및 서버 정보 노출',
-        vulnerable: 'X-Powered-By: Express, Server: Node.js 헤더와 내부 IP, 메모리 등 서버 정보가 응답됩니다.',
-        secure: 'WAF가 차단했으므로 응답 자체가 없습니다. 헤더 수집 불가.',
+        title: '2. CORS 정책 평가',
+        vulnerable: 'CORS_ORIGIN=* 설정 — 모든 Origin 허용. Access-Control-Allow-Origin: <공격 origin> 반환.',
+        secure: '허용 Origin 목록에 없는 요청 — Access-Control-Allow-Origin 헤더 없이 차단.',
       },
       {
-        title: '3. 방어 결과 비교',
-        vulnerable: '기술 스택과 서버 내부 구조가 완전히 파악됩니다.',
-        secure: 'WAF 차단으로 공격자는 서버 정보를 전혀 얻지 못합니다.',
+        title: '3. 브라우저 실행 결과',
+        vulnerable: '브라우저가 크로스 오리진 요청을 허용. 공격자 사이트에서 API 응답을 읽을 수 있음.',
+        secure: '브라우저가 크로스 오리진 요청을 차단. 공격자 사이트에서 응답 접근 불가.',
       },
     ],
   },
