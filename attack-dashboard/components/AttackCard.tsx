@@ -353,7 +353,6 @@ function BotScanEvidenceV2({
               const awsResult = awsResults[index];
               const vulnStatus = getEvidenceDisplayStatus(vulnResult, phase, index, vulnResults.length);
               const awsStatus = getEvidenceDisplayStatus(awsResult, phase, index, awsResults.length);
-              const discovery = vulnStatus === 'reached' ? vulnResult?.discovery : undefined;
 
               return (
                 <div key={scan.path} className="px-4 py-3 text-sm">
@@ -375,12 +374,6 @@ function BotScanEvidenceV2({
                       <span className="text-[11px] text-slate-400">{getBotEvidenceMeta('aws', awsResult, awsStatus)}</span>
                     </div>
                   </div>
-                  {discovery && (
-                    <div className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2">
-                      <div className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-red-500">Response Body</div>
-                      <pre className="overflow-x-auto whitespace-pre-wrap break-all font-mono text-[11px] leading-5 text-red-700">{discovery}</pre>
-                    </div>
-                  )}
                 </div>
               );
             })}
@@ -429,7 +422,7 @@ function BotScanEvidenceV2({
                     </div>
                     <p className={`mt-1 text-[11px] leading-4 ${style.text}`}>{scan.findingHeadline}</p>
                     {discovery && (
-                      <pre className="mt-1.5 overflow-x-auto whitespace-pre-wrap break-all rounded border border-red-200 bg-white px-2 py-1.5 font-mono text-[10px] leading-[1.6] text-red-700">
+                      <pre className="mt-1.5 max-h-[96px] overflow-y-auto rounded border border-red-200 bg-white px-2 py-1.5 font-mono text-[10px] leading-[1.6] text-red-700 whitespace-pre-wrap break-all">
                         {discovery}
                       </pre>
                     )}
