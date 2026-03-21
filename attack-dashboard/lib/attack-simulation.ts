@@ -72,13 +72,6 @@ const scenarios: Record<ScenarioKey, ArchitectureScenario> = {
       '실제 SSE 공격 결과를 기반으로 취약 환경과 보안 환경의 S3 접근 흐름을 비교합니다.',
     events: [],
   },
-  ratelimit: {
-    id: 'ratelimit',
-    name: 'API Rate Limit 비교',
-    description:
-      '실제 SSE 공격 결과를 기반으로 취약 환경과 보안 환경의 반복 요청 처리 흐름을 비교합니다.',
-    events: [],
-  },
   'header-scan': {
     id: 'header-scan',
     name: 'HTTP 헤더 정보 노출',
