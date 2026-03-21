@@ -127,8 +127,8 @@ async function directS3Access(presignedUrl: string, attempt: number) {
     });
     const latency = Date.now() - start;
     const blocked = res.status === 403;
-    const label = res.status === 200 ? 'DIRECT ACCESS SUCCESS' : res.status === 403 ? 'ACCESS DENIED (403)' : `HTTP ${res.status}`;
-    return { attempt, status: res.status, latency, blocked, label, url: res.status === 200 ? directUrl : undefined };
+    const label = res.status === 200 ? 'S3 DIRECT ACCESS SUCCESS' : res.status === 403 ? 'S3 DIRECT ACCESS DENIED (403) — S3 Block Public Access' : `S3 HTTP ${res.status}`;
+    return { attempt, status: res.status, latency, blocked, label, url: directUrl };
   } catch {
     return { attempt, status: 0, latency: Date.now() - start, blocked: false, label: 'CONNECTION ERROR', url: undefined };
   }

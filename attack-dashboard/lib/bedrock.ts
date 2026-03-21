@@ -16,8 +16,13 @@ function formatAttackChainSection(
   const formatResult = (r: AttackResult, lang: 'ko' | 'en') => {
     const status = r.status > 0 ? `HTTP ${r.status}` : 'ERR';
     const label = r.label ?? (r.blocked ? (lang === 'ko' ? '차단' : 'BLOCKED') : (lang === 'ko' ? '통과' : 'PASSED'));
-    const url = r.url ? ` [${r.url}]` : '';
-    return `  ${lang === 'ko' ? '시도' : 'Attempt'} ${r.attempt}: ${status} — ${label}${url} (${r.latency}ms)`;
+    const isS3Direct = r.url && r.url.includes('amazonaws.com');
+    const urlNote = isS3Direct
+      ? lang === 'ko'
+        ? ` [S3 직접 접근 — WAF/CloudFront 비경유: ${r.url}]`
+        : ` [S3 direct access — bypasses WAF/CloudFront: ${r.url}]`
+      : r.url ? ` [${r.url}]` : '';
+    return `  ${lang === 'ko' ? '시도' : 'Attempt'} ${r.attempt}: ${status} — ${label}${urlNote} (${r.latency}ms)`;
   };
 
   const vulnSample = vulnResults.slice(0, MAX);
