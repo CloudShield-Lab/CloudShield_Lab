@@ -246,10 +246,54 @@ resource "aws_wafv2_web_acl" "main" {
     }
   }
 
+  # POST body SQLi/XSS 패턴 차단 — /api/auth/login 등 body 페이로드 대상
+  # AllowFilesApiPath(priority 5) 이후에 위치해 파일 업로드는 이미 allow되어 이 규칙 미도달
+  rule {
+    name     = "SuspiciousBodyPatternRule"
+    priority = 5
+
+    action {
+      block {}
+    }
+
+    statement {
+      regex_pattern_set_reference_statement {
+        arn = aws_wafv2_regex_pattern_set.sqli_xss_query.arn
+
+        field_to_match {
+          body {
+            oversize_handling = "CONTINUE"
+          }
+        }
+
+        text_transformation {
+          priority = 0
+          type     = "URL_DECODE"
+        }
+
+        text_transformation {
+          priority = 1
+          type     = "HTML_ENTITY_DECODE"
+        }
+
+        text_transformation {
+          priority = 2
+          type     = "LOWERCASE"
+        }
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "sentinelshare-tf-${var.env_name}-sqli-xss-body"
+      sampled_requests_enabled   = true
+    }
+  }
+
   # AWS Managed: Common Rule Set
   rule {
     name     = "AllowFilesApiPath"
-    priority = 5
+    priority = 6
 
     action {
       allow {}
@@ -281,7 +325,7 @@ resource "aws_wafv2_web_acl" "main" {
 
   rule {
     name     = "AWSManagedRulesCommonRuleSet"
-    priority = 6
+    priority = 7
 
     override_action {
       none {}
@@ -312,7 +356,7 @@ resource "aws_wafv2_web_acl" "main" {
   # AWS Managed: Known Bad Inputs
   rule {
     name     = "AWSManagedRulesKnownBadInputsRuleSet"
-    priority = 7
+    priority = 8
 
     override_action {
       none {}
