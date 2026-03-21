@@ -68,25 +68,37 @@ async function getLatestRunStatus(env: Environment): Promise<{
   }
 }
 
-// "Terraform Apply" step이 시작됐는지 확인 → VPC 생성 완료 신호
-async function isTerraformApplyStepStarted(runId: number): Promise<boolean> {
+// terraform job 상태 조회 — Terraform Apply step 시작 여부 + job 완료 여부 반환
+async function getTerraformJobInfo(runId: number): Promise<{
+  status: string;
+  conclusion: string | null;
+  applyStepStarted: boolean;
+} | null> {
   const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/actions/runs/${runId}/jobs`;
 
   try {
     const res = await fetch(url, { headers: GH_HEADERS });
-    if (!res.ok) return false;
+    if (!res.ok) return null;
 
     const data = await res.json();
-    const job = data.jobs?.[0];
-    if (!job) return false;
+    // "Terraform ..." 으로 시작하는 job을 우선, 없으면 첫 번째 job
+    const job =
+      data.jobs?.find((j: { name: string }) => /^Terraform\s/.test(j.name)) ??
+      data.jobs?.[0];
+    if (!job) return null;
 
     const applyStep = job.steps?.find(
-      (s: { name: string; status: string }) => s.name === 'Terraform Apply'
+      (s: { name: string }) => s.name === 'Terraform Apply'
     );
 
-    return applyStep?.status === 'in_progress' || applyStep?.status === 'completed';
+    return {
+      status: job.status as string,
+      conclusion: job.conclusion ?? null,
+      applyStepStarted:
+        applyStep?.status === 'in_progress' || applyStep?.status === 'completed',
+    };
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -146,18 +158,33 @@ export async function GET(request: NextRequest) {
             message: statusMsg,
           });
 
+          // terraform job 상태 확인 (vpc_ready + 조기 완료 감지)
+          const jobInfo = await getTerraformJobInfo(runStatus.id);
+
           // apply 중이고 아직 vpc_ready를 보내지 않았다면 Terraform Apply step 확인
-          if (action === 'apply' && runStatus.status === 'in_progress' && !vpcReady) {
-            const applyStarted = await isTerraformApplyStepStarted(runStatus.id);
-            if (applyStarted) {
-              vpcReady = true;
-              await send({
-                type: 'vpc_ready',
-                message: 'Terraform Apply 시작 확인 — VPC 생성 완료, 다른 환경 배포 가능',
-              });
-            }
+          if (action === 'apply' && !vpcReady && jobInfo?.applyStepStarted) {
+            vpcReady = true;
+            await send({
+              type: 'vpc_ready',
+              message: 'Terraform Apply 시작 확인 — VPC 생성 완료, 다른 환경 배포 가능',
+            });
           }
 
+          // terraform job 완료 → Prowler 대기 없이 즉시 결과 전송
+          if (jobInfo?.status === 'completed') {
+            const success = jobInfo.conclusion === 'success';
+            await send({
+              type: 'complete',
+              success,
+              message: success
+                ? `Terraform ${action} 완료! 상세: ${runStatus.html_url}`
+                : `Terraform ${action} 실패. 상세: ${runStatus.html_url}`,
+              html_url: runStatus.html_url,
+            });
+            return;
+          }
+
+          // fallback: jobs API 실패 시 전체 워크플로 완료로 판단
           if (runStatus.status === 'completed') {
             const success = runStatus.conclusion === 'success';
             await send({
