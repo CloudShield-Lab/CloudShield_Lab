@@ -6,7 +6,7 @@ import type { SessionMeta, WorkspaceMode } from '@/types';
 const SCENARIO_ICONS: Record<string, string> = {
   bruteforce: '🔓',
   's3-access': '🪣',
-  'header-scan': '🔍',
+  'rce-injection': '💉',
   'sqli-xss': '🧪',
   'bot-scan': '🤖',
   'origin-direct': '🎯',
@@ -15,7 +15,7 @@ const SCENARIO_ICONS: Record<string, string> = {
 const SCENARIO_LABELS: Record<string, string> = {
   bruteforce: '브루트포스',
   's3-access': 'S3 탈취',
-  'header-scan': '헤더 스캔',
+  'rce-injection': 'RCE / Log4Shell',
   'sqli-xss': 'SQLi / XSS',
   'bot-scan': '봇 스캔',
   'origin-direct': 'Origin 직접 접근',

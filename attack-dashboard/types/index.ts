@@ -112,7 +112,7 @@ export type ArchitectureScenario = {
 export type AttackEndpoint =
   | 'bruteforce'
   | 's3-access'
-  | 'header-scan'
+  | 'rce-injection'
   | 'sqli-xss'
   | 'bot-scan'
   | 'origin-direct';

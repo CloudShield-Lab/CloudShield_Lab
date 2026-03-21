@@ -49,32 +49,32 @@ export const attackScenarioConfigs: AttackScenarioConfig[] = [
     ],
   },
   {
-    key: 'header-scan',
+    key: 'rce-injection',
     index: 2,
-    title: 'CORS 정책 우회 시도',
-    shortTitle: 'CORS 우회',
+    title: 'RCE / Log4Shell JNDI 헤더 인젝션',
+    shortTitle: 'RCE / Log4Shell',
     description:
-      '임의의 Origin에서 API 요청을 보내 CORS 정책이 올바르게 설정됐는지 확인합니다. 취약 환경은 모든 Origin을 허용하고, 보안 환경은 CloudFront 도메인만 허용합니다.',
+      'HTTP 헤더에 JNDI 페이로드를 삽입해 취약 환경에서 페이로드가 애플리케이션 로그까지 도달하는 반면, 보안 환경의 WAF KnownBadInputsRuleSet이 앱 도달 전에 차단하는 차이를 비교합니다.',
     totalRequests: 1,
     vulnNote:
-      '취약 환경은 CORS_ORIGIN=* 설정으로 모든 Origin을 허용합니다. 공격자 사이트에서도 API를 자유롭게 호출할 수 있어 사용자 데이터가 탈취될 수 있습니다.',
+      '취약 환경은 WAF가 없어 JNDI 페이로드가 포함된 헤더가 그대로 EC2와 애플리케이션 로그까지 전달됩니다. Log4j 같은 취약 라이브러리가 있다면 실제 원격 코드 실행으로 이어질 수 있습니다.',
     awsNote:
-      '보안 환경은 CloudFront 도메인만 허용 Origin으로 설정돼 있습니다. 다른 Origin의 요청은 CORS 오류로 차단됩니다.',
+      '보안 환경은 WAF AWSManagedRulesKnownBadInputsRuleSet이 ${jndi:...} 패턴을 탐지해 애플리케이션 도달 전에 403으로 차단합니다.',
     flowSteps: [
       {
-        title: '1. 임의 Origin으로 요청 전송',
-        vulnerable: '공격자가 https://evil.com Origin 헤더를 붙여 API를 직접 호출합니다.',
-        secure: '동일한 Origin 헤더로 CloudFront를 통해 요청이 전달됩니다.',
+        title: '1. JNDI 페이로드 헤더 삽입',
+        vulnerable: '${jndi:ldap://...} 패턴이 User-Agent 등 HTTP 헤더에 포함된 요청이 취약 환경으로 직접 전달됩니다.',
+        secure: '동일한 요청이 CloudFront를 거쳐 WAF 검사 단계로 먼저 전달됩니다.',
       },
       {
-        title: '2. CORS 정책 평가',
-        vulnerable: 'CORS_ORIGIN=* 설정 — 모든 Origin 허용. Access-Control-Allow-Origin: <공격 origin> 반환.',
-        secure: '허용 Origin 목록에 없는 요청 — Access-Control-Allow-Origin 헤더 없이 차단.',
+        title: '2. WAF 탐지 여부 비교',
+        vulnerable: 'WAF가 없어 JNDI 문자열이 EC2에 도달하고 애플리케이션 로그에 그대로 기록됩니다.',
+        secure: 'WAF KnownBadInputs 규칙이 ${jndi:...} 패턴을 즉시 탐지해 403으로 차단합니다.',
       },
       {
-        title: '3. 브라우저 실행 결과',
-        vulnerable: '브라우저가 크로스 오리진 요청을 허용. 공격자 사이트에서 API 응답을 읽을 수 있음.',
-        secure: '브라우저가 크로스 오리진 요청을 차단. 공격자 사이트에서 응답 접근 불가.',
+        title: '3. 실제 위협 해석',
+        vulnerable: 'Log4j 취약 버전이라면 JNDI lookup이 외부 서버로 콜백을 시도합니다. 취약 라이브러리 여부와 무관하게 페이로드가 앱 내부까지 도달합니다.',
+        secure: '페이로드가 애플리케이션에 전혀 도달하지 않아 취약 라이브러리 여부와 무관하게 안전합니다.',
       },
     ],
   },
@@ -114,27 +114,27 @@ export const attackScenarioConfigs: AttackScenarioConfig[] = [
     title: 'SQL Injection / XSS 패턴 요청 차단 비교',
     shortTitle: 'SQLi / XSS 차단 비교',
     description:
-      '의심스러운 SQLi / XSS 패턴이 포함된 요청을 보내, 취약 환경에서는 어디까지 도달하는지와 보안 환경에서 어디서 차단되는지를 비교합니다.',
+      '자동 공격: SQLi / XSS 페이로드 6종을 email 필드로 전송해 취약 환경(앱 도달)과 보안 환경(WAF 차단)을 자동 비교합니다. 직접 체험: XSS 구문을 복사해 각 환경 로그인 페이지에서 실제 alert 발생 여부를 확인해보세요.',
     totalRequests: 6,
     vulnNote:
-      '취약 환경은 앞단 WAF가 없어 의심 패턴 요청이 EC2와 서비스 로직까지 전달되고, 애플리케이션이 직접 응답합니다.',
+      '취약 환경은 앞단 WAF가 없어 의심 패턴이 email 필드를 통해 SQL 계층까지 도달하고, XSS 페이로드는 에러 응답에 반사되어 브라우저에서 실행됩니다.',
     awsNote:
-      '보안 환경은 CloudFront 뒤 WAF가 의심 패턴을 먼저 검사해 악성 요청을 애플리케이션 도달 전에 차단합니다.',
+      '보안 환경은 CloudFront 뒤 WAF가 요청 본문의 패턴을 먼저 검사해 애플리케이션 도달 전에 차단합니다. XSS 페이로드도 서버에 전혀 닿지 않습니다.',
     flowSteps: [
       {
-        title: '1. 악성 패턴 요청 전송',
-        vulnerable: 'SQLi / XSS 패턴이 포함된 요청이 공개 엔드포인트로 바로 유입됩니다.',
+        title: '1. 악성 패턴을 email 필드로 전송',
+        vulnerable: 'SQLi / XSS 패턴이 로그인 요청의 email 필드에 삽입되어 서버로 전달됩니다.',
         secure: '동일 요청이 먼저 CloudFront를 거쳐 WAF 검사 단계로 전달됩니다.',
       },
       {
         title: '2. 처리 지점 비교',
-        vulnerable: '앞단 차단 계층이 없어 요청이 EC2와 서비스 로직까지 도달합니다.',
-        secure: 'WAF가 Known Bad Inputs와 패턴 규칙으로 요청을 조기에 차단합니다.',
+        vulnerable: '앞단 차단 계층이 없어 페이로드가 SQL 파라미터 계층까지 도달합니다. XSS는 에러 메시지에 반사되어 브라우저가 실행합니다.',
+        secure: 'WAF가 Known Bad Inputs 규칙으로 요청 본문 패턴을 조기에 탐지·차단합니다.',
       },
       {
-        title: '3. 보호 효과 해석',
-        vulnerable: '애플리케이션이 직접 잘못된 입력을 처리하고 응답하는 흐름을 확인합니다.',
-        secure: '같은 요청이 앞단에서 멈추는 지점을 통해 보안 계층의 역할을 확인합니다.',
+        title: '3. 심층 방어 효과',
+        vulnerable: '파라미터화 쿼리가 SQLi를 방어해도 XSS는 브라우저에서 실행됩니다. 앱 레벨 방어만으로는 불충분함을 보여줍니다.',
+        secure: 'WAF가 앱 도달 전에 모두 차단해, 코드 레벨 방어에 더해 인프라 레벨 심층 방어를 제공합니다.',
       },
     ],
   },

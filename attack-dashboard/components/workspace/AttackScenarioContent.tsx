@@ -4,8 +4,9 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { AttackCard } from '@/components/AttackCard';
 import { BruteforceAttackCard } from '@/components/BruteforceAttackCard';
-import { HeaderScanCard } from '@/components/HeaderScanCard';
+import { RceInjectionCard } from '@/components/RceInjectionCard';
 import { S3ExfiltrationCard } from '@/components/S3ExfiltrationCard';
+import { SqliXssDirectPanel } from '@/components/SqliXssDirectPanel';
 import { ArchitectureVisualizationProvider } from '@/hooks/useArchitectureVisualization';
 import { getAttackScenarioConfig } from '@/lib/attack-scenarios';
 import type { AttackEndpoint, DashboardConfig, WorkspaceMode } from '@/types';
@@ -152,8 +153,8 @@ export function AttackScenarioContent({
             awsNote={config.awsNote}
             mode={mode}
           />
-        ) : scenario === 'header-scan' ? (
-          <HeaderScanCard
+        ) : scenario === 'rce-injection' ? (
+          <RceInjectionCard
             index={config.index}
             title={config.title}
             description={config.description}
@@ -173,6 +174,10 @@ export function AttackScenarioContent({
             awsNote={config.awsNote}
             mode={mode}
           />
+        )}
+
+        {scenario === 'sqli-xss' && dashConfig && (
+          <SqliXssDirectPanel mode={mode} config={dashConfig} />
         )}
 
         <AttackVisualizationPanel />

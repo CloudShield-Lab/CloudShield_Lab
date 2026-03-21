@@ -72,11 +72,11 @@ const scenarios: Record<ScenarioKey, ArchitectureScenario> = {
       '실제 SSE 공격 결과를 기반으로 취약 환경과 보안 환경의 S3 접근 흐름을 비교합니다.',
     events: [],
   },
-  'header-scan': {
-    id: 'header-scan',
-    name: 'HTTP 헤더 정보 노출',
+  'rce-injection': {
+    id: 'rce-injection',
+    name: 'RCE / Log4Shell JNDI 헤더 인젝션',
     description:
-      '응답 헤더를 분석해 취약 환경과 보안 환경의 기술 스택 노출 차이를 비교합니다.',
+      'JNDI 페이로드를 HTTP 헤더에 삽입해 WAF KnownBadInputs 차단 효과를 비교합니다.',
     events: [],
   },
   'sqli-xss': {
