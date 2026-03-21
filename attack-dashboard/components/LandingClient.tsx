@@ -4,9 +4,9 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 
 const SCENARIOS = [
-  'Origin 직접 접근 차단',
-  'HTTP 헤더 스캔',
+  'Origin 직접 접근',
   '비정상 봇 스캔',
+  'RCE / Log4Shell',
   'SQLi / XSS 차단',
   '브루트포스 로그인',
   'S3 데이터 탈취 체인',
@@ -115,8 +115,8 @@ export function LandingClient() {
           <p className="mt-5 text-base font-semibold leading-7 text-slate-500/80 sm:text-lg">
             이 프로젝트는 동일한 공격이 취약 환경과 보호된 AWS 환경에서 어떻게 다르게
             처리되는지 시각적으로 보여주는 실습용 대시보드입니다. 먼저 환경을 준비한 뒤
-            Attack Simulator에서 Origin 직접 접근 차단, HTTP 헤더 스캔, 비정상 봇 스캔,
-            SQLi/XSS 패턴 요청, 브루트포스 로그인, S3 데이터 탈취 체인 시나리오를
+            Attack Simulator에서 Origin 직접 접근 차단, 비정상 봇 스캔, RCE/Log4Shell
+            JNDI 인젝션, SQLi/XSS 패턴, 브루트포스 로그인, S3 데이터 탈취 체인 시나리오를
             비교할 수 있습니다.
           </p>
         </div>
