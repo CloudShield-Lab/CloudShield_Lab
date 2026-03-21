@@ -80,8 +80,9 @@ app.use((req, res, next) => {
 // --- Global rate limit ---
 app.use(apiLimiter);
 
-// --- Health check (ECS uses this via Service Connect or a custom check) ---
+// --- Health check ---
 app.get('/health', (_req, res) => res.status(200).json({ status: 'ok' }));
+app.get('/api/health', (_req, res) => res.status(200).json({ status: 'ok' }));
 
 // --- Routes ---
 app.use('/api/auth', authRoutes);

@@ -53,26 +53,7 @@ async function scanHeaders(baseUrl: string): Promise<ScanResult> {
     const dangerousFound = DANGEROUS_HEADERS.filter((h) => headers[h] !== undefined);
     return { status: res.status, latency, headers, dangerousFound, cfErrorPage: false };
   } catch {
-    // Fallback: try root path
-    try {
-      const res2 = await fetch(`${baseUrl}/`, {
-        method: 'GET',
-        signal: AbortSignal.timeout(8000),
-      });
-      const latency2 = Date.now() - start;
-      const headers: Record<string, string> = {};
-      res2.headers.forEach((value, key) => {
-        headers[key.toLowerCase()] = value;
-      });
-      const isHtmlFallback = (headers['content-type'] || '').includes('text/html');
-      if (isHtmlFallback) {
-        return { status: res2.status, latency: latency2, headers, dangerousFound: [], cfErrorPage: true };
-      }
-      const dangerousFound = DANGEROUS_HEADERS.filter((h) => headers[h] !== undefined);
-      return { status: res2.status, latency: latency2, headers, dangerousFound, cfErrorPage: false };
-    } catch {
-      return { status: 0, latency: Date.now() - start, headers: {}, dangerousFound: [], cfErrorPage: false };
-    }
+    return { status: 0, latency: Date.now() - start, headers: {}, dangerousFound: [], cfErrorPage: false };
   }
 }
 
