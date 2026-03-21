@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import type { AttackResult, Environment } from '@/types';
 
 interface Props {
@@ -23,6 +24,14 @@ function rowBg(blocked: boolean, env: Environment): string {
 }
 
 export function RequestLog({ results, env }: Props) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [results.length]);
+
   if (results.length === 0) {
     return (
       <div className="flex h-32 items-center justify-center font-mono text-sm text-slate-500">
@@ -31,11 +40,9 @@ export function RequestLog({ results, env }: Props) {
     );
   }
 
-  const reversed = [...results].reverse();
-
   return (
-    <div className="h-32 space-y-0.5 overflow-y-auto pr-1">
-      {reversed.map((result) => (
+    <div ref={scrollRef} className="h-32 space-y-0.5 overflow-y-auto pr-1">
+      {results.map((result) => (
         <div
           key={result.attempt}
           className={`flex items-center gap-2 rounded-sm px-2 py-[3px] font-mono text-xs ${rowBg(result.blocked, env)}`}
