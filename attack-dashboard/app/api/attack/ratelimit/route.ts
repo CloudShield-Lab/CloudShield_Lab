@@ -43,13 +43,14 @@ async function sendStageWithDelay(
   await sleep(STAGE_STEP_MS);
 }
 
+// /api/auth/login 대신 /api/auth/signup을 사용 — 브루트포스 WAF 버킷(/api/auth/login 전용)과 분리
 async function floodRequest(baseUrl: string, attempt: number) {
   const start = Date.now();
   try {
-    const res = await fetch(`${baseUrl}/api/auth/login`, {
+    const res = await fetch(`${baseUrl}/api/auth/signup`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: 'flood@test.com', password: 'x' }),
+      body: JSON.stringify({ email: `flood${attempt}@test.com`, name: 'flood', password: 'Flood1234!' }),
       signal: AbortSignal.timeout(5000),
     });
     const latency = Date.now() - start;
@@ -60,7 +61,7 @@ async function floodRequest(baseUrl: string, attempt: number) {
     const blocked = effectiveStatus === 429 || effectiveStatus === 403;
     const label = blocked
       ? effectiveStatus === 429 ? 'RATE LIMITED' : 'WAF BLOCKED'
-      : effectiveStatus === 200 || effectiveStatus === 401
+      : effectiveStatus === 200 || effectiveStatus === 400 || effectiveStatus === 409
         ? 'REACHED'
         : `HTTP ${effectiveStatus}`;
     return { attempt, status: effectiveStatus, latency, blocked, label };

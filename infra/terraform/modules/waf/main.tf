@@ -40,9 +40,9 @@ resource "aws_wafv2_web_acl" "main" {
     allow {}
   }
 
-  # Rate-based rule: 5분당 IP당 20 요청 (공격 시뮬레이션용 — 파일 업로드 경로 제외)
+  # Rate-based rule A: 브루트포스 전용 — /api/auth/login 5분당 IP당 20 요청
   rule {
-    name     = "RateLimitRule"
+    name     = "BruteforceRateLimitRule"
     priority = 1
 
     action {
@@ -54,8 +54,44 @@ resource "aws_wafv2_web_acl" "main" {
         limit              = 20
         aggregate_key_type = "IP"
 
-        # 정적 파일(JS/CSS 등) 요청은 카운트 제외 — /api/ 경로만 rate limit 대상
-        # /api/files/ 와 /api/logs 는 제외 — 파일 업로드/다운로드 및 로그 수집은 공격 시나리오 대상 아님
+        scope_down_statement {
+          byte_match_statement {
+            search_string = "/api/auth/login"
+            field_to_match {
+              uri_path {}
+            }
+            text_transformation {
+              priority = 0
+              type     = "NONE"
+            }
+            positional_constraint = "STARTS_WITH"
+          }
+        }
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "sentinelshare-tf-${var.env_name}-bruteforce-rate-limit"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  # Rate-based rule B: 일반 API flood 전용 — /api/auth/login, /api/files/, /api/logs 제외한 /api/ 경로
+  # ratelimit 시나리오(/api/auth/signup 등)가 대상이며 브루트포스 버킷과 완전히 분리됨
+  rule {
+    name     = "ApiFloodRateLimitRule"
+    priority = 2
+
+    action {
+      block {}
+    }
+
+    statement {
+      rate_based_statement {
+        limit              = 30
+        aggregate_key_type = "IP"
+
         scope_down_statement {
           and_statement {
             statement {
@@ -69,6 +105,23 @@ resource "aws_wafv2_web_acl" "main" {
                   type     = "NONE"
                 }
                 positional_constraint = "STARTS_WITH"
+              }
+            }
+            statement {
+              not_statement {
+                statement {
+                  byte_match_statement {
+                    search_string = "/api/auth/login"
+                    field_to_match {
+                      uri_path {}
+                    }
+                    text_transformation {
+                      priority = 0
+                      type     = "NONE"
+                    }
+                    positional_constraint = "STARTS_WITH"
+                  }
+                }
               }
             }
             statement {
@@ -112,7 +165,7 @@ resource "aws_wafv2_web_acl" "main" {
 
     visibility_config {
       cloudwatch_metrics_enabled = true
-      metric_name                = "sentinelshare-tf-${var.env_name}-rate-limit"
+      metric_name                = "sentinelshare-tf-${var.env_name}-api-flood-rate-limit"
       sampled_requests_enabled   = true
     }
   }
@@ -120,7 +173,7 @@ resource "aws_wafv2_web_acl" "main" {
   # AWS Managed: Common Rule Set
   rule {
     name     = "SuspiciousQueryPatternRule"
-    priority = 2
+    priority = 3
 
     action {
       block {}
@@ -160,7 +213,7 @@ resource "aws_wafv2_web_acl" "main" {
 
   rule {
     name     = "SuspiciousPathScanRule"
-    priority = 3
+    priority = 4
 
     action {
       block {}
@@ -196,7 +249,7 @@ resource "aws_wafv2_web_acl" "main" {
   # AWS Managed: Common Rule Set
   rule {
     name     = "AllowFilesApiPath"
-    priority = 4
+    priority = 5
 
     action {
       allow {}
@@ -228,7 +281,7 @@ resource "aws_wafv2_web_acl" "main" {
 
   rule {
     name     = "AWSManagedRulesCommonRuleSet"
-    priority = 5
+    priority = 6
 
     override_action {
       none {}
@@ -259,7 +312,7 @@ resource "aws_wafv2_web_acl" "main" {
   # AWS Managed: Known Bad Inputs
   rule {
     name     = "AWSManagedRulesKnownBadInputsRuleSet"
-    priority = 6
+    priority = 7
 
     override_action {
       none {}
