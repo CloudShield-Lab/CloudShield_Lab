@@ -111,6 +111,10 @@ export async function GET(request: NextRequest) {
       await sleep(STAGE_STEP_MS);
       await send({ type: 'stage', env: 'aws', attempt: 1, stage: 'cloudfront', status: 'passed', title: 'CloudFront 경유', description: '보안 환경 요청은 CloudFront 엣지를 통과하며 헤더가 변환됩니다.', severity: 'info' });
       await sleep(STAGE_STEP_MS);
+      if (AWS_URL) {
+        await send({ type: 'stage', env: 'aws', attempt: 1, stage: 'waf', status: 'passed', title: 'WAF 검사 통과', description: '헤더 스캔 요청은 공격 패턴에 해당하지 않아 WAF를 통과합니다.', severity: 'info' });
+        await sleep(STAGE_STEP_MS);
+      }
 
       const [vulnScan, awsScan] = await Promise.all([
         scanHeaders(VULNERABLE_URL),
@@ -122,13 +126,12 @@ export async function GET(request: NextRequest) {
       await send({ type: 'stage', env: 'vulnerable', attempt: 1, stage: 'ecs', status: vulnScan.status > 0 ? 'reached' : 'failed', title: 'EC2 응답 수신', description: `HTTP ${vulnScan.status} — ${vulnScan.latency}ms`, severity: 'warning' });
       await sleep(STAGE_STEP_MS);
       if (AWS_URL) {
-        // CF 에러 페이지 응답은 백엔드에 도달하지 못한 것으로 처리
-        const awsEcsStatus = awsScan.cfErrorPage ? 'failed' : (awsScan.status > 0 ? 'reached' : 'failed');
-        const awsEcsTitle = awsScan.cfErrorPage ? 'CF 오류 페이지 반환' : 'EC2 응답 수신';
-        const awsEcsDesc = awsScan.cfErrorPage
-          ? 'CloudFront가 백엔드 대신 S3 오류 페이지를 반환했습니다. 백엔드 앱 헤더를 수집할 수 없습니다.'
-          : `HTTP ${awsScan.status} — ${awsScan.latency}ms`;
-        await send({ type: 'stage', env: 'aws', attempt: 1, stage: 'ecs', status: awsEcsStatus, title: awsEcsTitle, description: awsEcsDesc, severity: 'warning' });
+        if (awsScan.cfErrorPage) {
+          // CF가 S3 에러 페이지를 반환한 경우 — EC2 노드가 아닌 CloudFront 단계에서 처리됨으로 표시
+          await send({ type: 'stage', env: 'aws', attempt: 1, stage: 'cloudfront', status: 'blocked', title: 'CF 오류 페이지 반환', description: 'CloudFront가 백엔드 대신 S3 오류 페이지를 반환했습니다. 백엔드 앱 헤더를 수집할 수 없습니다.', severity: 'warning' });
+        } else {
+          await send({ type: 'stage', env: 'aws', attempt: 1, stage: 'ecs', status: awsScan.status > 0 ? 'reached' : 'failed', title: 'EC2 응답 수신', description: `HTTP ${awsScan.status} — ${awsScan.latency}ms`, severity: 'warning' });
+        }
         await sleep(STAGE_STEP_MS);
       }
 
