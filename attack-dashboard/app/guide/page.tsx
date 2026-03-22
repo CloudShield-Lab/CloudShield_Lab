@@ -8,7 +8,7 @@ const phases = [
     subtitle: 'Vulnerable Environment',
     description: 'WAF 없음, CloudFront 없음, S3 퍼블릭, Security Group 전체 개방. 외부 요청이 직접 도달하는 환경.',
     color: 'red',
-    items: ['vul-ec2 (Public IP)', 'PostgreSQL on EC2', 'S3 (Block Public Access OFF)', 'Security Group 0.0.0.0/0', 'S3 Direct Frontend'],
+    items: ['vul-ec2 (Public IP)', 'PostgreSQL co-located on EC2', 'S3 (Block Public Access OFF)', 'Security Group 0.0.0.0/0', 'S3 Static Frontend', 'Wazuh Agent'],
   },
   {
     number: 2,
@@ -17,7 +17,7 @@ const phases = [
     subtitle: 'Secure Environment',
     description: 'CloudFront + WAF, S3 프라이빗, 제한된 보안 그룹, Secrets Manager. 동일 코드, 다른 인프라.',
     color: 'emerald',
-    items: ['secure-ec2', 'PostgreSQL on EC2', 'S3 (Block Public Access ON + 버킷 정책)', 'CloudFront + WAF', 'Secrets Manager'],
+    items: ['secure-ec2', 'PostgreSQL co-located on EC2', 'S3 (Block Public Access ON + 버킷 정책)', 'CloudFront + WAF', 'CloudFront OAC + S3 Static Frontend', 'Secrets Manager', 'Wazuh Agent'],
   },
 ];
 
@@ -44,12 +44,15 @@ export default function GuidePage() {
             </div>
             <pre className="text-xs font-mono text-slate-500 leading-relaxed">
 {`[브라우저 / 공격자]
-       │ 직접 연결 (차단 없음)
+       │ 직접 연결 (WAF·CloudFront 없음)
   [vul-ec2 :3000]
-  Security Group: 0.0.0.0/0
-       │             │
-  [PostgreSQL]   [S3 Public]
-                 직접 접근 가능`}
+  SG: 0.0.0.0/0
+  Docker · Wazuh Agent · PostgreSQL
+       │
+  [S3 Public]
+  Block Public Access OFF
+  Presigned URL · 직접 접근 가능
+  S3 Static Frontend`}
             </pre>
           </div>
 
@@ -59,16 +62,19 @@ export default function GuidePage() {
               보안 환경 (Secure)
             </div>
             <pre className="text-xs font-mono text-slate-500 leading-relaxed">
-{`[브라우저 / 사용자]
-       │
-  [CloudFront + WAF]
-  Rate-based + Managed Rules
-       │
-  [secure-ec2 :3000]
-  Security Group: 제한된 접근
-       │             │
-  [PostgreSQL]   [S3 Private]
-                 CloudFront/OAC 경유`}
+{`[브라우저]                  [공격자]
+    │                           │ origin-direct 우회 시도
+[CloudFront + WAF]              │
+Rate-based · Managed Rules      │
+OAC → S3 Static Frontend        │
+    │                           │
+[secure-ec2 :3000] ─────────────┘
+SG: CloudFront prefix list만
+Docker · Wazuh Agent · PostgreSQL
+    │
+[S3 Private]          [Secrets Manager]
+Block Public Access ON
+Presigned URL · OAC 경유`}
             </pre>
           </div>
         </div>
