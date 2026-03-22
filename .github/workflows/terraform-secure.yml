@@ -190,7 +190,7 @@ jobs:
             local resource_address="$1"
             local secret_name="$2"
 
-            if terraform state list | grep -Fxq "$resource_address"; then
+            if terraform state show "$resource_address" >/dev/null 2>&1; then
               echo "State already contains $resource_address"
               return 0
             fi
