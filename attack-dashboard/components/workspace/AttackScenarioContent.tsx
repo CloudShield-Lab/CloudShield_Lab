@@ -4,8 +4,9 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { AttackCard } from '@/components/AttackCard';
 import { BruteforceAttackCard } from '@/components/BruteforceAttackCard';
-import { HeaderScanCard } from '@/components/HeaderScanCard';
+import { RceInjectionCard } from '@/components/RceInjectionCard';
 import { S3ExfiltrationCard } from '@/components/S3ExfiltrationCard';
+import { SqliXssDirectPanel } from '@/components/SqliXssDirectPanel';
 import { ArchitectureVisualizationProvider } from '@/hooks/useArchitectureVisualization';
 import { getAttackScenarioConfig } from '@/lib/attack-scenarios';
 import type { AttackEndpoint, DashboardConfig, WorkspaceMode } from '@/types';
@@ -64,11 +65,23 @@ export function AttackScenarioContent({
         )}
 
         {originDirectNeedsConfig && (
-          <div className="rounded-xl border border-sky-300 bg-sky-50 px-5 py-4">
-            <p className="text-sm font-semibold text-sky-900">
+          <div
+            className={`rounded-xl border px-5 py-4 ${
+              mode === 'manual' ? 'border-sky-300 bg-sky-50' : 'border-slate-200 bg-slate-50'
+            }`}
+          >
+            <p
+              className={`text-sm font-semibold ${
+                mode === 'manual' ? 'text-sky-900' : 'text-slate-900'
+              }`}
+            >
               Origin 직접 접근 비교에는 원본 EC2 주소가 필요합니다.
             </p>
-            <p className="mt-1 text-xs text-sky-700">
+            <p
+              className={`mt-1 text-xs ${
+                mode === 'manual' ? 'text-sky-700' : 'text-slate-600'
+              }`}
+            >
               {mode === 'manual'
                 ? '수동 배포는 공격 카드에서 취약 환경과 보안 환경의 원본 EC2 주소를 직접 입력하고 저장하면, 보안 계층 우회 전후의 직접 접근 비교를 바로 실행할 수 있습니다.'
                 : '자동 배포는 Terraform 출력값의 Elastic IP를 읽어 원본 주소를 자동으로 구성합니다. 배포가 완료되면 별도 입력 없이 Origin 직접 접근 비교가 동작합니다.'}
@@ -88,11 +101,13 @@ export function AttackScenarioContent({
                 </span>
               </div>
               <h2 className="text-2xl font-semibold text-slate-900">{config.title}</h2>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-700">{config.description}</p>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-700">
+                {config.description}
+              </p>
             </div>
 
             <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-700">
-              실행 버튼을 누르면 하단 시각화 패널이 즉시 갱신됩니다.
+              실행 버튼을 누르면 하단 시각화와 설명이 즉시 갱신됩니다.
             </div>
           </div>
 
@@ -138,8 +153,8 @@ export function AttackScenarioContent({
             awsNote={config.awsNote}
             mode={mode}
           />
-        ) : scenario === 'header-scan' ? (
-          <HeaderScanCard
+        ) : scenario === 'rce-injection' ? (
+          <RceInjectionCard
             index={config.index}
             title={config.title}
             description={config.description}
@@ -159,6 +174,10 @@ export function AttackScenarioContent({
             awsNote={config.awsNote}
             mode={mode}
           />
+        )}
+
+        {scenario === 'sqli-xss' && dashConfig && (
+          <SqliXssDirectPanel mode={mode} config={dashConfig} />
         )}
 
         <AttackVisualizationPanel />

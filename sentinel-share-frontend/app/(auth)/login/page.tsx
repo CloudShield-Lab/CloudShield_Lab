@@ -41,9 +41,10 @@ export default function LoginPage() {
             <label htmlFor="email" className="mb-1 block text-sm font-medium">
               Email
             </label>
+            {/* [DEMO] type="text" — XSS 페이로드 직접 입력 허용 (브라우저 이메일 형식 검증 우회) */}
             <input
               id="email"
-              type="email"
+              type="text"
               required
               autoComplete="email"
               value={email}
@@ -67,8 +68,13 @@ export default function LoginPage() {
             />
           </div>
 
+          {/* [DEMO] dangerouslySetInnerHTML — 백엔드 에러 메시지의 Reflected XSS 실행 허용 */}
           {error && (
-            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>
+            <p
+              className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600"
+              // eslint-disable-next-line react/no-danger
+              dangerouslySetInnerHTML={{ __html: error }}
+            />
           )}
 
           <button

@@ -127,8 +127,8 @@ async function directS3Access(presignedUrl: string, attempt: number) {
     });
     const latency = Date.now() - start;
     const blocked = res.status === 403;
-    const label = res.status === 200 ? 'DIRECT ACCESS SUCCESS' : res.status === 403 ? 'ACCESS DENIED (403)' : `HTTP ${res.status}`;
-    return { attempt, status: res.status, latency, blocked, label, url: res.status === 200 ? directUrl : undefined };
+    const label = res.status === 200 ? 'S3 DIRECT ACCESS SUCCESS' : res.status === 403 ? 'S3 DIRECT ACCESS DENIED (403) — S3 Block Public Access' : `S3 HTTP ${res.status}`;
+    return { attempt, status: res.status, latency, blocked, label, url: directUrl };
   } catch {
     return { attempt, status: 0, latency: Date.now() - start, blocked: false, label: 'CONNECTION ERROR', url: undefined };
   }
@@ -188,7 +188,6 @@ export async function GET(request: NextRequest) {
       await sendStage('vulnerable', attempt1, 'attacker', 'reached', '공격 유입', `${VICTIM_EMAIL} 계정으로 취약 환경에 로그인을 시도합니다.`, 'critical');
       await sendStage('aws', attempt1, 'attacker', 'reached', '공격 유입', `동일 계정으로 보안 환경에도 로그인을 시도합니다.`, 'critical');
       await sendStage('aws', attempt1, 'cloudfront', 'passed', 'CloudFront 전달', '로그인 요청이 엣지 계층을 통과합니다.', 'info');
-      await sendStage('aws', attempt1, 'waf', 'passed', 'WAF 통과', '정상 로그인 요청은 WAF 정책을 통과합니다.', 'warning');
 
       const [vulnLogin, awsLogin] = await Promise.all([
         performLogin(VULNERABLE_URL, attempt1, VICTIM_EMAIL, VICTIM_PASSWORD),
@@ -202,8 +201,16 @@ export async function GET(request: NextRequest) {
 
       await sendStage('vulnerable', attempt1, 'ecs', vulnLogin.status > 0 ? 'reached' : 'failed', 'EC2 도달', '취약 환경 서버에 도달했습니다.', vulnLogin.status > 0 ? 'critical' : 'warning');
       await sendStage('vulnerable', attempt1, 'app', vulnLogin.status === 200 ? 'passed' : 'failed', vulnLogin.status === 200 ? 'JWT 발급 완료' : '로그인 실패', vulnLogin.status === 200 ? `${VICTIM_EMAIL} 계정 인증 성공 — JWT 획득` : '자격증명 불일치', vulnLogin.status === 200 ? 'critical' : 'warning');
-      await sendStage('aws', attempt1, 'ecs', awsLogin.status > 0 ? 'reached' : 'failed', 'EC2 도달', '보안 환경 서버에 도달했습니다.', 'warning');
-      await sendStage('aws', attempt1, 'app', awsLogin.status === 200 ? 'passed' : 'failed', awsLogin.status === 200 ? 'JWT 발급 완료' : '로그인 실패', awsLogin.status === 200 ? `${VICTIM_EMAIL} 계정 인증 성공 — JWT 획득` : '자격증명 불일치', 'warning');
+
+      if (awsLogin.blocked) {
+        await sendStage('aws', attempt1, 'waf', 'blocked', 'WAF 차단', '보안 환경 WAF가 로그인 요청을 차단했습니다.', 'success');
+      } else if (awsLogin.status > 0) {
+        await sendStage('aws', attempt1, 'waf', 'passed', 'WAF 통과', '정상 로그인 요청이 WAF 정책을 통과합니다.', 'warning');
+        await sendStage('aws', attempt1, 'ecs', 'reached', 'EC2 도달', '보안 환경 서버에 도달했습니다.', 'warning');
+        await sendStage('aws', attempt1, 'app', awsLogin.status === 200 ? 'passed' : 'failed', awsLogin.status === 200 ? 'JWT 발급 완료' : '로그인 실패', awsLogin.status === 200 ? `${VICTIM_EMAIL} 계정 인증 성공 — JWT 획득` : '자격증명 불일치', 'warning');
+      } else {
+        await sendStage('aws', attempt1, 'waf', 'failed', 'WAF 연결 실패', '보안 환경에 연결할 수 없습니다.', 'warning');
+      }
 
       await send({ type: 'result', env: 'vulnerable', attempt: vulnLogin.attempt, status: vulnLogin.status, latency: vulnLogin.latency, blocked: vulnLogin.blocked, label: vulnLogin.label });
       await send({ type: 'result', env: 'aws', attempt: awsLogin.attempt, status: awsLogin.status, latency: awsLogin.latency, blocked: awsLogin.blocked, label: awsLogin.label });
@@ -230,7 +237,9 @@ export async function GET(request: NextRequest) {
       awsState.files = awsFiles.files;
 
       await sendStage('vulnerable', attempt2, 'app', vulnFiles.status === 200 ? 'passed' : 'failed', '파일 목록 조회', `취약 환경에서 파일 목록 API를 호출합니다. (JWT Bearer 사용)`, 'warning');
-      await sendStage('aws', attempt2, 'app', awsFiles.status === 200 ? 'passed' : 'failed', '파일 목록 조회', `보안 환경에서 파일 목록 API를 호출합니다. (JWT Bearer 사용)`, 'warning');
+      if (awsState.token) {
+        await sendStage('aws', attempt2, 'app', awsFiles.status === 200 ? 'passed' : 'failed', '파일 목록 조회', `보안 환경에서 파일 목록 API를 호출합니다. (JWT Bearer 사용)`, 'warning');
+      }
 
       await send({ type: 'result', env: 'vulnerable', attempt: vulnFiles.attempt, status: vulnFiles.status, latency: vulnFiles.latency, blocked: vulnFiles.blocked, label: vulnFiles.label });
       await send({ type: 'result', env: 'aws', attempt: awsFiles.attempt, status: awsFiles.status, latency: awsFiles.latency, blocked: awsFiles.blocked, label: awsFiles.label });
@@ -273,8 +282,10 @@ export async function GET(request: NextRequest) {
 
       await sendStage('vulnerable', attempt3, 'app', vulnState.presignedItems.length > 0 ? 'passed' : 'failed', 'Presigned URL 요청', `${vulnState.presignedItems.length}개 파일 서명 URL 발급 완료`, 'warning');
       await sendStage('vulnerable', attempt3, 's3', vulnState.presignedItems.length > 0 ? 'passed' : 'failed', vulnState.presignedItems.length > 0 ? 'Presigned URL 발급됨' : 'URL 발급 실패', '취약 환경 S3에서 5분 유효 presigned URL이 반환되었습니다.', 'warning');
-      await sendStage('aws', attempt3, 'app', awsDownload.status === 200 ? 'passed' : 'failed', 'Presigned URL 요청', 'Bearer JWT로 /api/files/:id/download 호출 — 서명된 S3 URL 발급', 'warning');
-      await sendStage('aws', attempt3, 's3', awsDownload.status === 200 ? 'passed' : 'failed', awsDownload.status === 200 ? 'Presigned URL 발급됨' : 'URL 발급 실패', awsDownload.status === 200 ? '보안 환경 S3에서 5분 유효 presigned URL이 반환되었습니다.' : '발급 실패', 'warning');
+      if (awsState.token && awsFile) {
+        await sendStage('aws', attempt3, 'app', awsDownload.status === 200 ? 'passed' : 'failed', 'Presigned URL 요청', 'Bearer JWT로 /api/files/:id/download 호출 — 서명된 S3 URL 발급', 'warning');
+        await sendStage('aws', attempt3, 's3', awsDownload.status === 200 ? 'passed' : 'failed', awsDownload.status === 200 ? 'Presigned URL 발급됨' : 'URL 발급 실패', awsDownload.status === 200 ? '보안 환경 S3에서 5분 유효 presigned URL이 반환되었습니다.' : '발급 실패', 'warning');
+      }
 
       for (const r of vulnDownloads) {
         await send({ type: 'result', env: 'vulnerable', attempt: r.attempt, status: r.status, latency: r.latency, blocked: r.blocked, label: r.label });
@@ -310,7 +321,9 @@ export async function GET(request: NextRequest) {
         .map((r) => ({ fileName: r.fileName, directUrl: r.url! }));
 
       await sendStage('vulnerable', attempt4Base, 's3', vulnSuccessFiles.length > 0 ? 'success' : 'failed', '서명 제거 후 직접 접근', vulnSuccessFiles.length > 0 ? `⚠ ${vulnSuccessFiles.length}개 파일 S3 직접 접근 성공 — 버킷이 퍼블릭 상태입니다.` : '직접 접근 실패', vulnSuccessFiles.length > 0 ? 'critical' : 'warning');
-      await sendStage('aws', attempt4Base, 's3', awsDirect.blocked ? 'blocked' : awsDirect.status === 200 ? 'success' : 'failed', awsDirect.blocked ? 'S3 직접 접근 차단' : '직접 접근 시도', awsDirect.blocked ? '프라이빗 버킷 — 서명 없는 접근이 차단되었습니다.' : awsDirect.status === 200 ? '보안 환경에서 직접 접근이 허용되었습니다.' : '직접 접근 실패', awsDirect.blocked ? 'success' : 'critical');
+      if (awsState.presignedItems.length > 0) {
+        await sendStage('aws', attempt4Base, 's3', awsDirect.blocked ? 'blocked' : awsDirect.status === 200 ? 'success' : 'failed', awsDirect.blocked ? 'S3 직접 접근 차단' : '직접 접근 시도', awsDirect.blocked ? '프라이빗 버킷 — 서명 없는 접근이 차단되었습니다.' : awsDirect.status === 200 ? '보안 환경에서 직접 접근이 허용되었습니다.' : '직접 접근 실패', awsDirect.blocked ? 'success' : 'critical');
+      }
 
       for (const r of vulnDirectResults) {
         await send({ type: 'result', env: 'vulnerable', attempt: r.attempt, status: r.status, latency: r.latency, blocked: r.blocked, label: r.label, url: r.url });

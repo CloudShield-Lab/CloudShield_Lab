@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { AttackPhase, AttackResult, SessionMetrics, WorkspaceMode } from '@/types';
+import { useArchitectureVisualization } from '@/hooks/useArchitectureVisualization';
+import type { AttackEvent, AttackPhase, AttackResult, SessionMetrics, WorkspaceMode } from '@/types';
 import { MetricsPanel } from './MetricsPanel';
 import { RequestLog } from './RequestLog';
 
@@ -49,6 +50,7 @@ interface Props {
 }
 
 export function S3ExfiltrationCard({ index, title, description, vulnNote, awsNote, mode }: Props) {
+  const { startScenario, handleAttackEvent, resetScenario } = useArchitectureVisualization();
   const [phase, setPhase] = useState<AttackPhase>('idle');
   const [email, setEmail] = useState('victim@demo.com');
   const [password, setPassword] = useState('Demo1234!');
@@ -87,6 +89,7 @@ export function S3ExfiltrationCard({ index, title, description, vulnNote, awsNot
     if (phase === 'running') return;
 
     const startTime = new Date().toISOString();
+    startScenario('s3-access');
     setPhase('running');
     setVulnResults([]);
     setAwsResults([]);
@@ -135,6 +138,8 @@ export function S3ExfiltrationCard({ index, title, description, vulnNote, awsNot
         return;
       }
 
+      handleAttackEvent('s3-access', event as unknown as AttackEvent);
+
       if (event.type === 'chain_step') {
         const stepIdx = (event.step as number) - 1;
         updateStep(stepIdx, {
@@ -174,15 +179,16 @@ export function S3ExfiltrationCard({ index, title, description, vulnNote, awsNot
       doSave(localVulnRef.current, localAwsRef.current);
       es.close();
     };
-  }, [email, mode, password, phase, title, updateStep]);
+  }, [email, handleAttackEvent, mode, password, phase, startScenario, title, updateStep]);
 
   const reset = useCallback(() => {
     esRef.current?.close();
+    resetScenario();
     setPhase('idle');
     setVulnResults([]);
     setAwsResults([]);
     setSteps(EMPTY_STEPS);
-  }, []);
+  }, [resetScenario]);
 
   const buttonClass =
     phase === 'idle'

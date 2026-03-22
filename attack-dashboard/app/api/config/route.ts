@@ -54,6 +54,7 @@ export async function GET() {
     },
     aws: {
       url: process.env.AWS_API_URL || '',
+      frontendUrl: process.env.AWS_FRONTEND_URL || '',
       s3Bucket: process.env.AWS_S3_BUCKET || '',
       region: process.env.AWS_REGION || 'ap-northeast-2',
       originUrl: process.env.AWS_ORIGIN_API_URL || '',
@@ -70,6 +71,7 @@ export async function GET() {
     },
     autoAws: {
       url: awsUrl,
+      frontendUrl: process.env.AUTO_AWS_FRONTEND_URL || tfOutputs?.secure?.frontendUrl || '',
       s3Bucket: awsS3Bucket,
       region: process.env.AWS_REGION || 'ap-northeast-2',
       originUrl: awsOriginUrl,

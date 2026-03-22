@@ -14,6 +14,7 @@ const authRoutes = require('./routes/auth.routes');
 const filesRoutes = require('./routes/files.routes');
 const sharedRoutes = require('./routes/shared.routes');
 const logsRoutes = require('./routes/logs.routes');
+const scanRoutes = require('./routes/scan.routes');
 
 const app = express();
 
@@ -29,7 +30,8 @@ app.use((req, res, next) => {
 
   return cors({
     origin(requestOrigin, callback) {
-      if (!requestOrigin || allowedOrigins.includes(requestOrigin)) {
+      // allowedOrigins에 '*'가 포함되면 모든 Origin 허용 (취약 환경 데모용)
+      if (!requestOrigin || allowedOrigins.includes('*') || allowedOrigins.includes(requestOrigin)) {
         return callback(null, true);
       }
       const err = new Error(`CORS blocked for origin: ${requestOrigin}`);
@@ -79,14 +81,18 @@ app.use((req, res, next) => {
 // --- Global rate limit ---
 app.use(apiLimiter);
 
-// --- Health check (ECS uses this via Service Connect or a custom check) ---
+// --- Health check ---
 app.get('/health', (_req, res) => res.status(200).json({ status: 'ok' }));
+app.get('/api/health', (_req, res) => res.status(200).json({ status: 'ok' }));
 
 // --- Routes ---
 app.use('/api/auth', authRoutes);
 app.use('/api/files', filesRoutes);
 app.use('/api/shared', sharedRoutes);
 app.use('/api/logs', logsRoutes);
+
+// --- Intentionally exposed scan paths (demo: simulates misconfigured server) ---
+app.use(scanRoutes);
 
 // --- 404 ---
 app.use((_req, res) => res.status(404).json({ error: 'Not found' }));

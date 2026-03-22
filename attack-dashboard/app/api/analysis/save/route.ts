@@ -9,6 +9,9 @@ async function fetchRawLogs(baseUrl: string, from: string, to: string): Promise<
     const url = `${normalizeApiBaseUrl(baseUrl)}/api/logs?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
     const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
     if (!res.ok) return [];
+    // CloudFront custom_error_response: WAF 403 → 200+HTML 변환 오탐 방지
+    const isJson = (res.headers.get('content-type') || '').includes('application/json');
+    if (!isJson) return [];
     const data = (await res.json()) as { logs?: string[] };
     return data.logs ?? [];
   } catch {
@@ -47,9 +50,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // 10초 버퍼: EC2 클럭이 attack-dashboard보다 느릴 경우 첫 요청 로그가 startTime 이전으로 기록됨
+    const fromTime = new Date(new Date(session.startTime).getTime() - 10_000).toISOString();
     const [vulnLogs, secureLogs] = await Promise.all([
-      vulnUrl ? fetchRawLogs(vulnUrl, session.startTime, toTime) : Promise.resolve([]),
-      secureUrl ? fetchRawLogs(secureUrl, session.startTime, toTime) : Promise.resolve([]),
+      vulnUrl ? fetchRawLogs(vulnUrl, fromTime, toTime) : Promise.resolve([]),
+      secureUrl ? fetchRawLogs(secureUrl, fromTime, toTime) : Promise.resolve([]),
     ]);
 
     session.rawLogs = { vulnerable: vulnLogs, secure: secureLogs };

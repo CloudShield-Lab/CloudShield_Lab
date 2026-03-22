@@ -22,7 +22,7 @@ export function EventTimeline({ events, compact = false, title = '이벤트 타�
       <div className={`flex items-center justify-between ${compact ? 'mb-3' : 'mb-4'}`}>
         <div>
           <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
-          <p className="text-sm text-slate-500">공격 진행 중 생성된 이벤트를 시간 순서대로 보여줍니다.</p>
+          <p className="text-sm text-slate-500">최신 이벤트가 위에 표시됩니다.</p>
         </div>
         <span className="font-mono text-xs text-slate-500">{events.length}개 이벤트</span>
       </div>
@@ -33,7 +33,7 @@ export function EventTimeline({ events, compact = false, title = '이벤트 타�
             시뮬레이션을 시작하면 타임라인이 채워집니다.
           </div>
         ) : (
-          events.map((event) => (
+          [...events].reverse().map((event) => (
             <article key={event.id} className={`rounded-xl border border-slate-200 bg-slate-50 ${compact ? 'p-3' : 'p-4'}`}>
               <div className="mb-2 flex flex-wrap items-center gap-2">
                 <span className="font-mono text-xs text-slate-500">{event.timestampLabel}</span>

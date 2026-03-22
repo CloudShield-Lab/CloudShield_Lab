@@ -2,7 +2,7 @@
 
 import 'reactflow/dist/style.css';
 import { useMemo } from 'react';
-import ReactFlow, { Background, Edge, MarkerType, Node, Panel, useReactFlow } from 'reactflow';
+import ReactFlow, { Background, Edge, MarkerType, Node } from 'reactflow';
 import { STAGE_DESCRIPTIONS, STAGE_LABELS, type ScenarioKey } from '@/lib/attack-simulation';
 import type {
   ArchitectureEnvironment,
@@ -78,40 +78,6 @@ interface Props {
   scenarioKey: ScenarioKey;
 }
 
-function CompactControls() {
-  const { zoomIn, zoomOut, fitView } = useReactFlow();
-
-  return (
-    <Panel position="bottom-right" className="!bottom-3 !right-3">
-      <div className="flex items-center overflow-hidden rounded-lg border border-slate-300 bg-white/95 shadow-[0_10px_24px_rgba(15,23,42,0.08)] backdrop-blur">
-        <button
-          type="button"
-          onClick={() => zoomIn()}
-          className="h-8 w-8 border-r border-slate-300 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
-          title="확대"
-        >
-          +
-        </button>
-        <button
-          type="button"
-          onClick={() => zoomOut()}
-          className="h-8 w-8 border-r border-slate-300 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
-          title="축소"
-        >
-          -
-        </button>
-        <button
-          type="button"
-          onClick={() => fitView({ padding: 0.1, minZoom: 0.72, maxZoom: 1.2 })}
-          className="h-8 w-8 text-[11px] font-bold text-slate-700 transition hover:bg-slate-50"
-          title="화면 맞춤"
-        >
-          □
-        </button>
-      </div>
-    </Panel>
-  );
-}
 
 export function ArchitectureGraph({ env, nodes, lastEvent, scenarioKey }: Props) {
   const bypassActive =
@@ -146,6 +112,7 @@ export function ArchitectureGraph({ env, nodes, lastEvent, scenarioKey }: Props)
               muted,
               highlighted,
               showBypassHandle: bypassActive && node.stage === 'attacker',
+              lastEventId: node.lastEventId,
             },
             draggable: false,
             selectable: false,
@@ -209,7 +176,6 @@ export function ArchitectureGraph({ env, nodes, lastEvent, scenarioKey }: Props)
           proOptions={{ hideAttribution: true }}
         >
           <Background color="#d8e1ec" gap={22} />
-          <CompactControls />
         </ReactFlow>
       </div>
     </section>

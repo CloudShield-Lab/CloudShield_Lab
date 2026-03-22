@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
 import type { NodeProps } from 'reactflow';
 import { Handle, Position } from 'reactflow';
 import {
@@ -22,6 +23,7 @@ type ArchitectureNodeData = {
   muted?: boolean;
   highlighted?: boolean;
   showBypassHandle?: boolean;
+  lastEventId?: string;
 };
 
 const statusClasses: Record<NodeStatus, string> = {
@@ -54,10 +56,35 @@ const statusLabel: Record<NodeStatus, string> = {
   success: 'success',
 };
 
+// 펄스 발생 시 status에 맞는 링 색상
+const pulseRingClasses: Record<NodeStatus, string> = {
+  idle: '',
+  reached: 'ring-2 ring-sky-300 ring-offset-1 ring-offset-white',
+  passed: 'ring-2 ring-violet-300 ring-offset-1 ring-offset-white',
+  blocked: 'ring-2 ring-emerald-400 ring-offset-1 ring-offset-white',
+  failed: 'ring-2 ring-rose-300 ring-offset-1 ring-offset-white',
+  success: 'ring-2 ring-fuchsia-400 ring-offset-1 ring-offset-white',
+};
+
 export function ArchitectureNode({ data }: NodeProps<ArchitectureNodeData>) {
   const Icon = icons[data.stage];
+  const [pulsing, setPulsing] = useState(false);
+  const pulseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    // idle 상태이거나 muted(취약 환경의 CF/WAF)는 펄스 불필요
+    if (!data.lastEventId || data.status === 'idle' || data.muted) return;
+    if (pulseTimer.current) clearTimeout(pulseTimer.current);
+    setPulsing(true);
+    pulseTimer.current = setTimeout(() => setPulsing(false), 380);
+    return () => {
+      if (pulseTimer.current) clearTimeout(pulseTimer.current);
+    };
+  }, [data.lastEventId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const mutedClass = data.muted ? 'opacity-45 grayscale saturate-0' : '';
   const highlightedClass = data.highlighted ? 'scale-[1.03] ring-2 ring-slate-200 ring-offset-2 ring-offset-white' : '';
+  const pulseClass = pulsing && !data.highlighted ? `scale-[1.1] ${pulseRingClasses[data.status]}` : '';
   const titleClass =
     data.status === 'blocked'
       ? 'text-emerald-900'
@@ -73,7 +100,7 @@ export function ArchitectureNode({ data }: NodeProps<ArchitectureNodeData>) {
 
   return (
     <div
-      className={`w-[132px] rounded-[18px] border-[1.5px] px-3 py-3 transition-all ${statusClasses[data.status]} ${mutedClass} ${highlightedClass}`}
+      className={`w-[132px] rounded-[18px] border-[1.5px] px-3 py-3 transition-all duration-200 ${statusClasses[data.status]} ${mutedClass} ${highlightedClass} ${pulseClass}`}
     >
       <Handle
         position={Position.Left}
