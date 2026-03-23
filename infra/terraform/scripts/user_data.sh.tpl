@@ -217,6 +217,17 @@ WAZUH_MANAGER="${wazuh_manager_ip}" \
 
 systemctl daemon-reload
 systemctl enable wazuh-agent
+
+# access.log (Apache combined format) 모니터링 추가 — built-in web 룰 활성화
+sed -i 's|</ossec_config>||' /var/ossec/etc/ossec.conf
+cat >> /var/ossec/etc/ossec.conf <<'OSSEC_EOF'
+  <localfile>
+    <log_format>apache</log_format>
+    <location>/opt/app/logs/access.log</location>
+  </localfile>
+</ossec_config>
+OSSEC_EOF
+
 systemctl start wazuh-agent
 
 echo "Wazuh agent installed and started"

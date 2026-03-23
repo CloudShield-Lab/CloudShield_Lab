@@ -6,9 +6,22 @@ require('./config/env');
 const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
+const fs = require('fs');
+const path = require('path');
 const env = require('./config/env');
 const { log } = require('./config/logger');
 const { apiLimiter } = require('./middleware/rateLimiter');
+
+const LOG_DIR = process.env.LOG_DIR || '/opt/app/logs';
+const APACHE_LOG = path.join(LOG_DIR, 'access.log');
+const APACHE_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function writeApacheLog(ip, method, url, status, referer, ua, bytes) {
+  const now = new Date();
+  const t = `${String(now.getUTCDate()).padStart(2,'0')}/${APACHE_MONTHS[now.getUTCMonth()]}/${now.getUTCFullYear()}:${String(now.getUTCHours()).padStart(2,'0')}:${String(now.getUTCMinutes()).padStart(2,'0')}:${String(now.getUTCSeconds()).padStart(2,'0')} +0000`;
+  const line = `${ip} - - [${t}] "${method} ${url} HTTP/1.1" ${status} ${bytes} "${referer}" "${ua}"\n`;
+  try { fs.appendFileSync(APACHE_LOG, line); } catch { /* ignore write errors */ }
+}
 
 const authRoutes = require('./routes/auth.routes');
 const filesRoutes = require('./routes/files.routes');
@@ -74,6 +87,16 @@ app.use((req, res, next) => {
       latency_ms: Date.now() - start,
       raw,
     });
+
+    writeApacheLog(
+      req.ip || '-',
+      req.method,
+      req.originalUrl,
+      res.statusCode,
+      req.headers.referer || req.headers.referrer || '-',
+      req.headers['user-agent'] || '-',
+      res.get('Content-Length') || '-',
+    );
   });
   next();
 });
