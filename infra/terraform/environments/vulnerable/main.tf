@@ -21,6 +21,8 @@ module "network" {
   source         = "../../modules/network"
   env_name       = "vul"
   aws_region     = var.aws_region
+  vpc_cidr       = "10.4.0.0/16"
+  subnet_cidr    = "10.4.1.0/24"
   wazuh_vpc_id   = var.wazuh_vpc_id
 }
 
