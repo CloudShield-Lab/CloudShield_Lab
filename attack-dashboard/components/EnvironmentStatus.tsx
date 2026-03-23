@@ -1,67 +1,96 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import type { DashboardConfig } from '@/types';
 
 export function EnvironmentStatus() {
+  const pathname = usePathname();
   const [config, setConfig] = useState<DashboardConfig | null>(null);
 
   useEffect(() => {
+    if (pathname === '/') return;
+
     fetch('/api/config')
-      .then((r) => r.json())
+      .then((response) => response.json())
       .then(setConfig)
       .catch(() => {});
-  }, []);
+  }, [pathname]);
 
-  if (!config) {
-    return (
-      <div className="border-b border-slate-800 bg-[#0d1117] px-6 py-3">
-        <div className="max-w-6xl mx-auto flex gap-6 text-xs text-slate-600 font-mono">
-          <span>환경 정보 로딩 중...</span>
-        </div>
-      </div>
-    );
+  if (pathname === '/') {
+    return null;
   }
 
+  const isAuto = pathname.startsWith('/auto/') || pathname === '/auto';
+  const vulnConfig = isAuto ? config?.autoVulnerable : config?.vulnerable;
+  const secureConfig = isAuto ? config?.autoAws : config?.aws;
+
   return (
-    <div className="border-b border-slate-800 bg-[#0d1117] px-6 py-3">
-      <div className="max-w-6xl mx-auto flex flex-wrap gap-6 items-center text-xs font-mono">
-        {/* 취약 환경 */}
-        <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-          <span className="text-slate-500">취약 환경</span>
-          <span className="text-red-400 font-semibold">{config.vulnerable.url}</span>
-          <span className="px-1.5 py-0.5 rounded text-[10px] bg-red-950 text-red-400 border border-red-900">
-            LOCAL / NO PROTECTION
-          </span>
-        </div>
+    <div className="border-b border-slate-200 bg-white/90 px-6 py-3">
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-4 text-xs font-mono text-slate-600">
+        {config ? (
+          <>
+            <div className="flex items-center gap-2">
+              <span
+                className={`h-2.5 w-2.5 rounded-full ${
+                  vulnConfig?.configured ? 'bg-red-500' : 'bg-slate-400'
+                }`}
+              />
+              <span>취약 환경</span>
+              {vulnConfig?.configured ? (
+                <span className="font-semibold text-red-600">{vulnConfig.url}</span>
+              ) : (
+                <>
+                  <span className="text-slate-500">미설정</span>
+                  {isAuto && (
+                    <span className="rounded border border-amber-200 bg-amber-50 px-2 py-0.5 text-amber-600">
+                      자동 배포 필요
+                    </span>
+                  )}
+                </>
+              )}
+              {vulnConfig?.configured && (
+                <span className="rounded border border-red-200 bg-red-50 px-2 py-0.5 text-red-600">
+                  {isAuto ? 'AUTO / NO PROTECTION' : 'MANUAL / NO PROTECTION'}
+                </span>
+              )}
+            </div>
 
-        <span className="text-slate-700">|</span>
+            <span className="text-slate-300">|</span>
 
-        {/* AWS 환경 */}
-        <div className="flex items-center gap-2">
-          {config.aws.configured ? (
-            <>
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-slate-500">AWS 환경</span>
-              <span className="text-emerald-400 font-semibold truncate max-w-xs">
-                {config.aws.url}
-              </span>
-              <span className="px-1.5 py-0.5 rounded text-[10px] bg-emerald-950 text-emerald-400 border border-emerald-900">
-                WAF + CloudFront
-              </span>
-            </>
-          ) : (
-            <>
-              <span className="w-2 h-2 rounded-full bg-slate-700" />
-              <span className="text-slate-600">AWS 환경</span>
-              <span className="text-slate-600">미설정</span>
-              <span className="px-1.5 py-0.5 rounded text-[10px] bg-slate-800 text-slate-500 border border-slate-700">
-                .env.local에 AWS_API_URL 추가
-              </span>
-            </>
-          )}
-        </div>
+            <div className="flex items-center gap-2">
+              <span
+                className={`h-2.5 w-2.5 rounded-full ${
+                  secureConfig?.configured ? 'bg-emerald-500' : 'bg-slate-400'
+                }`}
+              />
+              <span>보안 환경</span>
+              {secureConfig?.configured ? (
+                <>
+                  <span className="font-semibold text-emerald-600">{secureConfig.url}</span>
+                  <span className="rounded border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-emerald-600">
+                    WAF + CloudFront
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="text-slate-500">미설정</span>
+                  {isAuto ? (
+                    <span className="rounded border border-amber-200 bg-amber-50 px-2 py-0.5 text-amber-600">
+                      자동 배포 필요
+                    </span>
+                  ) : (
+                    <span className="rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-slate-500">
+                      .env.local에 AWS_API_URL 추가 필요
+                    </span>
+                  )}
+                </>
+              )}
+            </div>
+          </>
+        ) : (
+          <span className="text-slate-500">환경 설정 정보를 불러오는 중입니다...</span>
+        )}
       </div>
     </div>
   );

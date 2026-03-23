@@ -9,25 +9,23 @@ interface Props {
 }
 
 function statusColor(status: number, blocked: boolean): string {
-  if (blocked) return 'text-emerald-400';
-  if (status === 200) return 'text-yellow-400';
-  if (status === 401) return 'text-orange-400';
-  if (status === 403) return 'text-emerald-400';
-  if (status === 429) return 'text-emerald-400';
-  if (status <= 0) return 'text-slate-500';
-  return 'text-slate-400';
+  if (blocked) return 'text-emerald-700';
+  if (status === 200) return 'text-amber-600';
+  if (status === 401) return 'text-orange-600';
+  if (status === 403 || status === 429) return 'text-emerald-700';
+  if (status <= 0) return 'text-slate-400';
+  return 'text-slate-600';
 }
 
 function rowBg(blocked: boolean, env: Environment): string {
-  if (blocked) return 'bg-emerald-950/30 border-l-2 border-emerald-600';
-  if (env === 'vulnerable') return 'bg-red-950/20 border-l-2 border-red-900';
-  return 'bg-slate-900/30 border-l-2 border-slate-700';
+  if (blocked) return 'border-l-2 border-emerald-400 bg-emerald-50';
+  if (env === 'vulnerable') return 'border-l-2 border-red-300 bg-red-50';
+  return 'border-l-2 border-emerald-200 bg-emerald-50/45';
 }
 
 export function RequestLog({ results, env }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // 새 항목이 들어오면 자동 스크롤
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -36,55 +34,41 @@ export function RequestLog({ results, env }: Props) {
 
   if (results.length === 0) {
     return (
-      <div className="h-52 flex items-center justify-center text-slate-600 font-mono text-sm">
-        공격 대기 중...
+      <div className="flex h-32 items-center justify-center font-mono text-sm text-slate-500">
+        아직 실행된 요청이 없습니다.
       </div>
     );
   }
 
   return (
-    <div
-      ref={scrollRef}
-      className="h-52 overflow-y-auto space-y-0.5 pr-1"
-    >
-      {results.map((r, idx) => (
+    <div ref={scrollRef} className="h-32 space-y-0.5 overflow-y-auto pr-1">
+      {results.map((result) => (
         <div
-          key={idx}
-          className={`flex items-center gap-2 px-2 py-[3px] rounded-sm text-xs font-mono ${rowBg(r.blocked, env)}`}
+          key={result.attempt}
+          className={`flex items-center gap-2 rounded-sm px-2 py-[3px] font-mono text-xs ${rowBg(result.blocked, env)}`}
         >
-          {/* 상태 표시등 */}
           <span
-            className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-              r.blocked ? 'bg-emerald-500' : env === 'vulnerable' ? 'bg-red-500' : 'bg-slate-500'
+            className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${
+              result.blocked ? 'bg-emerald-500' : env === 'vulnerable' ? 'bg-red-500' : 'bg-emerald-400'
             }`}
           />
-
-          {/* 시도 번호 */}
-          <span className="text-slate-600 w-8 text-right flex-shrink-0">
-            #{r.attempt}
+          <span className="w-8 flex-shrink-0 text-right text-slate-500">#{result.attempt}</span>
+          <span className={`w-10 flex-shrink-0 font-bold ${statusColor(result.status, result.blocked)}`}>
+            {result.status > 0 ? result.status : 'ERR'}
           </span>
-
-          {/* HTTP 상태 코드 */}
-          <span className={`w-10 font-bold flex-shrink-0 ${statusColor(r.status, r.blocked)}`}>
-            {r.status > 0 ? r.status : 'ERR'}
+          <span className="w-14 flex-shrink-0 text-slate-500">
+            {result.latency > 0 ? `${result.latency}ms` : '-'}
           </span>
-
-          {/* 레이턴시 */}
-          <span className="text-slate-600 w-14 flex-shrink-0">
-            {r.latency > 0 ? `${r.latency}ms` : '—'}
-          </span>
-
-          {/* 경로 (S3 공격) 또는 레이블 */}
           <span
-            className={`truncate flex-1 ${
-              r.blocked
-                ? 'text-emerald-400 font-semibold'
+            className={`flex-1 truncate ${
+              result.blocked
+                ? 'font-semibold text-emerald-700'
                 : env === 'vulnerable'
-                ? 'text-red-400'
-                : 'text-slate-500'
+                  ? 'text-red-600'
+                  : 'text-emerald-700'
             }`}
           >
-            {r.label || '—'}
+            {result.label || '응답 수신'}
           </span>
         </div>
       ))}

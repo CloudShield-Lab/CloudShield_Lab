@@ -1,0 +1,190 @@
+'use client';
+
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { attackScenarioConfigs, defaultAttackScenario } from '@/lib/attack-scenarios';
+
+type WorkspaceMode = 'manual' | 'auto';
+
+const workspaceMeta = {
+  manual: {
+    title: '수동 배포 Workspace',
+    titleTone: 'text-sky-950',
+    description:
+      'Infrastructure Guide를 따라 실습용 AWS 환경을 직접 구성하고, 같은 화면에서 Attack Simulator 결과를 비교합니다.',
+    setupLabel: '수동 환경 구성',
+    setupHref: '/manual',
+    attackHref: `/manual/attack/${defaultAttackScenario}`,
+    analysisHref: '/manual/analysis',
+    accent: 'from-sky-50 via-white to-slate-50',
+    badge: 'MANUAL',
+    badgeTone: 'border-sky-200 bg-sky-50 text-sky-700',
+    activeTone: 'border-sky-200 bg-sky-50 text-sky-700',
+    activeSoftTone: 'border-sky-200 bg-sky-50 text-sky-800',
+    setupDescription: 'Infrastructure Guide 기준으로 AWS 환경을 단계별로 직접 구성합니다.',
+  },
+  auto: {
+    title: '자동 배포 Workspace',
+    titleTone: 'text-violet-950',
+    description:
+      'Terraform 기반 자동 배포를 실행하고, 이후 같은 공격 시나리오로 보안 효과를 비교합니다.',
+    setupLabel: '자동 환경 구성',
+    setupHref: '/auto',
+    attackHref: `/auto/attack/${defaultAttackScenario}`,
+    analysisHref: '/auto/analysis',
+    accent: 'from-violet-50 via-sky-50 to-white',
+    badge: 'AUTO',
+    badgeTone: 'border-violet-200 bg-violet-50 text-violet-700',
+    activeTone: 'border-violet-200 bg-violet-50 text-violet-700',
+    activeSoftTone: 'border-violet-200 bg-violet-50 text-violet-800',
+    setupDescription: 'Terraform으로 AWS 환경을 자동 배포하거나 제거합니다.',
+  },
+} as const;
+
+export function WorkspaceShell({
+  mode,
+  children,
+}: {
+  mode: WorkspaceMode;
+  children: React.ReactNode;
+}) {
+  const pathname = usePathname();
+  const meta = workspaceMeta[mode];
+  const rootPath = `/${mode}`;
+  const attackRoot = `${rootPath}/attack`;
+  const analysisRoot = `${rootPath}/analysis`;
+  const isAttackPage = pathname.startsWith(attackRoot);
+  const isAnalysisPage = pathname.startsWith(analysisRoot);
+  const setupActive = pathname.startsWith(rootPath) && !isAttackPage && !isAnalysisPage;
+
+  return (
+    <div className="w-full py-6 pr-4 sm:pr-6 lg:pr-8">
+      <div className="grid gap-5 lg:grid-cols-[220px_minmax(0,1fr)] lg:items-start">
+        <aside className="lg:sticky lg:top-6">
+          <div className="rounded-2xl border border-slate-200 bg-white/95 p-3.5 shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
+            <div className="space-y-2">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-700">Workspace</div>
+              <Link
+                href={meta.setupHref}
+                className={`block rounded-xl border px-4 py-3 transition-colors ${
+                  setupActive
+                    ? meta.activeSoftTone
+                    : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900'
+                }`}
+              >
+                <div className="text-[13px] font-semibold">{meta.setupLabel}</div>
+                <div className="mt-1 text-[11px] leading-5 text-slate-600">{meta.setupDescription}</div>
+              </Link>
+            </div>
+
+            <div className="mt-6 space-y-2">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-700">Attack Simulator</div>
+              {attackScenarioConfigs.map((scenario) => {
+                const href = `${attackRoot}/${scenario.key}`;
+                const active = pathname === href;
+
+                return (
+                  <Link
+                    key={scenario.key}
+                    href={href}
+                    className={`block rounded-xl border px-3.5 py-2.5 transition-colors ${
+                      active
+                        ? meta.activeSoftTone
+                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-slate-50 font-mono text-[11px] text-slate-500">
+                        {scenario.index}
+                      </span>
+                      <span className="whitespace-nowrap text-[12px] font-medium tracking-[-0.01em] text-slate-800">
+                        {scenario.shortTitle}
+                      </span>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+
+            <div className="mt-6 space-y-2">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-700">Post Analysis</div>
+              <Link
+                href={meta.analysisHref}
+                className={`block rounded-xl border px-4 py-3 transition-colors ${
+                  isAnalysisPage
+                    ? meta.activeSoftTone
+                    : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-[13px] leading-none">
+                    🤖
+                  </span>
+                  <span className="text-[13px] font-medium text-slate-800">AI 공격 분석</span>
+                </div>
+              </Link>
+            </div>
+          </div>
+        </aside>
+
+        <section
+          className={`overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br ${meta.accent} shadow-[0_18px_50px_rgba(15,23,42,0.06)]`}
+        >
+          <div className="border-b border-slate-200 px-6 py-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <span className={`rounded-full border px-3 py-1 font-mono text-[11px] tracking-[0.22em] ${meta.badgeTone}`}>
+                    {meta.badge}
+                  </span>
+                  <Link href="/" className="text-sm font-medium text-slate-600 transition-colors hover:text-slate-900">
+                    시작 화면으로 돌아가기
+                  </Link>
+                </div>
+                <div>
+                  <h1 className={`text-2xl font-semibold ${meta.titleTone}`}>{meta.title}</h1>
+                  <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-700">{meta.description}</p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <Link
+                  href={meta.setupHref}
+                  className={`rounded-xl border px-4 py-2 text-sm font-medium transition-colors ${
+                    setupActive
+                      ? meta.activeTone
+                      : 'border-slate-200 bg-white/80 text-slate-600 hover:border-slate-300 hover:text-slate-900'
+                  }`}
+                >
+                  {meta.setupLabel}
+                </Link>
+                <Link
+                  href={meta.attackHref}
+                  className={`rounded-xl border px-4 py-2 text-sm font-medium transition-colors ${
+                    isAttackPage
+                      ? meta.activeTone
+                      : 'border-slate-200 bg-white/80 text-slate-600 hover:border-slate-300 hover:text-slate-900'
+                  }`}
+                >
+                  Attack Simulator
+                </Link>
+                <Link
+                  href={meta.analysisHref}
+                  className={`rounded-xl border px-4 py-2 text-sm font-medium transition-colors ${
+                    isAnalysisPage
+                      ? meta.activeTone
+                      : 'border-slate-200 bg-white/80 text-slate-600 hover:border-slate-300 hover:text-slate-900'
+                  }`}
+                >
+                  AI 분석
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-4 lg:p-6">{children}</div>
+        </section>
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,15 @@
+Mutelist:
+  Accounts:
+    "*":
+      Checks:
+        "kms_cmk_not_deleted_unintentionally":
+          Regions:
+            - "*"
+          Resources:
+            - "35d2458f-3962-4891-854a-eac25c5211c0"
+            - "4bbfad5d-f0ec-4206-bd8e-5d74062c70cc"
+            - "673945cd-b5a2-4c77-9308-046424099584"
+            - "9c48142f-dcbe-42c6-91a9-0cf499447336"
+            - "c7331c45-33e8-43d3-b80b-c6d7ab0ce53e"
+            - "d2e83dbb-f9ed-4068-a80a-fb726304e31f"
+          Description: "Intentional CMK deletion"

@@ -1,0 +1,248 @@
+name: Terraform — Vulnerable Environment
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Terraform action'
+        required: true
+        type: choice
+        options:
+          - apply
+          - destroy
+
+env:
+  AWS_REGION: ap-northeast-2
+  TF_WORKING_DIR: infra/terraform/environments/vulnerable
+
+concurrency:
+  group: terraform-vulnerable
+  cancel-in-progress: false
+
+jobs:
+  terraform:
+    name: Terraform ${{ github.event.inputs.action }} (Vulnerable)
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.7.x'
+
+      - name: Terraform Format
+        run: terraform fmt -recursive infra/terraform
+
+      - name: Terraform Init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform init
+
+      - name: Terraform Validate
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform validate
+
+      - name: Terraform Plan
+        if: github.event.inputs.action == 'apply'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        env:
+          TF_VAR_db_password: ${{ secrets.TF_DB_PASSWORD }}
+          TF_VAR_jwt_secret: ${{ secrets.TF_JWT_SECRET }}
+        run: terraform plan -out=tfplan
+
+      - name: Terraform Apply
+        if: github.event.inputs.action == 'apply'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        env:
+          TF_VAR_db_password: ${{ secrets.TF_DB_PASSWORD }}
+          TF_VAR_jwt_secret: ${{ secrets.TF_JWT_SECRET }}
+        run: terraform apply -auto-approve tfplan
+
+      - name: Terraform Destroy (on apply failure)
+        if: failure() && github.event.inputs.action == 'apply'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        env:
+          TF_VAR_db_password: ${{ secrets.TF_DB_PASSWORD }}
+          TF_VAR_jwt_secret: ${{ secrets.TF_JWT_SECRET }}
+        run: terraform destroy -auto-approve
+
+      - name: Terraform Destroy
+        if: github.event.inputs.action == 'destroy'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        env:
+          TF_VAR_db_password: ${{ secrets.TF_DB_PASSWORD }}
+          TF_VAR_jwt_secret: ${{ secrets.TF_JWT_SECRET }}
+        run: terraform destroy -auto-approve
+
+      - name: Clear GitHub Secrets after Destroy
+        if: github.event.inputs.action == 'destroy'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          gh secret set VULN_EC2_INSTANCE_ID --body "DESTROYED"
+          gh secret set TF_VULN_API_URL       --body "DESTROYED"
+          echo "✅ 시크릿 초기화 완료"
+
+      - name: Export outputs to GitHub Secrets
+        if: github.event.inputs.action == 'apply'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          EC2_ID=$(terraform output -raw ec2_instance_id)
+          EIP=$(terraform output -raw elastic_ip)
+
+          gh secret set VULN_EC2_INSTANCE_ID --body "$EC2_ID"
+          gh secret set TF_VULN_API_URL       --body "http://${EIP}:3000/api"
+
+          echo "✅ VULN_EC2_INSTANCE_ID=$EC2_ID"
+          echo "✅ TF_VULN_API_URL=http://${EIP}:3000/api"
+
+      - name: Wait for EC2 user_data & Run Migration
+        if: github.event.inputs.action == 'apply'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          EC2_ID=$(terraform output -raw ec2_instance_id)
+          echo "EC2 ID: $EC2_ID — user_data 완료 대기 중..."
+
+          fetch_log() {
+            local LOG_CMD_ID
+            LOG_CMD_ID=$(aws ssm send-command \
+              --instance-ids "$EC2_ID" \
+              --document-name "AWS-RunShellScript" \
+              --parameters 'commands=["tail -80 /var/log/user-data.log 2>/dev/null || echo \"(로그 없음)\""]' \
+              --query "Command.CommandId" \
+              --output text 2>/dev/null || echo "")
+            if [ -n "$LOG_CMD_ID" ] && [ "$LOG_CMD_ID" != "None" ]; then
+              sleep 10
+              echo "=== /var/log/user-data.log (마지막 80줄) ==="
+              aws ssm get-command-invocation \
+                --command-id "$LOG_CMD_ID" \
+                --instance-id "$EC2_ID" \
+                --query "StandardOutputContent" \
+                --output text 2>/dev/null || echo "(로그 수집 실패)"
+            fi
+          }
+
+          USER_DATA_DONE=false
+          for i in $(seq 1 80); do
+            echo "[$i/80] 상태 확인 중..."
+
+            COMMAND_ID=$(aws ssm send-command \
+              --instance-ids "$EC2_ID" \
+              --document-name "AWS-RunShellScript" \
+              --parameters 'commands=["if [ -f /var/log/user-data-failed ]; then echo STATUS:FAILED; elif [ -f /var/log/user-data-complete ]; then echo STATUS:DONE; else echo STATUS:WAIT; fi; echo \"---\"; tail -3 /var/log/user-data.log 2>/dev/null || echo \"(로그 없음)\""]' \
+              --query "Command.CommandId" \
+              --output text 2>/dev/null) || true
+
+            if [ -z "$COMMAND_ID" ] || [ "$COMMAND_ID" = "None" ]; then
+              echo "  → SSM 미준비, 15초 후 재시도..."
+              sleep 15
+              continue
+            fi
+
+            sleep 10
+
+            RESULT=$(aws ssm get-command-invocation \
+              --command-id "$COMMAND_ID" \
+              --instance-id "$EC2_ID" \
+              --query "StandardOutputContent" \
+              --output text 2>/dev/null || echo "PENDING")
+
+            echo "$RESULT"
+
+            if echo "$RESULT" | grep -q "STATUS:DONE"; then
+              echo "✅ user_data 완료 확인!"
+              USER_DATA_DONE=true
+              break
+            fi
+
+            if echo "$RESULT" | grep -q "STATUS:FAILED"; then
+              echo "❌ user_data 실패 감지 — 전체 로그 수집 중..."
+              fetch_log
+              exit 1
+            fi
+
+            sleep 15
+          done
+
+          if [ "$USER_DATA_DONE" = "false" ]; then
+            echo "❌ user_data 타임아웃 (최대 33분 초과) — 전체 로그 수집 중..."
+            fetch_log
+            exit 1
+          fi
+
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "$EC2_ID" \
+            --document-name "AWS-RunShellScript" \
+            --parameters 'commands=["docker cp sentinelshare-backend:/app/migrations/001_initial_schema.sql /tmp/migration.sql && DB_PASS=$(grep ^DB_PASSWORD= /opt/app/.env | cut -d= -f2) && PGPASSWORD=$DB_PASS psql -h 127.0.0.1 -U sentinelshare -d sentinelshare -f /tmp/migration.sql 2>&1 || echo MIGRATION_ALREADY_DONE"]' \
+            --query "Command.CommandId" \
+            --output text)
+
+          echo "SSM Command ID: $COMMAND_ID"
+          sleep 30
+
+          aws ssm get-command-invocation \
+            --command-id "$COMMAND_ID" \
+            --instance-id "$EC2_ID" \
+            --query "StandardOutputContent" \
+            --output text
+
+      - name: Setup Node.js for frontend deploy
+        if: github.event.inputs.action == 'apply'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: sentinel-share-frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        if: github.event.inputs.action == 'apply'
+        working-directory: sentinel-share-frontend
+        run: npm ci
+
+      - name: Build frontend for TF Vulnerable
+        if: github.event.inputs.action == 'apply'
+        working-directory: sentinel-share-frontend
+        run: |
+          EIP=$(terraform -chdir="${{ github.workspace }}/${{ env.TF_WORKING_DIR }}" output -raw elastic_ip)
+          STATIC_EXPORT=true \
+          NEXT_PUBLIC_API_URL="http://${EIP}:3000/api" \
+          NEXT_PUBLIC_ENV_TYPE=vulnerable \
+          npm run build
+
+      - name: Deploy frontend to TF Vulnerable S3
+        if: github.event.inputs.action == 'apply'
+        run: aws s3 sync sentinel-share-frontend/out/ s3://sentinelshare-tf-vul-frontend/ --delete
+
+      - name: Output Results
+        if: github.event.inputs.action == 'apply'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform output -json
+
+  security-report:
+    name: Security Report (Vulnerable Apply Only)
+    needs: terraform
+    if: ${{ needs.terraform.result == 'success' && github.event.inputs.action == 'apply' }}
+    permissions:
+      id-token: write
+      contents: read
+      actions: read
+    uses: ./.github/workflows/security-infra.yml
+    with:
+      artifact_name: prowler-report-vulnerable
+      fail_on_findings: false
+      environment_tag: vul
+      managed_by_tag: terraform
+    secrets: inherit

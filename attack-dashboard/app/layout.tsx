@@ -4,21 +4,20 @@ import { Navbar } from '@/components/Navbar';
 import { EnvironmentStatus } from '@/components/EnvironmentStatus';
 
 export const metadata: Metadata = {
-  title: 'CloudShield Lab — Cloud Security Impact Simulator',
-  description: 'AWS 인프라 보안 효과를 실시간으로 비교하는 공격 시뮬레이터',
+  title: 'CloudShield Lab | AWS Security Attack Simulator',
+  description:
+    'Practice dashboard for manual or automated AWS deployment and attack-path comparison between vulnerable and protected environments.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ko">
-      <body className="min-h-screen bg-[#080c14] text-slate-100 antialiased flex flex-col">
+      <body className="flex min-h-screen flex-col bg-slate-50 text-slate-900 antialiased">
         <Navbar />
         <EnvironmentStatus />
-        <main className="flex-1">
-          {children}
-        </main>
-        <footer className="border-t border-slate-800 px-6 py-3 text-center text-xs text-slate-700 font-mono">
-          CloudShield Lab — Cloud Security Impact Simulator | 교육 및 데모 전용
+        <main className="flex-1">{children}</main>
+        <footer className="border-t border-slate-200 bg-white/90 px-6 py-3 text-center font-mono text-xs text-slate-500">
+          CloudShield Lab | Manual and automated AWS deployment workspace with attack path comparison
         </footer>
       </body>
     </html>

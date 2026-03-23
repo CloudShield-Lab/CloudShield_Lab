@@ -1,27 +1,34 @@
-variable "bucket_name" {
-  description = "S3 bucket name"
-  type        = string
-}
-
 variable "env_name" {
-  description = "Environment name for tagging"
+  description = "Environment name (vul or secure)"
   type        = string
 }
 
 variable "block_public_access" {
-  description = "Whether to block all public access (true = secure, false = vulnerable)"
+  description = "Enable S3 Block Public Access (false = vulnerable, true = secure)"
   type        = bool
   default     = true
 }
 
-variable "enable_static_website" {
-  description = "Whether to enable static website hosting"
+variable "ec2_role_arn" {
+  description = "Optional EC2 IAM role ARN (used only when a private bucket policy is explicitly enabled)"
+  type        = string
+  default     = ""
+}
+
+variable "cors_origin" {
+  description = "Optional CORS allowed origin for files bucket"
+  type        = string
+  default     = ""
+}
+
+variable "enable_kms_encryption" {
+  description = "Enable SSE-KMS default encryption for the files bucket"
   type        = bool
   default     = false
 }
 
-variable "enable_public_read_policy" {
-  description = "Whether to add a public GetObject bucket policy"
-  type        = bool
-  default     = false
+variable "kms_key_arn" {
+  description = "KMS key ARN for files bucket SSE-KMS encryption"
+  type        = string
+  default     = ""
 }

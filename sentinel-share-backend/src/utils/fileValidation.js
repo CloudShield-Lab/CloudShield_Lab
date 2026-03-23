@@ -7,6 +7,8 @@ const ALLOWED_EXTENSIONS = new Set([
   'pdf', 'txt', 'zip',
 ]);
 
+const FILE_VALIDATION_DISABLED = process.env.DISABLE_FILE_VALIDATION === 'true';
+
 /**
  * Validates file before it is uploaded to S3.
  * Checks MIME type against whitelist, extension against whitelist, and size.
@@ -19,18 +21,7 @@ function validateFile(file) {
     return { valid: false, error: 'No file provided' };
   }
 
-  // MIME type check
-  if (!env.ALLOWED_MIME_TYPES.includes(file.mimetype)) {
-    return { valid: false, error: `File type not allowed: ${file.mimetype}` };
-  }
-
-  // Extension check — defence-in-depth against MIME spoofing
-  const ext = (file.originalname.split('.').pop() || '').toLowerCase();
-  if (!ALLOWED_EXTENSIONS.has(ext)) {
-    return { valid: false, error: `File extension not allowed: .${ext}` };
-  }
-
-  // Size check
+  // Size check only — all file types and extensions are allowed
   if (file.size > env.MAX_FILE_SIZE_BYTES) {
     const maxMb = env.MAX_FILE_SIZE_BYTES / (1024 * 1024);
     return { valid: false, error: `File exceeds maximum size of ${maxMb}MB` };

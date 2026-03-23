@@ -1,0 +1,99 @@
+name: Security Infra Verification
+
+on:
+  workflow_call:
+    inputs:
+      artifact_name:
+        required: false
+        type: string
+        default: prowler-report
+      fail_on_findings:
+        required: false
+        type: boolean
+        default: true
+      environment_tag:
+        required: true
+        type: string
+      managed_by_tag:
+        required: false
+        type: string
+        default: terraform
+  workflow_dispatch:
+
+env:
+  AWS_REGION: ap-northeast-2
+  PROWLER_OUTPUT_DIR: prowler-output
+
+jobs:
+  prowler-verify:
+    name: Prowler Infra Scan
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write
+      contents: read
+      actions: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_PROWLER_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Prepare output directory
+        run: mkdir -p "${{ env.PROWLER_OUTPUT_DIR }}"
+
+      - name: Run Prowler against AWS account
+        run: |
+          set +e
+
+          docker run --rm \
+            --user 0:0 \
+            -e AWS_ACCESS_KEY_ID \
+            -e AWS_SECRET_ACCESS_KEY \
+            -e AWS_SESSION_TOKEN \
+            -e AWS_REGION \
+            -v "${{ github.workspace }}/${{ env.PROWLER_OUTPUT_DIR }}:/home/prowler/output" \
+            -v "${{ github.workspace }}/.github/ignore/prowler-exceptions.yml:/home/prowler/prowler-exceptions.yml:ro" \
+            toniblyx/prowler:stable \
+            aws \
+            --region "${{ env.AWS_REGION }}" \
+            --mutelist-file /home/prowler/prowler-exceptions.yml \
+            --resource-tags "Environment=${{ inputs.environment_tag }}" "ManagedBy=${{ inputs.managed_by_tag }}" \
+            --output-modes json-ocsf html csv
+
+          PROWLER_EXIT_CODE=$?
+          echo "Prowler exit code: ${PROWLER_EXIT_CODE}"
+
+          if [ "${PROWLER_EXIT_CODE}" -ne 0 ] && [ "${PROWLER_EXIT_CODE}" -ne 3 ]; then
+            exit "${PROWLER_EXIT_CODE}"
+          fi
+
+      - name: Upload Prowler report artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name || 'prowler-report' }}
+          path: ${{ env.PROWLER_OUTPUT_DIR }}
+
+      - name: Fail on high or critical findings
+        if: ${{ inputs.fail_on_findings != false }}
+        shell: bash
+        run: |
+          files=$(find "${{ env.PROWLER_OUTPUT_DIR }}" -name "*.ocsf.json")
+
+          if [ -z "$files" ]; then
+            echo "No Prowler OCSF JSON report found."
+            exit 1
+          fi
+
+          jq -e -s '
+            map(.[])
+            | map(select(.status_code == "FAIL"))
+            | map(select(((.status_id // 0) != 2) and (((.status // "") | ascii_downcase) != "suppressed")))
+            | map(select((.severity // "") | ascii_downcase == "critical"))
+            | length == 0
+          ' $files

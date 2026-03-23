@@ -30,6 +30,23 @@ export function clearSession(): void {
   localStorage.removeItem(USER_KEY);
 }
 
+function isTokenExpired(token: string): boolean {
+  try {
+    const base64url = token.split('.')[1];
+    const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
+    const payload = JSON.parse(atob(base64));
+    return payload.exp * 1000 < Date.now();
+  } catch {
+    return true;
+  }
+}
+
 export function isAuthenticated(): boolean {
-  return Boolean(getToken());
+  const token = getToken();
+  if (!token) return false;
+  if (isTokenExpired(token)) {
+    clearSession();
+    return false;
+  }
+  return true;
 }

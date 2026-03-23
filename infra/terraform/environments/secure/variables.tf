@@ -1,32 +1,13 @@
 variable "aws_region" {
-  description = "AWS region (main)"
+  description = "AWS region"
   type        = string
   default     = "ap-northeast-2"
 }
 
-variable "aws_account_id" {
-  description = "AWS account ID"
+variable "db_password" {
+  description = "PostgreSQL database password"
   type        = string
-  default     = "833453046706"
-}
-
-variable "storage_bucket_name" {
-  description = "S3 bucket name for file storage (user uploads)"
-  type        = string
-  default     = "sentinel-share-secure-files"
-}
-
-# CloudFront 관리형 프리픽스 리스트 (ap-northeast-2)
-variable "cloudfront_prefix_list_id" {
-  description = "AWS managed prefix list ID for CloudFront IPs in ap-northeast-2"
-  type        = string
-  default     = "pl-22a6434b"
-}
-
-variable "waf_rate_limit" {
-  description = "WAF rate-based rule: max requests per 5 minutes per IP"
-  type        = number
-  default     = 2000
+  sensitive   = true
 }
 
 variable "jwt_secret" {
@@ -35,8 +16,8 @@ variable "jwt_secret" {
   sensitive   = true
 }
 
-variable "db_password" {
-  description = "PostgreSQL password for sentinelshare user"
+variable "wazuh_manager_ip" {
+  description = "Wazuh 매니저 서버 IP (비어있으면 에이전트 미설치)"
   type        = string
-  sensitive   = true
+  default     = ""
 }

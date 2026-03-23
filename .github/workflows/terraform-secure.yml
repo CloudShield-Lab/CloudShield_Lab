@@ -1,0 +1,459 @@
+name: Terraform — Secure Environment
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Terraform action'
+        required: true
+        type: choice
+        options:
+          - apply
+          - destroy
+
+env:
+  AWS_REGION: ap-northeast-2
+  TF_WORKING_DIR: infra/terraform/environments/secure
+  TF_KMS_WORKING_DIR: infra/terraform/environments/secure-kms
+  SECURE_DB_SECRET_NAME: secure-tf-db-password
+  SECURE_JWT_SECRET_NAME: secure-tf-jwt-secret
+
+concurrency:
+  group: terraform-secure
+  cancel-in-progress: false
+
+jobs:
+  terraform:
+    name: Terraform ${{ github.event.inputs.action }} (Secure)
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.7.x'
+
+      - name: Terraform Format
+        run: terraform fmt -recursive infra/terraform
+
+      - name: Terraform Init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform init
+
+      - name: Terraform Validate
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform validate
+
+      - name: Check secure foundation state
+        if: github.event.inputs.action == 'apply'
+        id: kms-state
+        run: |
+          if aws s3api head-object \
+            --bucket sentinelshare-terraform-state-833453046706-ap-northeast-2-an \
+            --key secure-kms/terraform.tfstate \
+            >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Detect secure foundation bootstrap mode
+        if: github.event.inputs.action == 'apply' && steps.kms-state.outputs.exists == 'false'
+        id: kms-bootstrap
+        run: |
+          normalize_key_id() {
+            if [ "$1" = "None" ]; then
+              echo ""
+            else
+              echo "$1"
+            fi
+          }
+
+          SECRETS_KEY_ID=$(aws kms list-aliases \
+            --region "${{ env.AWS_REGION }}" \
+            --query "Aliases[?AliasName=='alias/sentinelshare-secure-secrets'].TargetKeyId | [0]" \
+            --output text)
+          DATA_KEY_ID=$(aws kms list-aliases \
+            --region "${{ env.AWS_REGION }}" \
+            --query "Aliases[?AliasName=='alias/sentinelshare-secure-data'].TargetKeyId | [0]" \
+            --output text)
+          EBS_KEY_ID=$(aws kms list-aliases \
+            --region "${{ env.AWS_REGION }}" \
+            --query "Aliases[?AliasName=='alias/sentinelshare-secure-ebs'].TargetKeyId | [0]" \
+            --output text)
+
+          SECRETS_KEY_ID=$(normalize_key_id "$SECRETS_KEY_ID")
+          DATA_KEY_ID=$(normalize_key_id "$DATA_KEY_ID")
+          EBS_KEY_ID=$(normalize_key_id "$EBS_KEY_ID")
+
+          PRESENT_COUNT=0
+          [ -n "$SECRETS_KEY_ID" ] && PRESENT_COUNT=$((PRESENT_COUNT + 1))
+          [ -n "$DATA_KEY_ID" ] && PRESENT_COUNT=$((PRESENT_COUNT + 1))
+          [ -n "$EBS_KEY_ID" ] && PRESENT_COUNT=$((PRESENT_COUNT + 1))
+
+          DB_SECRET_ARN=$(aws secretsmanager describe-secret \
+            --region "${{ env.AWS_REGION }}" \
+            --secret-id "${{ env.SECURE_DB_SECRET_NAME }}" \
+            --query "ARN" \
+            --output text 2>/dev/null || echo "")
+          JWT_SECRET_ARN=$(aws secretsmanager describe-secret \
+            --region "${{ env.AWS_REGION }}" \
+            --secret-id "${{ env.SECURE_JWT_SECRET_NAME }}" \
+            --query "ARN" \
+            --output text 2>/dev/null || echo "")
+
+          if [ "$DB_SECRET_ARN" = "None" ]; then
+            DB_SECRET_ARN=""
+          fi
+
+          if [ "$JWT_SECRET_ARN" = "None" ]; then
+            JWT_SECRET_ARN=""
+          fi
+
+          if [ "$PRESENT_COUNT" -eq 0 ]; then
+            echo "mode=apply" >> "$GITHUB_OUTPUT"
+            echo "db_secret_exists=false" >> "$GITHUB_OUTPUT"
+            echo "jwt_secret_exists=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "$PRESENT_COUNT" -ne 3 ]; then
+            echo "Detected a partial secure foundation KMS baseline in AWS without secure-kms state."
+            echo "secrets=$SECRETS_KEY_ID"
+            echo "data=$DATA_KEY_ID"
+            echo "ebs=$EBS_KEY_ID"
+            echo "Resolve the partial KMS baseline before running secure apply."
+            exit 1
+          fi
+
+          echo "mode=import" >> "$GITHUB_OUTPUT"
+          echo "secrets_key_id=$SECRETS_KEY_ID" >> "$GITHUB_OUTPUT"
+          echo "data_key_id=$DATA_KEY_ID" >> "$GITHUB_OUTPUT"
+          echo "ebs_key_id=$EBS_KEY_ID" >> "$GITHUB_OUTPUT"
+          echo "db_secret_exists=$([ -n "$DB_SECRET_ARN" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          echo "jwt_secret_exists=$([ -n "$JWT_SECRET_ARN" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+      - name: Terraform Init (Secure Foundation)
+        if: github.event.inputs.action == 'apply'
+        working-directory: ${{ env.TF_KMS_WORKING_DIR }}
+        run: terraform init
+
+      - name: Terraform Validate (Secure Foundation)
+        if: github.event.inputs.action == 'apply'
+        working-directory: ${{ env.TF_KMS_WORKING_DIR }}
+        run: terraform validate
+
+      - name: Terraform Import (Secure Foundation)
+        if: github.event.inputs.action == 'apply' && steps.kms-state.outputs.exists == 'false' && steps.kms-bootstrap.outputs.mode == 'import'
+        working-directory: ${{ env.TF_KMS_WORKING_DIR }}
+        env:
+          TF_VAR_db_password: ${{ secrets.TF_DB_PASSWORD }}
+          TF_VAR_jwt_secret: ${{ secrets.TF_JWT_SECRET }}
+        run: |
+          terraform import -input=false module.kms.aws_kms_key.main "${{ steps.kms-bootstrap.outputs.secrets_key_id }}"
+          terraform import -input=false module.kms_data.aws_kms_key.main "${{ steps.kms-bootstrap.outputs.data_key_id }}"
+          terraform import -input=false module.kms_ebs.aws_kms_key.main "${{ steps.kms-bootstrap.outputs.ebs_key_id }}"
+
+          terraform import -input=false module.kms.aws_kms_alias.main alias/sentinelshare-secure-secrets
+          terraform import -input=false module.kms_data.aws_kms_alias.main alias/sentinelshare-secure-data
+          terraform import -input=false module.kms_ebs.aws_kms_alias.main alias/sentinelshare-secure-ebs
+
+          if [ "${{ steps.kms-bootstrap.outputs.db_secret_exists }}" = "true" ]; then
+            terraform import -input=false module.secrets.aws_secretsmanager_secret.db_password "${{ env.SECURE_DB_SECRET_NAME }}"
+          fi
+
+          if [ "${{ steps.kms-bootstrap.outputs.jwt_secret_exists }}" = "true" ]; then
+            terraform import -input=false module.secrets.aws_secretsmanager_secret.jwt_secret "${{ env.SECURE_JWT_SECRET_NAME }}"
+          fi
+
+      - name: Import existing secure secrets into foundation state
+        if: github.event.inputs.action == 'apply'
+        working-directory: ${{ env.TF_KMS_WORKING_DIR }}
+        shell: bash
+        env:
+          TF_VAR_db_password: ${{ secrets.TF_DB_PASSWORD }}
+          TF_VAR_jwt_secret: ${{ secrets.TF_JWT_SECRET }}
+        run: |
+          import_secret_if_needed() {
+            local resource_address="$1"
+            local secret_name="$2"
+
+            if terraform state show "$resource_address" >/dev/null 2>&1; then
+              echo "State already contains $resource_address"
+              return 0
+            fi
+
+            if aws secretsmanager describe-secret \
+              --region "${{ env.AWS_REGION }}" \
+              --secret-id "$secret_name" \
+              >/dev/null 2>&1; then
+              terraform import -input=false "$resource_address" "$secret_name"
+            else
+              echo "Secret does not exist yet: $secret_name"
+            fi
+          }
+
+          import_secret_if_needed "module.secrets.aws_secretsmanager_secret.db_password" "${{ env.SECURE_DB_SECRET_NAME }}"
+          import_secret_if_needed "module.secrets.aws_secretsmanager_secret.jwt_secret" "${{ env.SECURE_JWT_SECRET_NAME }}"
+
+      - name: Terraform Plan (Secure Foundation)
+        if: github.event.inputs.action == 'apply'
+        working-directory: ${{ env.TF_KMS_WORKING_DIR }}
+        env:
+          TF_VAR_db_password: ${{ secrets.TF_DB_PASSWORD }}
+          TF_VAR_jwt_secret: ${{ secrets.TF_JWT_SECRET }}
+        run: terraform plan -input=false -out=tfplan
+
+      - name: Terraform Apply (Secure Foundation)
+        if: github.event.inputs.action == 'apply'
+        working-directory: ${{ env.TF_KMS_WORKING_DIR }}
+        env:
+          TF_VAR_db_password: ${{ secrets.TF_DB_PASSWORD }}
+          TF_VAR_jwt_secret: ${{ secrets.TF_JWT_SECRET }}
+        run: terraform apply -input=false -auto-approve tfplan
+
+      - name: Terraform Plan
+        if: github.event.inputs.action == 'apply'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        env:
+          TF_VAR_db_password: ${{ secrets.TF_DB_PASSWORD }}
+          TF_VAR_jwt_secret: ${{ secrets.TF_JWT_SECRET }}
+        run: terraform plan -input=false -out=tfplan
+
+      - name: Terraform Apply
+        if: github.event.inputs.action == 'apply'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        env:
+          TF_VAR_db_password: ${{ secrets.TF_DB_PASSWORD }}
+          TF_VAR_jwt_secret: ${{ secrets.TF_JWT_SECRET }}
+        run: terraform apply -input=false -auto-approve tfplan
+
+      - name: Terraform Destroy (on apply failure)
+        if: failure() && github.event.inputs.action == 'apply'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        env:
+          TF_VAR_db_password: ${{ secrets.TF_DB_PASSWORD }}
+          TF_VAR_jwt_secret: ${{ secrets.TF_JWT_SECRET }}
+        run: terraform destroy -input=false -auto-approve
+
+      - name: Terraform Destroy
+        if: github.event.inputs.action == 'destroy'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        env:
+          TF_VAR_db_password: ${{ secrets.TF_DB_PASSWORD }}
+          TF_VAR_jwt_secret: ${{ secrets.TF_JWT_SECRET }}
+        run: terraform destroy -input=false -auto-approve
+
+      - name: Clear GitHub Secrets after Destroy
+        if: github.event.inputs.action == 'destroy'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          gh secret set SECURE_EC2_INSTANCE_ID --body "DESTROYED"
+          gh secret set TF_SECURE_CF_URL       --body "DESTROYED"
+          gh secret set TF_SECURE_CF_DIST_ID   --body "DESTROYED"
+          echo "✅ 시크릿 초기화 완료"
+
+      - name: Export outputs to GitHub Secrets
+        if: github.event.inputs.action == 'apply'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          EC2_ID=$(terraform output -raw ec2_instance_id)
+          CF_DOMAIN=$(terraform output -raw cloudfront_domain)
+          CF_DIST_ID=$(terraform output -raw cloudfront_distribution_id)
+
+          gh secret set SECURE_EC2_INSTANCE_ID --body "$EC2_ID"
+          gh secret set TF_SECURE_CF_URL       --body "https://${CF_DOMAIN}"
+          gh secret set TF_SECURE_CF_DIST_ID   --body "$CF_DIST_ID"
+
+          echo "✅ SECURE_EC2_INSTANCE_ID=$EC2_ID"
+          echo "✅ TF_SECURE_CF_URL=https://${CF_DOMAIN}"
+          echo "✅ TF_SECURE_CF_DIST_ID=$CF_DIST_ID"
+
+      - name: Wait for EC2 user_data & Run Migration
+        if: github.event.inputs.action == 'apply'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          EC2_ID=$(terraform output -raw ec2_instance_id)
+          echo "EC2 ID: $EC2_ID — user_data 완료 대기 중..."
+
+          fetch_log() {
+            local LOG_CMD_ID
+            LOG_CMD_ID=$(aws ssm send-command \
+              --instance-ids "$EC2_ID" \
+              --document-name "AWS-RunShellScript" \
+              --parameters 'commands=["tail -80 /var/log/user-data.log 2>/dev/null || echo \"(로그 없음)\""]' \
+              --query "Command.CommandId" \
+              --output text 2>/dev/null || echo "")
+            if [ -n "$LOG_CMD_ID" ] && [ "$LOG_CMD_ID" != "None" ]; then
+              sleep 10
+              echo "=== /var/log/user-data.log (마지막 80줄) ==="
+              aws ssm get-command-invocation \
+                --command-id "$LOG_CMD_ID" \
+                --instance-id "$EC2_ID" \
+                --query "StandardOutputContent" \
+                --output text 2>/dev/null || echo "(로그 수집 실패)"
+            fi
+          }
+
+          USER_DATA_DONE=false
+          for i in $(seq 1 80); do
+            echo "[$i/80] 상태 확인 중..."
+
+            COMMAND_ID=$(aws ssm send-command \
+              --instance-ids "$EC2_ID" \
+              --document-name "AWS-RunShellScript" \
+              --parameters 'commands=["if [ -f /var/log/user-data-failed ]; then echo STATUS:FAILED; elif [ -f /var/log/user-data-complete ]; then echo STATUS:DONE; else echo STATUS:WAIT; fi; echo \"---\"; tail -3 /var/log/user-data.log 2>/dev/null || echo \"(로그 없음)\""]' \
+              --query "Command.CommandId" \
+              --output text 2>/dev/null) || true
+
+            if [ -z "$COMMAND_ID" ] || [ "$COMMAND_ID" = "None" ]; then
+              echo "  → SSM 미준비, 15초 후 재시도..."
+              sleep 15
+              continue
+            fi
+
+            sleep 10
+
+            RESULT=$(aws ssm get-command-invocation \
+              --command-id "$COMMAND_ID" \
+              --instance-id "$EC2_ID" \
+              --query "StandardOutputContent" \
+              --output text 2>/dev/null || echo "PENDING")
+
+            echo "$RESULT"
+
+            if echo "$RESULT" | grep -q "STATUS:DONE"; then
+              echo "✅ user_data 완료 확인!"
+              USER_DATA_DONE=true
+              break
+            fi
+
+            if echo "$RESULT" | grep -q "STATUS:FAILED"; then
+              echo "❌ user_data 실패 감지 — 전체 로그 수집 중..."
+              fetch_log
+              exit 1
+            fi
+
+            sleep 15
+          done
+
+          if [ "$USER_DATA_DONE" = "false" ]; then
+            echo "❌ user_data 타임아웃 (최대 33분 초과) — 전체 로그 수집 중..."
+            fetch_log
+            exit 1
+          fi
+
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "$EC2_ID" \
+            --document-name "AWS-RunShellScript" \
+            --parameters 'commands=["docker cp sentinelshare-backend:/app/migrations/001_initial_schema.sql /tmp/migration.sql && DB_PASS=$(grep ^DB_PASSWORD= /opt/app/.env | cut -d= -f2) && PGPASSWORD=$DB_PASS psql -h 127.0.0.1 -U sentinelshare -d sentinelshare -f /tmp/migration.sql 2>&1 || echo MIGRATION_ALREADY_DONE"]' \
+            --query "Command.CommandId" \
+            --output text)
+
+          echo "SSM Command ID: $COMMAND_ID"
+          sleep 30
+
+          aws ssm get-command-invocation \
+            --command-id "$COMMAND_ID" \
+            --instance-id "$EC2_ID" \
+            --query "StandardOutputContent" \
+            --output text
+
+      - name: Update backend CORS_ORIGIN to CloudFront domain
+        if: github.event.inputs.action == 'apply'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          EC2_ID=$(terraform output -raw ec2_instance_id)
+          CF_DOMAIN=$(terraform output -raw cloudfront_domain)
+          echo "CloudFront domain: $CF_DOMAIN"
+
+          # EC2 user_data 렌더링 시점에 CF 도메인을 알 수 없어 CORS_ORIGIN이 비어있음
+          # user_data 완료 후 SSM으로 .env를 수정하고 컨테이너 재시작
+          PARAMS=$(printf '{"commands":["grep -v CORS_ORIGIN /opt/app/.env > /tmp/.env.tmp && echo CORS_ORIGIN=https://%s >> /tmp/.env.tmp && chmod 600 /tmp/.env.tmp && mv /tmp/.env.tmp /opt/app/.env && docker restart sentinelshare-backend && echo CORS_UPDATED"]}' "$CF_DOMAIN")
+
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "$EC2_ID" \
+            --document-name "AWS-RunShellScript" \
+            --parameters "$PARAMS" \
+            --query "Command.CommandId" \
+            --output text)
+
+          echo "SSM Command ID: $COMMAND_ID"
+          sleep 20
+
+          aws ssm get-command-invocation \
+            --command-id "$COMMAND_ID" \
+            --instance-id "$EC2_ID" \
+            --query "StandardOutputContent" \
+            --output text
+
+          echo "✅ CORS_ORIGIN=https://${CF_DOMAIN} 적용 완료"
+
+      - name: Setup Node.js for frontend deploy
+        if: github.event.inputs.action == 'apply'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: sentinel-share-frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        if: github.event.inputs.action == 'apply'
+        working-directory: sentinel-share-frontend
+        run: npm ci
+
+      - name: Build frontend for TF Secure
+        if: github.event.inputs.action == 'apply'
+        working-directory: sentinel-share-frontend
+        run: |
+          CLOUDFRONT_DOMAIN=$(terraform -chdir="${{ github.workspace }}/${{ env.TF_WORKING_DIR }}" output -raw cloudfront_domain)
+          STATIC_EXPORT=true \
+          NEXT_PUBLIC_API_URL="https://${CLOUDFRONT_DOMAIN}/api" \
+          NEXT_PUBLIC_ENV_TYPE=secure \
+          npm run build
+
+      - name: Deploy frontend to TF Secure S3
+        if: github.event.inputs.action == 'apply'
+        run: aws s3 sync sentinel-share-frontend/out/ s3://sentinelshare-tf-secure-frontend/ --delete
+
+      - name: Invalidate CloudFront cache (TF Secure)
+        if: github.event.inputs.action == 'apply'
+        run: |
+          DISTRIBUTION_ID=$(terraform -chdir="${{ github.workspace }}/${{ env.TF_WORKING_DIR }}" output -raw cloudfront_distribution_id)
+          aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION_ID" --paths "/*"
+
+      - name: Output Results
+        if: github.event.inputs.action == 'apply'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform output -json
+
+  security-verification:
+    name: Security Verification (Secure Apply Only)
+    needs: terraform
+    if: ${{ needs.terraform.result == 'success' && github.event.inputs.action == 'apply' }}
+    permissions:
+      id-token: write
+      contents: read
+      actions: read
+    uses: ./.github/workflows/security-infra.yml
+    with:
+      artifact_name: prowler-report-secure
+      fail_on_findings: true
+      environment_tag: secure
+      managed_by_tag: terraform
+    secrets: inherit

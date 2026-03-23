@@ -7,6 +7,7 @@ on:
     branches: [master, dev]
     paths:
       - 'attack-dashboard/**'
+      - '.github/ignore/**'
       - '.github/workflows/ci-dashboard.yml'
 
 env:
@@ -54,30 +55,36 @@ jobs:
 
       - name: Trivy filesystem vulnerability scan
         # 소스 및 lockfile 기준으로 알려진 취약 의존성을 검사한다.
-        uses: aquasecurity/trivy-action@0.24.0
+        uses: aquasecurity/trivy-action@0.35.0
         with:
+          version: v0.69.3
           scan-type: fs
           scan-ref: ./attack-dashboard
           scanners: vuln
           severity: CRITICAL
           ignore-unfixed: true
+          trivyignores: .github/ignore/.trivyignore
           exit-code: '1'
 
       - name: Trivy filesystem secret scan
         # 코드나 설정 파일에 민감정보가 포함됐는지 함께 확인한다.
-        uses: aquasecurity/trivy-action@0.24.0
+        uses: aquasecurity/trivy-action@0.35.0
         with:
+          version: v0.69.3
           scan-type: fs
           scan-ref: ./attack-dashboard
           scanners: secret
+          trivyignores: .github/ignore/.trivyignore
           exit-code: '1'
 
       - name: Trivy image vulnerability scan
         # 최종 컨테이너 이미지 관점에서도 취약점을 다시 확인한다.
-        uses: aquasecurity/trivy-action@0.24.0
+        uses: aquasecurity/trivy-action@0.35.0
         with:
+          version: v0.69.3
           image-ref: ${{ env.IMAGE_NAME }}:${{ github.sha }}
           format: table
           severity: CRITICAL
           ignore-unfixed: true
+          trivyignores: .github/ignore/.trivyignore
           exit-code: '1'

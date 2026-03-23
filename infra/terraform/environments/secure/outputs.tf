@@ -1,29 +1,64 @@
 output "ec2_instance_id" {
-  description = "EC2 instance ID → GitHub Secret: SECURE_EC2_INSTANCE_ID"
+  description = "EC2 instance ID"
   value       = module.ec2.instance_id
 }
 
-output "ec2_public_ip" {
-  description = "EC2 Elastic IP address"
-  value       = module.ec2.public_ip
+output "elastic_ip" {
+  description = "EC2 Elastic IP"
+  value       = module.ec2.elastic_ip
+}
+
+output "files_bucket_name" {
+  description = "S3 files bucket name"
+  value       = module.s3.files_bucket_name
+}
+
+output "frontend_bucket_name" {
+  description = "S3 frontend bucket name"
+  value       = module.s3.frontend_bucket_name
+}
+
+output "cloudfront_domain" {
+  description = "CloudFront distribution domain"
+  value       = module.cloudfront.cloudfront_domain
 }
 
 output "cloudfront_distribution_id" {
-  description = "CloudFront distribution ID → GitHub Secret: CLOUDFRONT_DISTRIBUTION_ID"
+  description = "CloudFront distribution ID"
   value       = module.cloudfront.distribution_id
 }
 
-output "cloudfront_domain_name" {
-  description = "CloudFront domain name (e.g., xxxxx.cloudfront.net)"
-  value       = module.cloudfront.domain_name
+output "backend_url" {
+  description = "Backend API URL (via CloudFront)"
+  value       = "https://${module.cloudfront.cloudfront_domain}/api"
 }
 
-output "waf_web_acl_arn" {
-  description = "WAF WebACL ARN"
-  value       = module.waf.web_acl_arn
+output "frontend_url" {
+  description = "Frontend URL (via CloudFront)"
+  value       = "https://${module.cloudfront.cloudfront_domain}"
 }
 
-output "storage_bucket_name" {
-  description = "File storage S3 bucket name"
-  value       = module.storage_s3.bucket_id
+output "secrets_kms_key_arn" {
+  description = "KMS key ARN for secure environment application secrets"
+  value       = data.terraform_remote_state.secure_kms.outputs.secrets_kms_key_arn
+}
+
+output "data_kms_key_arn" {
+  description = "KMS key ARN for secure environment files bucket encryption"
+  value       = data.terraform_remote_state.secure_kms.outputs.data_kms_key_arn
+}
+
+output "ebs_kms_key_arn" {
+  description = "KMS key ARN for secure environment root volume encryption"
+  value       = data.terraform_remote_state.secure_kms.outputs.ebs_kms_key_arn
+}
+
+output "db_password_secret_name" {
+  description = "Secrets Manager secret name for secure DB password"
+  value       = data.terraform_remote_state.secure_kms.outputs.db_password_secret_name
+}
+
+output "jwt_secret_secret_name" {
+  description = "Secrets Manager secret name for secure JWT secret"
+  value       = data.terraform_remote_state.secure_kms.outputs.jwt_secret_secret_name
 }

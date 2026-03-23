@@ -10,19 +10,18 @@ node_modules/
 *.log
 *.err.log
 *.out.log
+.edge-headless-*/
 
 # Claude Code 전용 파일 (로컬에서만 사용)
 CLAUDE.md
 AGENTS.md
 prompt.txt
 
-# Terraform
-**/.terraform/
-**/*.tfstate
-**/*.tfstate.backup
-**/.terraform.lock.hcl
-**/terraform.tfvars
-**/.terraformrc
-**/crash.log
-**/override.tf
-**/override.tf.json
+# Private keys
+*.pem
+
+# Terraform state (커밋 금지 — 민감 정보 포함)
+*.tfstate
+*.tfstate.backup
+.terraform/
+.terraform.lock.hcl

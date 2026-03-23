@@ -4,16 +4,10 @@ variable "aws_region" {
   default     = "ap-northeast-2"
 }
 
-variable "aws_account_id" {
-  description = "AWS account ID"
+variable "db_password" {
+  description = "PostgreSQL database password"
   type        = string
-  default     = "833453046706"
-}
-
-variable "storage_bucket_name" {
-  description = "S3 bucket name for file storage (user uploads)"
-  type        = string
-  default     = "sentinel-share-vul-files"
+  sensitive   = true
 }
 
 variable "jwt_secret" {
@@ -22,8 +16,8 @@ variable "jwt_secret" {
   sensitive   = true
 }
 
-variable "db_password" {
-  description = "PostgreSQL password for sentinelshare user"
+variable "wazuh_manager_ip" {
+  description = "Wazuh 매니저 서버 IP (비어있으면 에이전트 미설치)"
   type        = string
-  sensitive   = true
+  default     = ""
 }

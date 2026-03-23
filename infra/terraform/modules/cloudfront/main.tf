@@ -1,31 +1,41 @@
-# ─── Origin Access Control (OAC) for S3 ─────────────────────
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+
+# OAC (Origin Access Control) for S3
 resource "aws_cloudfront_origin_access_control" "s3" {
-  name                              = "${var.env_name}-s3-oac"
-  description                       = "OAC for ${var.env_name} S3 frontend bucket"
+  name                              = "sentinelshare-tf-${var.env_name}-oac"
+  description                       = "OAC for SentinelShare ${var.env_name} frontend S3"
   origin_access_control_origin_type = "s3"
   signing_behavior                  = "always"
   signing_protocol                  = "sigv4"
 }
 
-# ─── CloudFront Distribution ─────────────────────────────────
+# CloudFront Distribution
 resource "aws_cloudfront_distribution" "main" {
   enabled             = true
   is_ipv6_enabled     = true
-  comment             = "SentinelShare ${var.env_name} distribution"
+  comment             = "SentinelShare TF ${var.env_name}"
   default_root_object = "index.html"
-  web_acl_id          = var.waf_web_acl_arn
+  web_acl_id          = var.waf_acl_arn
+  price_class         = "PriceClass_200"
 
-  # Origin 1: S3 (프론트엔드 정적 파일)
+  # Origin 1: S3 프론트엔드 버킷
   origin {
-    domain_name              = var.frontend_bucket_domain
-    origin_id                = "S3-${var.env_name}-frontend"
+    domain_name              = var.s3_bucket_regional_domain
+    origin_id                = "S3-${var.s3_bucket_name}"
     origin_access_control_id = aws_cloudfront_origin_access_control.s3.id
   }
 
-  # Origin 2: EC2 백엔드 (/api/*)
+  # Origin 2: EC2 백엔드 (HTTP:3000)
   origin {
-    domain_name = var.ec2_origin_domain
-    origin_id   = "EC2-${var.env_name}-backend"
+    domain_name = var.ec2_ip
+    origin_id   = "EC2-Backend"
 
     custom_origin_config {
       http_port              = 3000
@@ -35,17 +45,41 @@ resource "aws_cloudfront_distribution" "main" {
     }
   }
 
-  # Default behavior: S3 (/*)
-  default_cache_behavior {
-    allowed_methods        = ["GET", "HEAD", "OPTIONS"]
-    cached_methods         = ["GET", "HEAD"]
-    target_origin_id       = "S3-${var.env_name}-frontend"
+  # Behavior: /api/* → EC2
+  ordered_cache_behavior {
+    path_pattern     = "/api/*"
+    target_origin_id = "EC2-Backend"
+    allowed_methods  = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
+    cached_methods   = ["GET", "HEAD"]
+    compress         = false
+
+    forwarded_values {
+      query_string = true
+      headers      = ["Authorization", "Content-Type", "Host", "Origin"]
+      cookies {
+        forward = "all"
+      }
+    }
+
     viewer_protocol_policy = "redirect-to-https"
+    min_ttl                = 0
+    default_ttl            = 0
+    max_ttl                = 0
+  }
+
+  # Default: /* → S3
+  default_cache_behavior {
+    target_origin_id       = "S3-${var.s3_bucket_name}"
+    allowed_methods        = ["GET", "HEAD"]
+    cached_methods         = ["GET", "HEAD"]
     compress               = true
+    viewer_protocol_policy = "redirect-to-https"
 
     forwarded_values {
       query_string = false
-      cookies { forward = "none" }
+      cookies {
+        forward = "none"
+      }
     }
 
     min_ttl     = 0
@@ -53,27 +87,7 @@ resource "aws_cloudfront_distribution" "main" {
     max_ttl     = 31536000
   }
 
-  # /api/* behavior: EC2 백엔드 (캐시 비활성)
-  ordered_cache_behavior {
-    path_pattern           = "/api/*"
-    allowed_methods        = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
-    cached_methods         = ["GET", "HEAD"]
-    target_origin_id       = "EC2-${var.env_name}-backend"
-    viewer_protocol_policy = "redirect-to-https"
-    compress               = false
-
-    forwarded_values {
-      query_string = true
-      headers      = ["Authorization", "Content-Type", "Origin"]
-      cookies { forward = "all" }
-    }
-
-    min_ttl     = 0
-    default_ttl = 0
-    max_ttl     = 0
-  }
-
-  # Custom Error Response: 403/404 → /index.html (SPA 라우팅)
+  # SPA 라우팅: 403/404 → /index.html
   custom_error_response {
     error_code            = 403
     response_code         = 200
@@ -96,10 +110,34 @@ resource "aws_cloudfront_distribution" "main" {
 
   viewer_certificate {
     cloudfront_default_certificate = true
-    minimum_protocol_version       = "TLSv1.2_2021"
   }
 
   tags = {
+    Name        = "sentinelshare-tf-${var.env_name}-cf"
     Environment = var.env_name
+    ManagedBy   = "terraform"
   }
+}
+
+# S3 버킷 정책: CloudFront OAC 허용
+resource "aws_s3_bucket_policy" "frontend_oac" {
+  bucket = var.s3_bucket_name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid    = "AllowCloudFrontOAC"
+      Effect = "Allow"
+      Principal = {
+        Service = "cloudfront.amazonaws.com"
+      }
+      Action   = "s3:GetObject"
+      Resource = "${var.s3_bucket_arn}/*"
+      Condition = {
+        StringEquals = {
+          "AWS:SourceArn" = aws_cloudfront_distribution.main.arn
+        }
+      }
+    }]
+  })
 }

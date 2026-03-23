@@ -1,5 +1,5 @@
 variable "env_name" {
-  description = "Environment name (e.g., vulnerable, secure)"
+  description = "Environment name (vul or secure)"
   type        = string
 }
 
@@ -15,20 +15,8 @@ variable "subnet_cidr" {
   default     = "10.0.1.0/24"
 }
 
-variable "az" {
-  description = "Availability zone"
+variable "aws_region" {
+  description = "AWS region"
   type        = string
-  default     = "ap-northeast-2a"
-}
-
-variable "ingress_rules" {
-  description = "Ingress rules for EC2 security group"
-  type = list(object({
-    from_port       = number
-    to_port         = number
-    protocol        = string
-    cidr_blocks     = list(string)
-    prefix_list_ids = list(string)
-    description     = string
-  }))
+  default     = "ap-northeast-2"
 }

@@ -1,24 +1,29 @@
 output "ec2_instance_id" {
-  description = "EC2 instance ID → GitHub Secret: VULN_EC2_INSTANCE_ID"
+  description = "EC2 instance ID"
   value       = module.ec2.instance_id
 }
 
-output "ec2_public_ip" {
-  description = "EC2 Elastic IP address"
-  value       = module.ec2.public_ip
+output "elastic_ip" {
+  description = "EC2 Elastic IP"
+  value       = module.ec2.elastic_ip
 }
 
-output "vuln_api_url" {
-  description = "Backend API URL → GitHub Secret: VULN_API_URL"
-  value       = "http://${module.ec2.public_ip}:3000/api"
+output "files_bucket_name" {
+  description = "S3 files bucket name"
+  value       = module.s3.files_bucket_name
 }
 
-output "frontend_website_url" {
-  description = "Frontend S3 static website URL"
-  value       = module.frontend_s3.website_endpoint
+output "frontend_bucket_name" {
+  description = "S3 frontend bucket name"
+  value       = module.s3.frontend_bucket_name
 }
 
-output "storage_bucket_name" {
-  description = "File storage S3 bucket name"
-  value       = module.storage_s3.bucket_id
+output "frontend_url" {
+  description = "Frontend URL (S3 website)"
+  value       = "http://${module.s3.frontend_website_endpoint}"
+}
+
+output "backend_url" {
+  description = "Backend API URL"
+  value       = "http://${module.ec2.elastic_ip}:3000"
 }

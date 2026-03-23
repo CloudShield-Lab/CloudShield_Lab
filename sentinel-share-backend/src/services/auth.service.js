@@ -44,7 +44,8 @@ async function login({ email, password, ip }) {
   const user = await UserModel.findByEmail(email);
   if (!user) {
     log('warn', 'AUTH_FAILURE', { ip, email, reason: 'invalid_credentials', status: 401 });
-    const err = new Error('Invalid credentials');
+    // [DEMO] email 값을 에러 메시지에 반사 — Reflected XSS 데모용 (의도적 취약점)
+    const err = new Error(`No account found for "${email}"`);
     err.statusCode = 401;
     throw err;
   }

@@ -33,6 +33,8 @@ module.exports = {
 
   AWS_REGION: process.env.AWS_REGION,
   S3_BUCKET_NAME: process.env.S3_BUCKET_NAME,
+  S3_SERVER_SIDE_ENCRYPTION: process.env.S3_SERVER_SIDE_ENCRYPTION || '',
+  S3_SSE_KMS_KEY_ID: process.env.S3_SSE_KMS_KEY_ID || '',
   PRESIGNED_URL_TTL: parseInt(process.env.PRESIGNED_URL_TTL || '300', 10),
 
   MAX_FILE_SIZE_BYTES:
@@ -43,7 +45,10 @@ module.exports = {
     'image/jpeg,image/png,image/gif,image/webp,application/pdf,text/plain,application/zip'
   ).split(','),
 
-  CORS_ORIGIN: (process.env.CORS_ORIGIN || 'http://localhost:3001')
+  CORS_ORIGIN: (
+    process.env.CORS_ORIGIN ||
+    (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:3001')
+  )
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean),

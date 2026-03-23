@@ -3,16 +3,18 @@
 @tailwind utilities;
 
 :root {
-  --bg-primary: #080c14;
-  --bg-card: #0d1117;
-  --bg-card-hover: #111827;
-  --border: #1e2433;
-  --text-primary: #e2e8f0;
-  --text-dim: #64748b;
-  --red: #f87171;
-  --green: #4ade80;
-  --yellow: #fbbf24;
-  --orange: #fb923c;
+  --bg-primary: #f8fafc;
+  --bg-card: #ffffff;
+  --bg-card-soft: #f8fafc;
+  --bg-card-hover: #f1f5f9;
+  --border: #dbe3ef;
+  --text-primary: #020617;
+  --text-secondary: #334155;
+  --text-dim: #475569;
+  --red: #ef4444;
+  --green: #10b981;
+  --yellow: #f59e0b;
+  --orange: #f97316;
 }
 
 html {
@@ -20,33 +22,63 @@ html {
 }
 
 body {
-  background-color: var(--bg-primary);
+  background:
+    radial-gradient(circle at top left, rgba(248, 113, 113, 0.08), transparent 24%),
+    radial-gradient(circle at top right, rgba(16, 185, 129, 0.08), transparent 20%),
+    var(--bg-primary);
   color: var(--text-primary);
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: 'Segoe UI', 'Apple SD Gothic Neo', system-ui, sans-serif;
 }
 
-/* 스크롤바 스타일 */
 ::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
-}
-::-webkit-scrollbar-track {
-  background: #0d1117;
-}
-::-webkit-scrollbar-thumb {
-  background: #1e2433;
-  border-radius: 2px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #2d3748;
+  width: 6px;
+  height: 6px;
 }
 
-/* 코드/로그 폰트 */
+::-webkit-scrollbar-track {
+  background: #eef2f7;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
 .font-mono {
   font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
 }
 
-/* 글리치 효과 (헤더용) */
+@keyframes gridPan {
+  from { background-position: 0 0; }
+  to   { background-position: 40px 40px; }
+}
+
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+.hero-grid {
+  background-image:
+    linear-gradient(rgba(14, 165, 233, 0.12) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(14, 165, 233, 0.12) 1px, transparent 1px);
+  background-size: 40px 40px;
+  animation: gridPan 12s linear infinite;
+}
+
+.card-enter {
+  animation: fadeSlideUp 0.5s ease forwards;
+}
+
 @keyframes flicker {
   0%, 100% { opacity: 1; }
   92% { opacity: 1; }
@@ -60,7 +92,6 @@ body {
   animation: flicker 4s infinite;
 }
 
-/* 스캔라인 오버레이 */
 .scanlines::after {
   content: '';
   position: absolute;
@@ -69,9 +100,154 @@ body {
     0deg,
     transparent,
     transparent 2px,
-    rgba(0, 0, 0, 0.03) 2px,
-    rgba(0, 0, 0, 0.03) 4px
+    rgba(15, 23, 42, 0.02) 2px,
+    rgba(15, 23, 42, 0.02) 4px
   );
   pointer-events: none;
   z-index: 1;
+}
+
+.react-flow__controls {
+  box-shadow: none !important;
+}
+
+.horizontal-flow-controls {
+  display: flex !important;
+  flex-direction: row !important;
+}
+
+.react-flow__controls-button {
+  width: 24px !important;
+  height: 24px !important;
+  background: rgba(255, 255, 255, 0.95) !important;
+  border-bottom: 0 !important;
+  border-right: 1px solid #dbe3ef !important;
+  color: #0f172a !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+}
+
+.react-flow__controls-button:last-child {
+  border-right: 0 !important;
+}
+
+.react-flow__controls-button svg {
+  width: 10px !important;
+  height: 10px !important;
+}
+
+.react-flow {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.react-flow__renderer,
+.react-flow__container,
+.react-flow__pane,
+.react-flow__viewport,
+.react-flow__nodes,
+.react-flow__edges,
+.react-flow__edgelabel-renderer {
+  position: absolute;
+  inset: 0;
+}
+
+.react-flow__viewport {
+  transform-origin: 0 0;
+}
+
+.react-flow__pane {
+  cursor: grab;
+}
+
+.react-flow__pane.draggable:active {
+  cursor: grabbing;
+}
+
+.react-flow__nodes,
+.react-flow__edges {
+  pointer-events: none;
+}
+
+.react-flow__node,
+.react-flow__edge {
+  pointer-events: all;
+}
+
+.react-flow__node {
+  position: absolute;
+  transform-origin: 0 0;
+}
+
+.react-flow__edge-path,
+.react-flow__connection-path {
+  fill: none;
+  stroke: inherit;
+  stroke-width: inherit;
+}
+
+.react-flow__background {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.react-flow__handle {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  min-width: 6px;
+  min-height: 6px;
+  border-radius: 9999px;
+  pointer-events: none;
+}
+
+.react-flow__handle-left {
+  top: 50%;
+  left: 0;
+  transform: translate(-50%, -50%);
+}
+
+.react-flow__handle-right {
+  top: 50%;
+  right: 0;
+  transform: translate(50%, -50%);
+}
+
+.text-slate-100 {
+  color: #020617 !important;
+}
+
+.text-slate-200 {
+  color: #0f172a !important;
+}
+
+.text-slate-300 {
+  color: #1e293b !important;
+}
+
+.text-slate-400 {
+  color: #334155 !important;
+}
+
+.text-slate-500 {
+  color: #334155 !important;
+}
+
+.text-slate-600 {
+  color: #1e293b !important;
+}
+
+.text-slate-700 {
+  color: #0f172a !important;
+}
+
+.text-slate-800 {
+  color: #020617 !important;
+}
+
+.text-slate-900 {
+  color: #020617 !important;
 }

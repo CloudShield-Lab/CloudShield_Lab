@@ -1,0 +1,101 @@
+name: PR CI Infra
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [master, dev]
+    paths:
+      - 'infra/**'
+      - '.github/ignore/**'
+      - '.github/workflows/ci-infra.yml'
+      - '.github/workflows/terraform-secure.yml'
+      - '.github/workflows/terraform-vulnerable.yml'
+      - '.github/workflows/security-infra.yml'
+
+env:
+  TERRAFORM_VERSION: '1.9.8'
+  TF_ROOT_DIR: infra/terraform
+
+jobs:
+  detect-terraform:
+    name: Detect Terraform Files
+    runs-on: ubuntu-latest
+    outputs:
+      has_tf: ${{ steps.detect.outputs.has_tf }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Detect .tf files
+        id: detect
+        shell: bash
+        run: |
+          if find "${TF_ROOT_DIR}" -type f -name "*.tf" | grep -q .; then
+            echo "has_tf=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_tf=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  terraform-ci:
+    name: Terraform Checks (${{ matrix.environment }})
+    needs: detect-terraform
+    runs-on: ubuntu-latest
+    if: ${{ needs.detect-terraform.outputs.has_tf == 'true' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - environment: secure-kms
+            working_directory: infra/terraform/environments/secure-kms
+            fail_on_findings: true
+          - environment: secure
+            working_directory: infra/terraform/environments/secure
+            fail_on_findings: true
+          - environment: vulnerable
+            working_directory: infra/terraform/environments/vulnerable
+            fail_on_findings: false
+
+    defaults:
+      run:
+        shell: bash
+        working-directory: ${{ matrix.working_directory }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Check Terraform formatting
+        shell: bash
+        working-directory: .
+        run: terraform fmt -check -recursive "${TF_ROOT_DIR}"
+
+      - name: Initialize Terraform without backend
+        run: terraform init -backend=false
+
+      - name: Validate Terraform configuration
+        run: terraform validate
+
+      - name: Trivy Terraform config scan
+        uses: aquasecurity/trivy-action@0.35.0
+        with:
+          version: v0.69.3
+          scan-type: config
+          scan-ref: ${{ matrix.working_directory }}
+          trivyignores: .github/ignore/.trivyignore
+          exit-code: ${{ matrix.fail_on_findings && '1' || '0' }}
+
+      - name: Trivy Terraform secret scan
+        uses: aquasecurity/trivy-action@0.35.0
+        with:
+          version: v0.69.3
+          scan-type: fs
+          scan-ref: ${{ matrix.working_directory }}
+          scanners: secret
+          trivyignores: .github/ignore/.trivyignore
+          exit-code: ${{ matrix.fail_on_findings && '1' || '0' }}

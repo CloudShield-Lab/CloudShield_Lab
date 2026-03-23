@@ -1,11 +1,34 @@
 variable "env_name" {
-  description = "Environment name (e.g., vulnerable, secure)"
+  description = "Environment name (vul or secure)"
+  type        = string
+}
+
+variable "env_type" {
+  description = "Environment type label (vulnerable or secure)"
+  type        = string
+}
+
+variable "vpc_id" {
+  description = "VPC ID"
+  type        = string
+}
+
+variable "subnet_id" {
+  description = "Subnet ID"
   type        = string
 }
 
 variable "aws_region" {
   description = "AWS region"
   type        = string
+  default     = "ap-northeast-2"
+}
+
+variable "ami_id" {
+  description = "AMI ID for Ubuntu 22.04 LTS in ap-northeast-2"
+  type        = string
+  # Ubuntu 22.04 LTS ap-northeast-2 최신 (2024)
+  default = "ami-042e76978adeb8c48"
 }
 
 variable "instance_type" {
@@ -14,39 +37,98 @@ variable "instance_type" {
   default     = "t3.small"
 }
 
-variable "subnet_id" {
-  description = "Subnet ID to launch the instance in"
+variable "allow_public_access" {
+  description = "Allow public access to port 3000 (true = vulnerable, false = secure/CloudFront only)"
+  type        = bool
+  default     = true
+}
+
+variable "cloudfront_prefix_list_id" {
+  description = "CloudFront managed prefix list ID (ap-northeast-2: pl-22a6434b)"
+  type        = string
+  default     = "pl-22a6434b"
+}
+
+variable "files_bucket_name" {
+  description = "S3 files bucket name for IAM policy"
   type        = string
 }
 
-variable "security_group_id" {
-  description = "Security group ID for EC2"
+variable "secret_delivery_mode" {
+  description = "How application secrets are delivered to EC2: raw or secrets_manager"
   type        = string
+  default     = "raw"
+
+  validation {
+    condition     = contains(["raw", "secrets_manager"], var.secret_delivery_mode)
+    error_message = "secret_delivery_mode must be either \"raw\" or \"secrets_manager\"."
+  }
 }
 
-variable "ecr_registry" {
-  description = "ECR registry URL (e.g., 833453046706.dkr.ecr.ap-northeast-2.amazonaws.com)"
+variable "db_password" {
+  description = "PostgreSQL database password"
   type        = string
-}
-
-variable "s3_bucket_name" {
-  description = "S3 bucket name for file storage (set in .env)"
-  type        = string
-}
-
-variable "cors_origin" {
-  description = "CORS_ORIGIN value for the backend .env"
-  type        = string
+  sensitive   = true
+  default     = ""
 }
 
 variable "jwt_secret" {
   description = "JWT signing secret"
   type        = string
   sensitive   = true
+  default     = ""
 }
 
-variable "db_password" {
-  description = "PostgreSQL password for sentinelshare user"
+variable "db_password_secret_name" {
+  description = "Secrets Manager secret name for the database password"
   type        = string
-  sensitive   = true
+  default     = ""
+}
+
+variable "jwt_secret_secret_name" {
+  description = "Secrets Manager secret name for the JWT secret"
+  type        = string
+  default     = ""
+}
+
+variable "secrets_kms_key_arn" {
+  description = "KMS key ARN used to encrypt Secrets Manager secrets"
+  type        = string
+  default     = ""
+}
+
+variable "data_kms_key_arn" {
+  description = "KMS key ARN used for S3 data bucket SSE-KMS access"
+  type        = string
+  default     = ""
+}
+
+variable "enable_data_kms_access" {
+  description = "Whether to attach the EC2 IAM policy for S3 data KMS usage"
+  type        = bool
+  default     = false
+}
+
+variable "root_volume_encrypted" {
+  description = "Encrypt the EC2 root volume"
+  type        = bool
+  default     = false
+}
+
+variable "root_volume_kms_key_id" {
+  description = "KMS key ARN or ID for the EC2 root volume"
+  type        = string
+  default     = ""
+}
+
+variable "frontend_origin" {
+  description = "Frontend origin URL allowed by backend CORS"
+  type        = string
+  default     = ""
+}
+
+variable "wazuh_manager_ip" {
+  description = "Wazuh 매니저 서버 IP (비어있으면 에이전트 미설치)"
+  type        = string
+  default     = ""
 }

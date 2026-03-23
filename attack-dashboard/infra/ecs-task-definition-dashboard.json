@@ -15,6 +15,9 @@
         {
           "containerPort": 3000,
           "hostPort": 3000,
+
+
+          
           "protocol": "tcp"
         }
       ],
@@ -26,6 +29,34 @@
         {
           "name": "NODE_ENV",
           "value": "production"
+        },
+        {
+          "name": "GITHUB_OWNER",
+          "value": "CloudShield-Lab"
+        },
+        {
+          "name": "GITHUB_REPO",
+          "value": "CloudShield_Lab"
+        },
+        {
+          "name": "ANALYSIS_S3_BUCKET",
+          "value": "sentinelshare-terraform-state-833453046706-ap-northeast-2-an"
+        },
+        {
+          "name": "ANALYSIS_S3_PREFIX",
+          "value": "analysis-sessions"
+        },
+        {
+          "name": "BEDROCK_MODEL_ID",
+          "value": "us.anthropic.claude-3-5-haiku-20241022-v1:0"
+        },
+        {
+          "name": "BEDROCK_REGION",
+          "value": "us-east-1"
+        },
+        {
+          "name": "WAZUH_INSECURE",
+          "value": "true"
         }
       ],
       "secrets": [
@@ -44,6 +75,30 @@
         {
           "name": "AWS_S3_BUCKET",
           "valueFrom": "arn:aws:secretsmanager:ap-northeast-2:833453046706:secret:cloudshield/dashboard/aws-s3-bucket-W9Eizp"
+        },
+        {
+          "name": "GITHUB_TOKEN",
+          "valueFrom": "arn:aws:secretsmanager:ap-northeast-2:833453046706:secret:GITHUB_TOKEN-dCjhzq:GITHUB_TOKEN::"
+        },
+        {
+          "name": "WAZUH_API_URL",
+          "valueFrom": "arn:aws:secretsmanager:ap-northeast-2:833453046706:secret:cloudshield/dashboard/wazuh-UcRWR2:WAZUH_API_URL::"
+        },
+        {
+          "name": "WAZUH_API_USER",
+          "valueFrom": "arn:aws:secretsmanager:ap-northeast-2:833453046706:secret:cloudshield/dashboard/wazuh-UcRWR2:WAZUH_API_USER::"
+        },
+        {
+          "name": "WAZUH_API_PASSWORD",
+          "valueFrom": "arn:aws:secretsmanager:ap-northeast-2:833453046706:secret:cloudshield/dashboard/wazuh-UcRWR2:WAZUH_API_PASSWORD::"
+        },
+        {
+          "name": "WAZUH_INDEXER_USER",
+          "valueFrom": "arn:aws:secretsmanager:ap-northeast-2:833453046706:secret:cloudshield/dashboard/wazuh-UcRWR2:WAZUH_INDEXER_USER::"
+        },
+        {
+          "name": "WAZUH_INDEXER_PASSWORD",
+          "valueFrom": "arn:aws:secretsmanager:ap-northeast-2:833453046706:secret:cloudshield/dashboard/wazuh-UcRWR2:WAZUH_INDEXER_PASSWORD::"
         }
       ],
       "logConfiguration": {

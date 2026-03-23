@@ -3,17 +3,27 @@ variable "env_name" {
   type        = string
 }
 
-variable "frontend_bucket_domain" {
-  description = "S3 bucket regional domain name for CloudFront OAC origin"
+variable "s3_bucket_name" {
+  description = "Frontend S3 bucket name"
   type        = string
 }
 
-variable "ec2_origin_domain" {
-  description = "EC2 Elastic IP address for API origin"
+variable "s3_bucket_arn" {
+  description = "Frontend S3 bucket ARN"
   type        = string
 }
 
-variable "waf_web_acl_arn" {
-  description = "WAF WebACL ARN to associate with CloudFront (must be in us-east-1)"
+variable "s3_bucket_regional_domain" {
+  description = "Frontend S3 bucket regional domain name"
+  type        = string
+}
+
+variable "ec2_ip" {
+  description = "EC2 Elastic IP address"
+  type        = string
+}
+
+variable "waf_acl_arn" {
+  description = "WAF WebACL ARN (must be us-east-1)"
   type        = string
 }

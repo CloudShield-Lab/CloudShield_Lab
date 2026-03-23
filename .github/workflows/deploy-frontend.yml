@@ -6,7 +6,7 @@ on:
     paths:
       - 'sentinel-share-frontend/**'
       - '.github/workflows/deploy-frontend.yml'
-  workflow_dispatch:  # 수동 실행 허용
+  workflow_dispatch:
 
 env:
   AWS_REGION: ap-northeast-2
@@ -43,6 +43,7 @@ jobs:
         env:
           STATIC_EXPORT: 'true'
           NEXT_PUBLIC_API_URL: ${{ secrets.VULN_API_URL }}
+          NEXT_PUBLIC_ENV_TYPE: 'vulnerable'
         run: npm run build
 
       - name: Configure AWS credentials (OIDC)
@@ -85,7 +86,8 @@ jobs:
         working-directory: sentinel-share-frontend
         env:
           STATIC_EXPORT: 'true'
-          NEXT_PUBLIC_API_URL: https://dyfs11nls1dwb.cloudfront.net/api
+          NEXT_PUBLIC_API_URL: ${{ secrets.MANUAL_SECURE_API_URL }}
+          NEXT_PUBLIC_ENV_TYPE: 'secure'
         run: npm run build
 
       - name: Configure AWS credentials (OIDC)
@@ -103,3 +105,4 @@ jobs:
           aws cloudfront create-invalidation \
             --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
             --paths "/*"
+
