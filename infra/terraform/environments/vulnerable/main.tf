@@ -18,9 +18,10 @@ provider "aws" {
 }
 
 module "network" {
-  source     = "../../modules/network"
-  env_name   = "vul"
-  aws_region = var.aws_region
+  source         = "../../modules/network"
+  env_name       = "vul"
+  aws_region     = var.aws_region
+  wazuh_vpc_id   = var.wazuh_vpc_id
 }
 
 module "s3" {

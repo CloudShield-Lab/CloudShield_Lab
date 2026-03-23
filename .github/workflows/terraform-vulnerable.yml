@@ -60,6 +60,7 @@ jobs:
           TF_VAR_db_password: ${{ secrets.TF_DB_PASSWORD }}
           TF_VAR_jwt_secret: ${{ secrets.TF_JWT_SECRET }}
           TF_VAR_wazuh_manager_ip: ${{ secrets.WAZUH_MANAGER_IP }}
+          TF_VAR_wazuh_vpc_id: ${{ secrets.WAZUH_VPC_ID }}
         run: terraform plan -out=tfplan
 
       - name: Terraform Apply
@@ -69,6 +70,7 @@ jobs:
           TF_VAR_db_password: ${{ secrets.TF_DB_PASSWORD }}
           TF_VAR_jwt_secret: ${{ secrets.TF_JWT_SECRET }}
           TF_VAR_wazuh_manager_ip: ${{ secrets.WAZUH_MANAGER_IP }}
+          TF_VAR_wazuh_vpc_id: ${{ secrets.WAZUH_VPC_ID }}
         run: terraform apply -auto-approve tfplan
 
       - name: Terraform Destroy (on apply failure)
@@ -78,6 +80,7 @@ jobs:
           TF_VAR_db_password: ${{ secrets.TF_DB_PASSWORD }}
           TF_VAR_jwt_secret: ${{ secrets.TF_JWT_SECRET }}
           TF_VAR_wazuh_manager_ip: ${{ secrets.WAZUH_MANAGER_IP }}
+          TF_VAR_wazuh_vpc_id: ${{ secrets.WAZUH_VPC_ID }}
         run: terraform destroy -auto-approve
 
       - name: Terraform Destroy
@@ -87,6 +90,7 @@ jobs:
           TF_VAR_db_password: ${{ secrets.TF_DB_PASSWORD }}
           TF_VAR_jwt_secret: ${{ secrets.TF_JWT_SECRET }}
           TF_VAR_wazuh_manager_ip: ${{ secrets.WAZUH_MANAGER_IP }}
+          TF_VAR_wazuh_vpc_id: ${{ secrets.WAZUH_VPC_ID }}
         run: terraform destroy -auto-approve
 
       - name: Clear GitHub Secrets after Destroy
