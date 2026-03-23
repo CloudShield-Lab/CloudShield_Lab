@@ -100,6 +100,13 @@ const scenarios: Record<ScenarioKey, ArchitectureScenario> = {
       '정상 진입 경로를 우회해 원본 EC2 주소로 직접 요청을 보내고, 원본 노출 여부 차이를 비교합니다.',
     events: [],
   },
+  'imds-ssrf': {
+    id: 'imds-ssrf',
+    name: 'SSRF → IMDS 자격증명 탈취',
+    description:
+      'SSRF 취약점으로 EC2 내부 메타데이터 서비스에 접근해 IAM 자격증명을 탈취합니다. IMDSv2 설정이 유일한 방어선입니다.',
+    events: [],
+  },
 };
 
 export function getScenarioByKey(key: ScenarioKey): ArchitectureScenario {
