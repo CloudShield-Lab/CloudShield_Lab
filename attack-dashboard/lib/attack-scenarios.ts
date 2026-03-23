@@ -172,6 +172,7 @@ export const attackScenarioConfigs: AttackScenarioConfig[] = [
   {
     key: 's3-access',
     index: 6,
+
     title: 'S3 데이터 탈취 체인',
     shortTitle: 'S3 데이터 탈취 체인',
     description:
@@ -196,6 +197,40 @@ export const attackScenarioConfigs: AttackScenarioConfig[] = [
         title: '3. 서명 제거 후 S3 직접 접근',
         vulnerable: 'Presigned URL의 서명 파라미터를 제거해도 순수 S3 URL로 다운로드가 성공합니다.',
         secure: '프라이빗 버킷은 서명 없는 요청을 즉시 403 Access Denied로 차단합니다.',
+      },
+    ],
+  },
+  {
+    key: 'imds-ssrf',
+    index: 7,
+    title: 'SSRF → IMDS 자격증명 탈취',
+    shortTitle: 'SSRF / IMDS 탈취',
+    description:
+      '앱 서버에 SSRF 취약점이 있을 때 공격자가 서버를 경유해 EC2 내부 메타데이터 서비스(IMDS)에 접근합니다. IMDSv1(취약)은 토큰 없이 IAM 자격증명을 반환하고, IMDSv2(보안)는 세션 토큰이 없으면 요청 자체를 거부합니다. WAF는 이 공격을 차단하지 못하며, EC2 인프라 설정이 유일한 방어선입니다.',
+    totalRequests: 2,
+    vulnNote:
+      '취약 환경은 http_tokens=optional(IMDSv1 허용)로 설정되어 토큰 없이 GET 요청 한 번으로 IAM 역할명과 임시 자격증명(AccessKeyId, SecretAccessKey, Token)을 탈취할 수 있습니다.',
+    awsNote:
+      '보안 환경은 http_tokens=required(IMDSv2 강제)로 설정되어 있어, 세션 토큰 없는 IMDS 접근을 즉시 401로 거부합니다. WAF가 아닌 EC2 메타데이터 설정 자체가 방어선입니다.',
+    flowSteps: [
+      {
+        title: '1. SSRF 취약점 악용',
+        vulnerable:
+          '앱 서버의 /api/debug/fetch-url 엔드포인트에 IMDS URL을 전달합니다. 서버가 URL 검증 없이 요청을 그대로 전달(SSRF)합니다.',
+        secure: '동일한 SSRF 요청이 CloudFront → WAF → EC2 순서로 전달됩니다. WAF는 이 요청을 차단하지 않습니다.',
+      },
+      {
+        title: '2. IAM 역할명 조회',
+        vulnerable:
+          'EC2가 http://169.254.169.254/latest/meta-data/iam/security-credentials/ 를 조회합니다. IMDSv1은 토큰 없이 역할명을 반환합니다.',
+        secure: 'EC2가 동일 IMDS 경로에 접근을 시도하지만 IMDSv2가 세션 토큰을 요구하며 즉시 401을 반환합니다.',
+      },
+      {
+        title: '3. 임시 자격증명 획득',
+        vulnerable:
+          '역할명으로 /iam/security-credentials/{role} 를 다시 조회합니다. AccessKeyId, SecretAccessKey, Token이 그대로 응답으로 반환됩니다.',
+        secure:
+          '1단계에서 이미 차단되어 자격증명 조회 단계에 도달할 수 없습니다. AWS 계정 권한이 보호됩니다.',
       },
     ],
   },

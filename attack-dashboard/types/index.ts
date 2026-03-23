@@ -116,7 +116,8 @@ export type AttackEndpoint =
   | 'rce-injection'
   | 'sqli-xss'
   | 'bot-scan'
-  | 'origin-direct';
+  | 'origin-direct'
+  | 'imds-ssrf';
 
 export interface SessionMetrics {
   blocked: number;

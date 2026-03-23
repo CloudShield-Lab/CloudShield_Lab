@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { AttackCard } from '@/components/AttackCard';
 import { BruteforceAttackCard } from '@/components/BruteforceAttackCard';
+import { ImdsAttackCard } from '@/components/ImdsAttackCard';
 import { RceInjectionCard } from '@/components/RceInjectionCard';
 import { S3ExfiltrationCard } from '@/components/S3ExfiltrationCard';
 import { SqliXssDirectPanel } from '@/components/SqliXssDirectPanel';
@@ -155,6 +156,15 @@ export function AttackScenarioContent({
           />
         ) : scenario === 'rce-injection' ? (
           <RceInjectionCard
+            index={config.index}
+            title={config.title}
+            description={config.description}
+            vulnNote={config.vulnNote}
+            awsNote={config.awsNote}
+            mode={mode}
+          />
+        ) : scenario === 'imds-ssrf' ? (
+          <ImdsAttackCard
             index={config.index}
             title={config.title}
             description={config.description}

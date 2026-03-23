@@ -28,6 +28,7 @@ const filesRoutes = require('./routes/files.routes');
 const sharedRoutes = require('./routes/shared.routes');
 const logsRoutes = require('./routes/logs.routes');
 const scanRoutes = require('./routes/scan.routes');
+const debugRoutes = require('./routes/debug.routes');
 
 const app = express();
 
@@ -116,6 +117,9 @@ app.use('/api/logs', logsRoutes);
 
 // --- Intentionally exposed scan paths (demo: simulates misconfigured server) ---
 app.use(scanRoutes);
+
+// --- Intentionally vulnerable SSRF endpoint (demo: IMDS credential theft simulation) ---
+app.use(debugRoutes);
 
 // --- 404 ---
 app.use((_req, res) => res.status(404).json({ error: 'Not found' }));
