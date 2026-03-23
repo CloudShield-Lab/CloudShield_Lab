@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { saveSession } from '@/lib/analysis-storage';
 import { getTerraformOutputs } from '@/lib/terraform-state';
 import { normalizeApiBaseUrl } from '@/lib/url-utils';
+import { fetchWazuhAlerts } from '@/lib/wazuh';
 import type { AnalysisSession } from '@/types';
 
 async function fetchRawLogs(baseUrl: string, from: string, to: string): Promise<string[]> {
@@ -52,12 +53,20 @@ export async function POST(request: NextRequest) {
 
     // 10초 버퍼: EC2 클럭이 attack-dashboard보다 느릴 경우 첫 요청 로그가 startTime 이전으로 기록됨
     const fromTime = new Date(new Date(session.startTime).getTime() - 10_000).toISOString();
-    const [vulnLogs, secureLogs] = await Promise.all([
+    const wazuhEnabled = !!process.env.WAZUH_API_URL;
+
+    const [vulnLogs, secureLogs, wazuhAlerts] = await Promise.all([
       vulnUrl ? fetchRawLogs(vulnUrl, fromTime, toTime) : Promise.resolve([]),
       secureUrl ? fetchRawLogs(secureUrl, fromTime, toTime) : Promise.resolve([]),
+      wazuhEnabled
+        ? fetchWazuhAlerts({ from: fromTime, to: toTime })
+        : Promise.resolve([]),
     ]);
 
     session.rawLogs = { vulnerable: vulnLogs, secure: secureLogs };
+    if (wazuhAlerts.length > 0) {
+      session.wazuhAlerts = wazuhAlerts;
+    }
   }
 
   try {

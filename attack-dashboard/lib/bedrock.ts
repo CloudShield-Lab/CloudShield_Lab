@@ -2,7 +2,7 @@ import {
   BedrockRuntimeClient,
   InvokeModelWithResponseStreamCommand,
 } from '@aws-sdk/client-bedrock-runtime';
-import type { AnalysisSession, AttackResult } from '@/types';
+import type { AnalysisSession, AttackResult, WazuhAlert } from '@/types';
 
 function formatAttackChainSection(
   vulnResults: AttackResult[],
@@ -104,6 +104,32 @@ function formatAccessLogsSection(
   } else {
     section += '\n(none — WAF/SG blocked before reaching server)';
   }
+  return section;
+}
+
+function formatWazuhAlertsSection(alerts: WazuhAlert[], lang: 'ko' | 'en'): string {
+  if (alerts.length === 0) return '';
+
+  const MAX = 40;
+  const sample = alerts.slice(0, MAX);
+
+  const formatAlert = (a: WazuhAlert) => {
+    const log = a.full_log ? `\n    log: ${a.full_log.slice(0, 200)}` : '';
+    return `  [${a.timestamp}] agent=${a.agent.name} rule=${a.rule.id} level=${a.rule.level} — ${a.rule.description}${log}`;
+  };
+
+  if (lang === 'ko') {
+    let section = '\n\n### Wazuh HIDS/NIDS 탐지 알림 (공격 시간대)';
+    section += '\nWazuh agent가 EC2 호스트 레벨에서 탐지한 보안 이벤트입니다. rule.level이 높을수록 심각도가 높습니다 (7이상=경고, 12이상=심각).';
+    section += `\n\n**전체 ${alerts.length}건${alerts.length > MAX ? `, 상위 ${MAX}건 표시 (severity 내림차순)` : ''}:**\n`;
+    section += sample.map(formatAlert).join('\n');
+    return section;
+  }
+
+  let section = '\n\n### Wazuh HIDS/NIDS Detection Alerts (during attack window)';
+  section += '\nSecurity events detected by the Wazuh agent at the EC2 host level. Higher rule.level = higher severity (7+=warning, 12+=critical).';
+  section += `\n\n**Total ${alerts.length} alerts${alerts.length > MAX ? `, showing top ${MAX} by severity` : ''}:**\n`;
+  section += sample.map(formatAlert).join('\n');
   return section;
 }
 
@@ -219,6 +245,7 @@ function getScenarioContext(scenario: string, lang: 'ko' | 'en'): string {
 function buildPrompt(session: AnalysisSession, lang: 'ko' | 'en'): { system: string; user: string } {
   const chainSection = formatAttackChainSection(session.vulnResults, session.secureResults, lang);
   const rawLogsSection = session.rawLogs ? formatAccessLogsSection(session.rawLogs, lang) : '';
+  const wazuhSection = session.wazuhAlerts ? formatWazuhAlertsSection(session.wazuhAlerts, lang) : '';
   const scenarioContext = getScenarioContext(session.scenario, lang);
 
   if (lang === 'ko') {
@@ -232,10 +259,10 @@ function buildPrompt(session: AnalysisSession, lang: 'ko' | 'en'): { system: str
 **실행 시각:** ${new Date(session.timestamp).toLocaleString('ko-KR')}
 ${scenarioContext}
 
-아래 두 가지 데이터를 교차 분석해 공격의 전모를 파악하세요.
+아래 데이터를 교차 분석해 공격의 전모를 파악하세요.
 - **공격 체인 실행 결과**: attack-dashboard가 공격을 수행하며 각 단계에서 받은 실제 HTTP 응답 (공격자 시점)
-- **서버 수신 액세스 로그**: 취약/보안 환경 백엔드가 실제로 수신한 요청 (서버 시점, WAF 차단된 요청은 미포함)
-${chainSection}${rawLogsSection}
+- **서버 수신 액세스 로그**: 취약/보안 환경 백엔드가 실제로 수신한 요청 (서버 시점, WAF 차단된 요청은 미포함)${wazuhSection ? '\n- **Wazuh HIDS/NIDS 알림**: EC2 호스트 레벨에서 탐지된 보안 이벤트 (agent.name으로 환경 구분)' : ''}
+${chainSection}${rawLogsSection}${wazuhSection}
 
 다음 5가지 섹션으로 분석해주세요:
 
@@ -276,10 +303,10 @@ ${chainSection}${rawLogsSection}
 **Timestamp:** ${new Date(session.timestamp).toLocaleString('en-US')}
 ${scenarioContext}
 
-Cross-analyze the two data sources below to understand the full scope of the attack:
+Cross-analyze the data sources below to understand the full scope of the attack:
 - **Attack chain execution results**: Actual HTTP responses received at each attack step by the dashboard (attacker's perspective)
-- **Server access logs**: Requests actually received by the vulnerable/secure backend servers (server's perspective — WAF-blocked requests are absent)
-${chainSection}${rawLogsSection}
+- **Server access logs**: Requests actually received by the vulnerable/secure backend servers (server's perspective — WAF-blocked requests are absent)${wazuhSection ? '\n- **Wazuh HIDS/NIDS alerts**: Security events detected at EC2 host level (distinguish environments by agent.name)' : ''}
+${chainSection}${rawLogsSection}${wazuhSection}
 
 Please analyze using the following 5 sections:
 
