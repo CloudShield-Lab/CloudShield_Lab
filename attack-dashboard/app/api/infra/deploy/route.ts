@@ -68,11 +68,10 @@ async function getLatestRunStatus(env: Environment): Promise<{
   }
 }
 
-// terraform job 상태 조회 — Terraform Apply step 시작 여부 + job 완료 여부 반환
+// terraform job 상태 조회 — job 완료 여부 반환
 async function getTerraformJobInfo(runId: number): Promise<{
   status: string;
   conclusion: string | null;
-  applyStepStarted: boolean;
 } | null> {
   const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/actions/runs/${runId}/jobs`;
 
@@ -87,15 +86,9 @@ async function getTerraformJobInfo(runId: number): Promise<{
       data.jobs?.[0];
     if (!job) return null;
 
-    const applyStep = job.steps?.find(
-      (s: { name: string }) => s.name === 'Terraform Apply'
-    );
-
     return {
       status: job.status as string,
       conclusion: job.conclusion ?? null,
-      applyStepStarted:
-        applyStep?.status === 'in_progress' || applyStep?.status === 'completed',
     };
   } catch {
     return null;
@@ -138,7 +131,6 @@ export async function GET(request: NextRequest) {
 
       // 최대 10분간 상태 폴링
       const maxAttempts = 90;
-      let vpcReady = false;
 
       for (let i = 0; i < maxAttempts; i++) {
         const runStatus = await getLatestRunStatus(env);
@@ -158,19 +150,8 @@ export async function GET(request: NextRequest) {
             message: statusMsg,
           });
 
-          // terraform job 상태 확인 (vpc_ready + 조기 완료 감지)
-          const jobInfo = await getTerraformJobInfo(runStatus.id);
-
-          // apply 중이고 아직 vpc_ready를 보내지 않았다면 Terraform Apply step 확인
-          if (action === 'apply' && !vpcReady && jobInfo?.applyStepStarted) {
-            vpcReady = true;
-            await send({
-              type: 'vpc_ready',
-              message: 'Terraform Apply 시작 확인 — VPC 생성 완료, 다른 환경 배포 가능',
-            });
-          }
-
           // terraform job 완료 → Prowler 대기 없이 즉시 결과 전송
+          const jobInfo = await getTerraformJobInfo(runStatus.id);
           if (jobInfo?.status === 'completed') {
             const success = jobInfo.conclusion === 'success';
             await send({
