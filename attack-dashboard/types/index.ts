@@ -144,7 +144,10 @@ export interface AnalysisSession {
   secureResults: AttackResult[];
   stages: AttackEvent[];
   metrics: { vuln: SessionMetrics; secure: SessionMetrics };
-  wazuhAlerts?: WazuhAlert[];
+  wazuhAlerts?: {
+    vulnerable: WazuhAlert[];
+    secure: WazuhAlert[];
+  };
   rawLogs?: {
     vulnerable: string[];
     secure: string[];

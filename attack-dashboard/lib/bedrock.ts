@@ -107,29 +107,38 @@ function formatAccessLogsSection(
   return section;
 }
 
-function formatWazuhAlertsSection(alerts: WazuhAlert[], lang: 'ko' | 'en'): string {
-  if (alerts.length === 0) return '';
+function formatWazuhAlertsSection(
+  alerts: { vulnerable: WazuhAlert[]; secure: WazuhAlert[] },
+  lang: 'ko' | 'en',
+): string {
+  const total = alerts.vulnerable.length + alerts.secure.length;
+  if (total === 0) return '';
 
-  const MAX = 40;
-  const sample = alerts.slice(0, MAX);
+  const MAX = 30;
+  const vulnSample = alerts.vulnerable.slice(0, MAX);
+  const secureSample = alerts.secure.slice(0, MAX);
 
   const formatAlert = (a: WazuhAlert) => {
     const log = a.full_log ? `\n    log: ${a.full_log.slice(0, 200)}` : '';
-    return `  [${a.timestamp}] agent=${a.agent.name} rule=${a.rule.id} level=${a.rule.level} — ${a.rule.description}${log}`;
+    return `  [${a.timestamp}] rule=${a.rule.id} level=${a.rule.level} — ${a.rule.description}${log}`;
   };
 
   if (lang === 'ko') {
     let section = '\n\n### Wazuh HIDS/NIDS 탐지 알림 (공격 시간대)';
     section += '\nWazuh agent가 EC2 호스트 레벨에서 탐지한 보안 이벤트입니다. rule.level이 높을수록 심각도가 높습니다 (7이상=경고, 12이상=심각).';
-    section += `\n\n**전체 ${alerts.length}건${alerts.length > MAX ? `, 상위 ${MAX}건 표시 (severity 내림차순)` : ''}:**\n`;
-    section += sample.map(formatAlert).join('\n');
+    section += `\n\n**취약 환경 (${alerts.vulnerable.length}건${alerts.vulnerable.length > MAX ? `, 상위 ${MAX}건 표시 (severity 내림차순)` : ''}):**`;
+    section += vulnSample.length > 0 ? '\n' + vulnSample.map(formatAlert).join('\n') : '\n  (없음)';
+    section += `\n\n**보안 환경 (${alerts.secure.length}건${alerts.secure.length > MAX ? `, 상위 ${MAX}건 표시 (severity 내림차순)` : ''}):**`;
+    section += secureSample.length > 0 ? '\n' + secureSample.map(formatAlert).join('\n') : '\n  (없음)';
     return section;
   }
 
   let section = '\n\n### Wazuh HIDS/NIDS Detection Alerts (during attack window)';
   section += '\nSecurity events detected by the Wazuh agent at the EC2 host level. Higher rule.level = higher severity (7+=warning, 12+=critical).';
-  section += `\n\n**Total ${alerts.length} alerts${alerts.length > MAX ? `, showing top ${MAX} by severity` : ''}:**\n`;
-  section += sample.map(formatAlert).join('\n');
+  section += `\n\n**Vulnerable environment (${alerts.vulnerable.length} alerts${alerts.vulnerable.length > MAX ? `, showing top ${MAX} by severity` : ''}):**`;
+  section += vulnSample.length > 0 ? '\n' + vulnSample.map(formatAlert).join('\n') : '\n  (none)';
+  section += `\n\n**Secure environment (${alerts.secure.length} alerts${alerts.secure.length > MAX ? `, showing top ${MAX} by severity` : ''}):**`;
+  section += secureSample.length > 0 ? '\n' + secureSample.map(formatAlert).join('\n') : '\n  (none)';
   return section;
 }
 
@@ -247,6 +256,8 @@ function buildPrompt(session: AnalysisSession, lang: 'ko' | 'en'): { system: str
   const rawLogsSection = session.rawLogs ? formatAccessLogsSection(session.rawLogs, lang) : '';
   const wazuhSection = session.wazuhAlerts ? formatWazuhAlertsSection(session.wazuhAlerts, lang) : '';
   const scenarioContext = getScenarioContext(session.scenario, lang);
+  const hasWazuh = !!session.wazuhAlerts &&
+    (session.wazuhAlerts.vulnerable.length > 0 || session.wazuhAlerts.secure.length > 0);
 
   if (lang === 'ko') {
     return {
@@ -259,24 +270,24 @@ function buildPrompt(session: AnalysisSession, lang: 'ko' | 'en'): { system: str
 **실행 시각:** ${new Date(session.timestamp).toLocaleString('ko-KR')}
 ${scenarioContext}
 
-아래 데이터를 교차 분석해 공격의 전모를 파악하세요.
+아래 ${hasWazuh ? '세 가지' : '두 가지'} 데이터를 교차 분석해 공격의 전모를 파악하세요.
 - **공격 체인 실행 결과**: attack-dashboard가 공격을 수행하며 각 단계에서 받은 실제 HTTP 응답 (공격자 시점)
-- **서버 수신 액세스 로그**: 취약/보안 환경 백엔드가 실제로 수신한 요청 (서버 시점, WAF 차단된 요청은 미포함)${wazuhSection ? '\n- **Wazuh HIDS/NIDS 알림**: EC2 호스트 레벨에서 탐지된 보안 이벤트 (agent.name으로 환경 구분)' : ''}
+- **서버 수신 액세스 로그**: 취약/보안 환경 백엔드가 실제로 수신한 요청 (서버 시점, WAF 차단된 요청은 미포함)${hasWazuh ? '\n- **Wazuh HIDS/NIDS 알림**: EC2 호스트 레벨에서 탐지된 보안 이벤트 (agent.name으로 환경 구분, rule.level 7이상=경고·12이상=심각)' : ''}
 ${chainSection}${rawLogsSection}${wazuhSection}
 
 다음 5가지 섹션으로 분석해주세요:
 
 ## 1. 공격 개요
-두 데이터를 근거로 어떤 공격이 어떤 순서로 수행됐는지 설명하세요. 공격 목적과 실제 공격자가 이 기법을 사용하는 맥락도 함께 서술하세요.
+${hasWazuh ? '세 가지 데이터(공격 체인·서버 로그·Wazuh 알림)를 근거로' : '두 데이터를 근거로'} 어떤 공격이 어떤 순서로 수행됐는지 설명하세요. 공격 목적과 실제 공격자가 이 기법을 사용하는 맥락도 함께 서술하세요.${hasWazuh ? ' Wazuh가 탐지한 이벤트 유형(rule.description)도 공격 의도 파악에 활용하세요.' : ''}
 
 ## 2. 취약 환경 영향 분석
-공격 체인 결과와 서버 액세스 로그를 교차해 취약 환경에서의 공격 결과와 실질적 피해를 분석하세요. 어느 단계에서 성공했는지, 어떤 계정/데이터가 노출됐는지 구체적으로 제시하세요.
+공격 체인 결과와 서버 액세스 로그를 교차해 취약 환경에서의 공격 결과와 실질적 피해를 분석하세요. 어느 단계에서 성공했는지, 어떤 계정/데이터가 노출됐는지 구체적으로 제시하세요.${hasWazuh ? ' 취약 환경 Wazuh 알림(agent.name으로 구분)에서 감지된 고위험 이벤트(level 7 이상)도 피해 근거로 포함하세요.' : ''}
 
 ## 3. 보안 환경 방어 효과
-공격 체인 결과(공격자가 받은 응답)와 서버 액세스 로그(서버 도달 여부)를 함께 분석해 어느 계층에서 어떻게 차단됐는지 설명하세요. 두 데이터 간 불일치(예: 공격자는 403을 받았지만 서버 로그엔 없음 → WAF 선제 차단)도 근거로 활용하세요.
+공격 체인 결과(공격자가 받은 응답)와 서버 액세스 로그(서버 도달 여부)를 함께 분석해 어느 계층에서 어떻게 차단됐는지 설명하세요. 두 데이터 간 불일치(예: 공격자는 403을 받았지만 서버 로그엔 없음 → WAF 선제 차단)도 근거로 활용하세요.${hasWazuh ? ' 보안 환경 Wazuh 알림이 취약 환경 대비 감소했다면, 그 차이가 WAF/SG 방어 효과와 어떻게 연관되는지도 설명하세요.' : ''}
 
 ## 4. 공격 재구성
-두 데이터를 종합해 공격자의 행동을 시간순으로 재구성하세요. 어떤 IP에서 어떤 단계를 시도했고, 어디서 성공/차단됐는지 구체적으로 서술하세요.
+${hasWazuh ? '세 가지 데이터를 종합해' : '두 데이터를 종합해'} 공격자의 행동을 시간순으로 재구성하세요. 어떤 IP에서 어떤 단계를 시도했고, 어디서 성공/차단됐는지 구체적으로 서술하세요.${hasWazuh ? ' Wazuh 알림의 타임스탬프를 HTTP 로그와 대조해 공격 흐름을 정밀하게 복원하세요.' : ''}
 
 ## 5. 환경별 보안 평가 및 결론
 아래 형식으로 두 환경을 각각 평가하세요:
@@ -303,24 +314,24 @@ ${chainSection}${rawLogsSection}${wazuhSection}
 **Timestamp:** ${new Date(session.timestamp).toLocaleString('en-US')}
 ${scenarioContext}
 
-Cross-analyze the data sources below to understand the full scope of the attack:
+Cross-analyze the ${hasWazuh ? 'three' : 'two'} data sources below to understand the full scope of the attack:
 - **Attack chain execution results**: Actual HTTP responses received at each attack step by the dashboard (attacker's perspective)
-- **Server access logs**: Requests actually received by the vulnerable/secure backend servers (server's perspective — WAF-blocked requests are absent)${wazuhSection ? '\n- **Wazuh HIDS/NIDS alerts**: Security events detected at EC2 host level (distinguish environments by agent.name)' : ''}
+- **Server access logs**: Requests actually received by the vulnerable/secure backend servers (server's perspective — WAF-blocked requests are absent)${hasWazuh ? '\n- **Wazuh HIDS/NIDS alerts**: Security events detected at EC2 host level (distinguish environments by agent.name; rule.level 7+=warning, 12+=critical)' : ''}
 ${chainSection}${rawLogsSection}${wazuhSection}
 
 Please analyze using the following 5 sections:
 
 ## 1. Attack Overview
-Using both data sources, describe what attack was performed and in what order. Include the attack objective and real-world context.
+Using ${hasWazuh ? 'all three data sources (attack chain, server logs, Wazuh alerts)' : 'both data sources'}, describe what attack was performed and in what order. Include the attack objective and real-world context.${hasWazuh ? ' Use Wazuh rule.description fields to further infer attacker intent.' : ''}
 
 ## 2. Vulnerable Environment Impact Analysis
-Cross-reference the attack chain results and server access logs to analyze the attack outcome and actual damage in the vulnerable environment. Specify at which step the attack succeeded and what accounts/data were exposed.
+Cross-reference the attack chain results and server access logs to analyze the attack outcome and actual damage in the vulnerable environment. Specify at which step the attack succeeded and what accounts/data were exposed.${hasWazuh ? ' Include high-severity Wazuh alerts (level 7+) from the vulnerable environment (identified by agent.name) as additional evidence of impact.' : ''}
 
 ## 3. Secure Environment Defense Effectiveness
-Analyze both the attack chain results (what the attacker received) and server access logs (what reached the server) to explain which layer blocked the attack and how. Use discrepancies between the two (e.g., attacker got 403 but no server log entry → WAF pre-blocked) as evidence.
+Analyze both the attack chain results (what the attacker received) and server access logs (what reached the server) to explain which layer blocked the attack and how. Use discrepancies between the two (e.g., attacker got 403 but no server log entry → WAF pre-blocked) as evidence.${hasWazuh ? ' If Wazuh alert volume is lower in the secure environment compared to the vulnerable one, explain how that reduction correlates with WAF/SG defense layers.' : ''}
 
 ## 4. Attack Reconstruction
-Synthesize both data sources to reconstruct the attacker's actions in chronological order. Detail which IP attempted which steps, and where success or blocking occurred.
+Synthesize ${hasWazuh ? 'all three data sources' : 'both data sources'} to reconstruct the attacker's actions in chronological order. Detail which IP attempted which steps, and where success or blocking occurred.${hasWazuh ? ' Cross-reference Wazuh alert timestamps with HTTP access logs to achieve a precise timeline.' : ''}
 
 ## 5. Per-Environment Security Assessment & Conclusion
 Evaluate each environment separately using the format below:
