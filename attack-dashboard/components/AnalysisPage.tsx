@@ -17,6 +17,7 @@ export function AnalysisPage({ mode }: Props) {
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [showRawLog, setShowRawLog] = useState(false);
   const [showWazuh, setShowWazuh] = useState(false);
+  const [showWazuhAlerts, setShowWazuhAlerts] = useState(false);
 
   const handleSelectMeta = async (meta: SessionMeta) => {
     if (meta.sessionId === selectedMeta?.sessionId) return;
@@ -26,6 +27,7 @@ export function AnalysisPage({ mode }: Props) {
     setLoadingSession(true);
     setShowRawLog(false);
     setShowWazuh(false);
+    setShowWazuhAlerts(false);
 
     try {
       const res = await fetch(
@@ -114,6 +116,14 @@ export function AnalysisPage({ mode }: Props) {
                         </span>
                       </>
                     )}
+                    {session.wazuhAlerts && session.wazuhAlerts.length > 0 && (
+                      <>
+                        <span>·</span>
+                        <span className="rounded-full border border-orange-200 bg-orange-50 px-2 py-0.5 font-mono text-[10px] text-orange-600">
+                          Wazuh {session.wazuhAlerts.length}건
+                        </span>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -183,6 +193,74 @@ export function AnalysisPage({ mode }: Props) {
                           </div>
                         )}
                       </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Wazuh HIDS/NIDS 알림 */}
+            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+              <button
+                onClick={() => setShowWazuhAlerts((v) => !v)}
+                className="flex w-full items-center justify-between px-4 py-3 text-xs font-medium text-slate-600 hover:bg-slate-50"
+              >
+                <div className="flex items-center gap-2">
+                  <span>Wazuh HIDS/NIDS 탐지 알림</span>
+                  {!session.wazuhAlerts || session.wazuhAlerts.length === 0 ? (
+                    <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[9px] text-slate-400">
+                      데이터 없음
+                    </span>
+                  ) : (
+                    <span className="rounded-full border border-orange-200 bg-orange-50 px-2 py-0.5 text-[9px] font-medium text-orange-600">
+                      {session.wazuhAlerts.length}건
+                    </span>
+                  )}
+                </div>
+                <span className="text-slate-400">{showWazuhAlerts ? '▲ 접기' : '▼ 펼치기'}</span>
+              </button>
+
+              {showWazuhAlerts && (
+                <div className="border-t border-slate-200 p-4">
+                  {!session.wazuhAlerts || session.wazuhAlerts.length === 0 ? (
+                    <p className="py-4 text-center text-xs text-slate-400">
+                      Wazuh가 구성되지 않았거나 탐지된 알림이 없습니다.
+                    </p>
+                  ) : (
+                    <div className="flex max-h-96 flex-col gap-2 overflow-y-auto">
+                      {session.wazuhAlerts.map((alert) => (
+                        <div
+                          key={alert.id}
+                          className={`rounded border p-2 text-[10px] leading-5 ${
+                            alert.rule.level >= 12
+                              ? 'border-red-200 bg-red-50'
+                              : alert.rule.level >= 7
+                              ? 'border-orange-200 bg-orange-50'
+                              : 'border-slate-200 bg-slate-50'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 font-medium">
+                            <span className={`rounded px-1.5 py-0.5 font-mono text-[9px] ${
+                              alert.rule.level >= 12
+                                ? 'bg-red-100 text-red-700'
+                                : alert.rule.level >= 7
+                                ? 'bg-orange-100 text-orange-700'
+                                : 'bg-slate-100 text-slate-600'
+                            }`}>
+                              lv.{alert.rule.level}
+                            </span>
+                            <span className="text-slate-500 font-mono">rule {alert.rule.id}</span>
+                            <span className="text-slate-400">agent: {alert.agent.name}</span>
+                            <span className="ml-auto text-slate-400">{new Date(alert.timestamp).toLocaleTimeString('ko-KR')}</span>
+                          </div>
+                          <div className="mt-1 text-slate-700">{alert.rule.description}</div>
+                          {alert.full_log && (
+                            <pre className="mt-1 overflow-x-auto whitespace-pre-wrap font-mono text-[9px] text-slate-500">
+                              {alert.full_log.slice(0, 300)}
+                            </pre>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>

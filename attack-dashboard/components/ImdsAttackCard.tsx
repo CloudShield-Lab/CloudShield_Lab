@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useArchitectureVisualization } from '@/hooks/useArchitectureVisualization';
 import type { AttackEvent, AttackPhase, AttackResult, SessionMetrics, WorkspaceMode } from '@/types';
 import { MetricsPanel } from './MetricsPanel';
@@ -9,36 +9,40 @@ import { RequestLog } from './RequestLog';
 function computeMetrics(results: AttackResult[]): SessionMetrics {
   const total = results.length;
   const blocked = results.filter((r) => r.blocked).length;
-  const avgLatency = total > 0 ? Math.round(results.reduce((sum, r) => sum + r.latency, 0) / total) : 0;
+  const avgLatency =
+    total > 0 ? Math.round(results.reduce((sum, r) => sum + r.latency, 0) / total) : 0;
   return { blocked, total, avgLatency };
 }
 
 type StepStatus = 'pending' | 'running' | 'success' | 'failed';
 
-interface DirectFile {
-  fileName: string;
-  directUrl: string;
+interface ImdsCredentials {
+  accessKeyId: string;
+  secretAccessKey: string;
+  token: string;
+  expiration: string;
 }
 
 interface StepState {
   status: StepStatus;
   detail?: string;
-  directFiles?: DirectFile[];
+  credentials?: ImdsCredentials;
 }
 
 const STEP_META = [
-  { icon: '🔐', label: '1단계: 로그인', desc: '탈취한 자격증명으로 취약 서버에 로그인 → JWT 획득' },
-  { icon: '📁', label: '2단계: 파일 목록 조회', desc: 'Bearer JWT로 /api/files 접근 → 업로드된 파일 확인' },
-  { icon: '🔗', label: '3단계: Presigned URL 획득', desc: '/api/files/:id/download → S3 서명 다운로드 URL 발급' },
-  { icon: '🚨', label: '4단계: 서명 제거 후 직접 접근', desc: 'URL에서 ?X-Amz-* 파라미터 제거 → S3 퍼블릭 버킷 여부 확인' },
+  {
+    icon: '🔍',
+    label: '1단계: SSRF → IMDS 역할명 조회',
+    desc: 'POST /api/debug/fetch-url → 백엔드가 http://169.254.169.254/.../iam/security-credentials/ 내부 조회',
+  },
+  {
+    icon: '🔑',
+    label: '2단계: IAM 자격증명 탈취',
+    desc: '백엔드가 /iam/security-credentials/{role} 조회 → AccessKeyId, SecretAccessKey, Token 반환',
+  },
 ];
 
-const EMPTY_STEPS: StepState[] = [
-  { status: 'pending' },
-  { status: 'pending' },
-  { status: 'pending' },
-  { status: 'pending' },
-];
+const EMPTY_STEPS: StepState[] = [{ status: 'pending' }, { status: 'pending' }];
 
 interface Props {
   index: number;
@@ -49,12 +53,9 @@ interface Props {
   mode: WorkspaceMode;
 }
 
-export function S3ExfiltrationCard({ index, title, description, vulnNote, awsNote, mode }: Props) {
+export function ImdsAttackCard({ index, title, description, vulnNote, awsNote, mode }: Props) {
   const { startScenario, handleAttackEvent, resetScenario } = useArchitectureVisualization();
   const [phase, setPhase] = useState<AttackPhase>('idle');
-  const [email, setEmail] = useState('victim@demo.com');
-  const [password, setPassword] = useState('Demo1234!');
-  const [linkedFromScenario1, setLinkedFromScenario1] = useState(false);
   const [steps, setSteps] = useState<StepState[]>(EMPTY_STEPS);
   const [vulnResults, setVulnResults] = useState<AttackResult[]>([]);
   const [awsResults, setAwsResults] = useState<AttackResult[]>([]);
@@ -62,20 +63,6 @@ export function S3ExfiltrationCard({ index, title, description, vulnNote, awsNot
   const esRef = useRef<EventSource | null>(null);
   const localVulnRef = useRef<AttackResult[]>([]);
   const localAwsRef = useRef<AttackResult[]>([]);
-
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem('sentinelshare_captured_accounts');
-      if (raw) {
-        const accounts = JSON.parse(raw) as { email: string; password: string }[];
-        if (accounts.length > 0) {
-          setEmail(accounts[0].email);
-          setPassword(accounts[0].password);
-          setLinkedFromScenario1(true);
-        }
-      }
-    } catch {}
-  }, []);
 
   const updateStep = useCallback((stepIndex: number, update: Partial<StepState>) => {
     setSteps((prev) => {
@@ -89,7 +76,7 @@ export function S3ExfiltrationCard({ index, title, description, vulnNote, awsNot
     if (phase === 'running') return;
 
     const startTime = new Date().toISOString();
-    startScenario('s3-access');
+    startScenario('imds-ssrf');
     setPhase('running');
     setVulnResults([]);
     setAwsResults([]);
@@ -100,7 +87,10 @@ export function S3ExfiltrationCard({ index, title, description, vulnNote, awsNot
     const doSave = (localVuln: AttackResult[], localAws: AttackResult[]) => {
       void (async () => {
         try {
-          const sessionId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+          const sessionId =
+            typeof crypto !== 'undefined' && crypto.randomUUID
+              ? crypto.randomUUID()
+              : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
           await fetch('/api/analysis/save', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -109,7 +99,7 @@ export function S3ExfiltrationCard({ index, title, description, vulnNote, awsNot
               startTime,
               timestamp: new Date().toISOString(),
               mode,
-              scenario: 's3-access',
+              scenario: 'imds-ssrf',
               scenarioTitle: title,
               vulnResults: localVuln,
               secureResults: localAws,
@@ -126,8 +116,7 @@ export function S3ExfiltrationCard({ index, title, description, vulnNote, awsNot
       })();
     };
 
-    const query = `?mode=${mode}&email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`;
-    const es = new EventSource(`/api/attack/s3-access${query}`);
+    const es = new EventSource(`/api/attack/imds-ssrf?mode=${mode}`);
     esRef.current = es;
 
     es.onmessage = (msg) => {
@@ -138,14 +127,14 @@ export function S3ExfiltrationCard({ index, title, description, vulnNote, awsNot
         return;
       }
 
-      handleAttackEvent('s3-access', event as unknown as AttackEvent);
+      handleAttackEvent('imds-ssrf', event as unknown as AttackEvent);
 
       if (event.type === 'chain_step') {
         const stepIdx = (event.step as number) - 1;
         updateStep(stepIdx, {
           status: event.status as StepStatus,
           detail: (event.detail as string) || undefined,
-          directFiles: (event.directFiles as DirectFile[]) || undefined,
+          credentials: (event.credentials as ImdsCredentials) || undefined,
         });
       } else if (event.type === 'result') {
         const result: AttackResult = {
@@ -154,8 +143,6 @@ export function S3ExfiltrationCard({ index, title, description, vulnNote, awsNot
           latency: event.latency as number,
           blocked: event.blocked as boolean,
           label: event.label as string | undefined,
-          error: event.error as string | undefined,
-          url: event.url as string | undefined,
         };
         if (event.env === 'vulnerable') {
           setVulnResults((prev) => [...prev, result]);
@@ -179,7 +166,7 @@ export function S3ExfiltrationCard({ index, title, description, vulnNote, awsNot
       doSave(localVulnRef.current, localAwsRef.current);
       es.close();
     };
-  }, [email, handleAttackEvent, mode, password, phase, startScenario, title, updateStep]);
+  }, [handleAttackEvent, mode, phase, startScenario, title, updateStep]);
 
   const reset = useCallback(() => {
     esRef.current?.close();
@@ -233,7 +220,7 @@ export function S3ExfiltrationCard({ index, title, description, vulnNote, awsNot
               {phase === 'idle' && '공격 실행'}
               {phase === 'running' && (
                 <span className="flex items-center gap-1.5">
-                  <span className="h-1.5 w-1.5 rounded-full bg-yellow-500" />
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-yellow-500" />
                   실행 중
                 </span>
               )}
@@ -243,43 +230,24 @@ export function S3ExfiltrationCard({ index, title, description, vulnNote, awsNot
           </div>
         </div>
 
-        {/* Credential input */}
-        <div
-          className={`flex flex-wrap items-center gap-3 border-b px-6 py-3 ${linkedFromScenario1 ? 'border-red-200 bg-red-50' : 'border-slate-100 bg-slate-50'}`}
-        >
-          {linkedFromScenario1 && (
-            <span className="flex-shrink-0 rounded-full border border-red-300 bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-700">
-              🔗 시나리오 1 연동
-            </span>
-          )}
-          <div className="flex items-center gap-2">
-            <label className="text-xs font-medium text-slate-500">이메일</label>
-            <input
-              type="text"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={phase === 'running'}
-              className="rounded border border-slate-200 bg-white px-2 py-1 font-mono text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-slate-300 disabled:opacity-60"
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <label className="text-xs font-medium text-slate-500">비밀번호</label>
-            <input
-              type="text"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              disabled={phase === 'running'}
-              className="rounded border border-slate-200 bg-white px-2 py-1 font-mono text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-slate-300 disabled:opacity-60"
-            />
-          </div>
+        {/* WAF 미탐지 경고 배너 */}
+        <div className="border-b border-amber-200 bg-amber-50 px-6 py-3">
+          <p className="text-xs font-semibold text-amber-800">
+            WAF는 이 공격을 차단하지 못합니다
+          </p>
+          <p className="mt-0.5 text-xs text-amber-700">
+            SSRF 요청은 정상 POST와 구별이 불가능합니다. 방어는 EC2 메타데이터 서비스 설정(IMDSv2)에서만 이루어집니다.
+          </p>
         </div>
 
-        {/* 4-step attack chain */}
+        {/* 2-step attack chain (취약 환경) */}
         <div className="border-b border-slate-200 px-6 py-5">
           <div className="mb-4 flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-red-500" />
-            <span className="text-xs font-semibold uppercase tracking-wider text-red-600">취약 환경 — 공격 체인</span>
-            <span className="ml-1 font-mono text-xs text-slate-400">No Protection</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-red-600">
+              취약 환경 — 공격 체인
+            </span>
+            <span className="ml-1 font-mono text-xs text-slate-400">IMDSv1 (http_tokens=optional)</span>
           </div>
 
           <div>
@@ -314,7 +282,6 @@ export function S3ExfiltrationCard({ index, title, description, vulnNote, awsNot
 
               return (
                 <div key={i} className="flex gap-4">
-                  {/* Timeline */}
                   <div className="flex flex-col items-center">
                     <div
                       className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border-2 text-sm transition-all ${circleClass}`}
@@ -324,13 +291,12 @@ export function S3ExfiltrationCard({ index, title, description, vulnNote, awsNot
                         : step.status === 'failed'
                           ? '✗'
                           : step.status === 'running'
-                            ? <span className="h-2 w-2 rounded-full bg-yellow-400 animate-pulse" />
+                            ? <span className="h-2 w-2 animate-pulse rounded-full bg-yellow-400" />
                             : meta.icon}
                     </div>
                     {!isLast && <div className={`mt-0.5 h-8 w-0.5 ${lineClass}`} />}
                   </div>
 
-                  {/* Content */}
                   <div className={`min-w-0 ${isLast ? 'pb-0' : 'pb-6'}`}>
                     <div className="flex items-center gap-2">
                       <span className={`text-sm font-semibold ${labelClass}`}>{meta.label}</span>
@@ -355,22 +321,35 @@ export function S3ExfiltrationCard({ index, title, description, vulnNote, awsNot
                       <p className="mt-1 font-mono text-xs text-slate-600">{step.detail}</p>
                     )}
 
-                    {/* Step 4 success: danger banners (one per file) */}
-                    {i === 3 && step.status === 'success' && step.directFiles && step.directFiles.length > 0 && (
-                      <div className="mt-2 space-y-1.5">
-                        {step.directFiles.map((file, fi) => (
-                          <a
-                            key={fi}
-                            href={file.directUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-2 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 transition-colors hover:bg-red-100"
-                          >
-                            <span>⚠</span>
-                            <span className="min-w-0 truncate">{file.fileName}</span>
-                            <span className="ml-auto flex-shrink-0 font-normal text-red-400 underline">열기 →</span>
-                          </a>
-                        ))}
+                    {/* 2단계 성공: 자격증명 노출 박스 */}
+                    {i === 1 && step.status === 'success' && step.credentials && (
+                      <div className="mt-3 rounded-lg border border-red-300 bg-red-50 p-3">
+                        <div className="mb-2 flex items-center gap-2">
+                          <span className="text-xs font-bold text-red-700">⚠ IAM 자격증명 노출</span>
+                          <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-600">
+                            AWS 계정 권한 탈취
+                          </span>
+                        </div>
+                        <div className="space-y-1 font-mono text-[11px]">
+                          <div className="flex gap-2">
+                            <span className="w-28 flex-shrink-0 text-slate-500">AccessKeyId</span>
+                            <span className="text-red-700">{step.credentials.accessKeyId}</span>
+                          </div>
+                          <div className="flex gap-2">
+                            <span className="w-28 flex-shrink-0 text-slate-500">SecretAccessKey</span>
+                            <span className="text-red-700">{step.credentials.secretAccessKey}</span>
+                          </div>
+                          <div className="flex gap-2">
+                            <span className="w-28 flex-shrink-0 text-slate-500">Token</span>
+                            <span className="truncate text-red-700">{step.credentials.token}</span>
+                          </div>
+                          {step.credentials.expiration && (
+                            <div className="flex gap-2">
+                              <span className="w-28 flex-shrink-0 text-slate-500">Expiration</span>
+                              <span className="text-slate-600">{step.credentials.expiration}</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -385,28 +364,32 @@ export function S3ExfiltrationCard({ index, title, description, vulnNote, awsNot
           <div className="space-y-3 p-4">
             <div className="flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-red-500" />
-              <span className="text-xs font-semibold uppercase tracking-wider text-red-600">취약 환경</span>
-              <span className="ml-1 font-mono text-xs text-slate-400">No Protection</span>
+              <span className="text-xs font-semibold uppercase tracking-wider text-red-600">
+                취약 환경
+              </span>
+              <span className="ml-1 font-mono text-xs text-slate-400">IMDSv1</span>
             </div>
             <p className="min-h-[44px] text-xs leading-5 text-slate-500">{vulnNote}</p>
             <RequestLog results={vulnResults} env="vulnerable" />
-            <MetricsPanel results={vulnResults} phase={phase} env="vulnerable" totalPlanned={4} />
+            <MetricsPanel results={vulnResults} phase={phase} env="vulnerable" totalPlanned={2} />
           </div>
           <div className="space-y-3 border-t border-slate-200 p-4 lg:border-t-0">
             <div className="flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-emerald-500" />
-              <span className="text-xs font-semibold uppercase tracking-wider text-emerald-600">보안 환경</span>
-              <span className="ml-1 font-mono text-xs text-slate-400">WAF + CloudFront</span>
+              <span className="text-xs font-semibold uppercase tracking-wider text-emerald-600">
+                보안 환경
+              </span>
+              <span className="ml-1 font-mono text-xs text-slate-400">IMDSv2</span>
             </div>
             <p className="min-h-[44px] text-xs leading-5 text-slate-500">{awsNote}</p>
             <RequestLog results={awsResults} env="aws" />
-            <MetricsPanel results={awsResults} phase={phase} env="aws" totalPlanned={4} />
+            <MetricsPanel results={awsResults} phase={phase} env="aws" totalPlanned={2} />
           </div>
         </div>
 
         {phase === 'idle' && (
           <div className="border-t border-slate-200 p-4 text-center text-xs text-slate-400">
-            공격 실행 버튼을 클릭하면 자격증명으로 취약 서버에 로그인하고 단계별로 데이터를 탈취합니다.
+            공격 실행 버튼을 클릭하면 SSRF로 백엔드를 경유해 IMDS에서 IAM 자격증명 탈취를 시도합니다.
           </div>
         )}
       </section>

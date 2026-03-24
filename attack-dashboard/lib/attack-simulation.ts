@@ -72,18 +72,11 @@ const scenarios: Record<ScenarioKey, ArchitectureScenario> = {
       '실제 SSE 공격 결과를 기반으로 취약 환경과 보안 환경의 S3 접근 흐름을 비교합니다.',
     events: [],
   },
-  ratelimit: {
-    id: 'ratelimit',
-    name: 'API Rate Limit 비교',
+  'rce-injection': {
+    id: 'rce-injection',
+    name: 'RCE / Log4Shell JNDI 헤더 인젝션',
     description:
-      '실제 SSE 공격 결과를 기반으로 취약 환경과 보안 환경의 반복 요청 처리 흐름을 비교합니다.',
-    events: [],
-  },
-  'header-scan': {
-    id: 'header-scan',
-    name: 'HTTP 헤더 정보 노출',
-    description:
-      '응답 헤더를 분석해 취약 환경과 보안 환경의 기술 스택 노출 차이를 비교합니다.',
+      'JNDI 페이로드를 HTTP 헤더에 삽입해 WAF KnownBadInputs 차단 효과를 비교합니다.',
     events: [],
   },
   'sqli-xss': {
@@ -105,6 +98,13 @@ const scenarios: Record<ScenarioKey, ArchitectureScenario> = {
     name: 'Origin 직접 접근 차단 비교',
     description:
       '정상 진입 경로를 우회해 원본 EC2 주소로 직접 요청을 보내고, 원본 노출 여부 차이를 비교합니다.',
+    events: [],
+  },
+  'imds-ssrf': {
+    id: 'imds-ssrf',
+    name: 'SSRF → IMDS 자격증명 탈취',
+    description:
+      'SSRF 취약점으로 EC2 내부 메타데이터 서비스에 접근해 IAM 자격증명을 탈취합니다. IMDSv2 설정이 유일한 방어선입니다.',
     events: [],
   },
 };

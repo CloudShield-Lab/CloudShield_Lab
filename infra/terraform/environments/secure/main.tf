@@ -34,9 +34,12 @@ data "terraform_remote_state" "secure_kms" {
 }
 
 module "network" {
-  source     = "../../modules/network"
-  env_name   = "secure"
-  aws_region = var.aws_region
+  source         = "../../modules/network"
+  env_name       = "secure"
+  aws_region     = var.aws_region
+  vpc_cidr       = "10.5.0.0/16"
+  subnet_cidr    = "10.5.1.0/24"
+  wazuh_vpc_id   = var.wazuh_vpc_id
 }
 
 module "s3" {

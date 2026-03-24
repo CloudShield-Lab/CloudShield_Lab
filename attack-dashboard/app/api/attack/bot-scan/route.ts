@@ -79,12 +79,21 @@ async function scanPath(baseUrl: string, scanPathValue: string, attempt: number,
     const isHtmlFallback = res.status === 200 && contentType.includes('text/html') && !isJson;
     const edgeFiltered = isHtmlFallback || res.status === 403;
 
+    let discovery: string | undefined;
+    if (!edgeFiltered && res.status === 200) {
+      try {
+        const body = await res.text();
+        discovery = body.slice(0, 300);
+      } catch {}
+    }
+
     return {
       attempt,
       status: edgeFiltered ? 403 : res.status,
       latency,
       blocked: edgeFiltered,
       label: edgeFiltered ? `${label} EDGE FILTERED` : `${label} ORIGIN REACHED`,
+      ...(discovery !== undefined && { discovery }),
     };
   } catch {
     return {
@@ -204,11 +213,21 @@ export async function GET(request: NextRequest) {
           'aws',
           attempt,
           'cloudfront',
+          'passed',
+          'CloudFront 수신',
+          `${target.path} 요청이 CloudFront를 통해 WAF 검사 단계로 전달됩니다.`,
+          'info',
+        );
+        await sendStageWithDelay(
+          sendStage,
+          'aws',
+          attempt,
+          'waf',
           awsResult.blocked ? 'blocked' : 'passed',
-          awsResult.blocked ? '앞단 계층 흡수' : 'CloudFront 전달',
+          awsResult.blocked ? 'WAF 차단' : 'WAF 통과',
           awsResult.blocked
-            ? `${target.path} 요청이 CloudFront 등 앞단 보호 계층에서 흡수되거나 차단되었습니다.`
-            : `${target.path} 요청이 앞단 계층을 통과했습니다.`,
+            ? `WAF가 ${target.path} 탐색 패턴을 탐지하여 차단했습니다.`
+            : `${target.path} 요청이 WAF 규칙을 통과했습니다.`,
           awsResult.blocked ? 'success' : 'info',
         );
 
@@ -220,7 +239,7 @@ export async function GET(request: NextRequest) {
             'ecs',
             'reached',
             'EC2 도달',
-            '앞단에서 걸러지지 않은 요청이 원본 서버까지 도달했습니다.',
+            'WAF에서 걸러지지 않은 요청이 원본 서버까지 도달했습니다.',
             'warning',
           );
           await sendStageWithDelay(

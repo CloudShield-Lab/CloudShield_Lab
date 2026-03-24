@@ -8,8 +8,8 @@ const tabs = [
     href: '/',
     label: '시작 화면',
     badge: 'HOME',
-    activeTone: 'border-slate-200 bg-slate-50 text-slate-900',
-    badgeTone: 'bg-slate-100 text-slate-700',
+    activeTone: 'border-emerald-200 bg-emerald-50 text-emerald-800',
+    badgeTone: 'bg-emerald-100 text-emerald-700',
   },
   {
     href: '/manual',

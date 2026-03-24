@@ -14,8 +14,9 @@ const signupValidation = [
   validateRequest,
 ];
 
+// [DEMO] 이메일 형식 검증 의도적 완화 — XSS/SQLi 페이로드가 서비스 계층까지 도달하도록
 const loginValidation = [
-  body('email').isEmail().normalizeEmail().withMessage('Valid email required'),
+  body('email').notEmpty().withMessage('Email required'),
   body('password').notEmpty().withMessage('Password required'),
   validateRequest,
 ];

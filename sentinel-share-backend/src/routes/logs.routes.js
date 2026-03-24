@@ -33,7 +33,9 @@ router.get('/', (req, res) => {
         entry.event === 'HTTP_ACCESS' &&
         entry.raw &&
         entry.timestamp >= from &&
-        entry.timestamp <= to
+        entry.timestamp <= to &&
+        !entry.raw.startsWith('GET /health') &&
+        !entry.raw.startsWith('GET /api/logs')
       ) {
         logs.push(entry.raw);
       }

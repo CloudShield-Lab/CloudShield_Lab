@@ -42,9 +42,9 @@ export function RequestLog({ results, env }: Props) {
 
   return (
     <div ref={scrollRef} className="h-32 space-y-0.5 overflow-y-auto pr-1">
-      {results.map((result, index) => (
+      {results.map((result) => (
         <div
-          key={index}
+          key={result.attempt}
           className={`flex items-center gap-2 rounded-sm px-2 py-[3px] font-mono text-xs ${rowBg(result.blocked, env)}`}
         >
           <span

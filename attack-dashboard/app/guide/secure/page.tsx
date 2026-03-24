@@ -70,16 +70,16 @@ export default function SecureGuidePage() {
               </div>
 
               <a
-                href="/guides/aws-secure-guide.pdf"
+                href="/api/download/secure-guide"
                 download="AWS_secure_guide.pdf"
-                className="inline-flex items-center justify-center rounded-xl border border-emerald-200 bg-white px-5 py-3 text-sm font-medium text-emerald-700 transition-colors hover:bg-emerald-50"
+                className="inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-emerald-200 bg-white px-5 py-3 text-sm font-medium text-emerald-700 transition-colors hover:bg-emerald-50"
               >
                 PDF 다운로드
               </a>
             </div>
 
             <a
-              href="/guides/aws-secure-guide.pdf"
+              href="/api/download/secure-guide"
               download="AWS_secure_guide.pdf"
               className="mt-6 flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-5 py-4 transition-colors hover:border-emerald-300"
             >

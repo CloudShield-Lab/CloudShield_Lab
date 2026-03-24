@@ -211,14 +211,30 @@ echo "deb [signed-by=/usr/share/keyrings/wazuh.gpg] https://packages.wazuh.com/4
 
 DEBIAN_FRONTEND=noninteractive apt-get update -q
 
+# post-install 스크립트가 서비스를 자동 시작하지 못하도록 차단
+printf '#!/bin/sh\nexit 101\n' > /usr/sbin/policy-rc.d
+chmod +x /usr/sbin/policy-rc.d
+
 WAZUH_MANAGER="${wazuh_manager_ip}" \
   WAZUH_AGENT_NAME="$(hostname)-${env_type}" \
   DEBIAN_FRONTEND=noninteractive apt-get install -y wazuh-agent
 
+rm -f /usr/sbin/policy-rc.d
+
 systemctl daemon-reload
 systemctl enable wazuh-agent
-systemctl start wazuh-agent
 
+# access.log (Apache combined format) 모니터링 추가 — built-in web 룰 활성화
+cat >> /var/ossec/etc/ossec.conf <<'OSSEC_EOF'
+<ossec_config>
+  <localfile>
+    <log_format>apache</log_format>
+    <location>/opt/app/logs/access.log</location>
+  </localfile>
+</ossec_config>
+OSSEC_EOF
+
+systemctl start wazuh-agent
 echo "Wazuh agent installed and started"
 %{ endif }
 

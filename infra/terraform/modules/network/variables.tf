@@ -20,3 +20,15 @@ variable "aws_region" {
   type        = string
   default     = "ap-northeast-2"
 }
+
+variable "wazuh_vpc_id" {
+  description = "Wazuh Manager VPC ID (비어있으면 피어링 미생성)"
+  type        = string
+  default     = ""
+}
+
+variable "wazuh_vpc_cidr" {
+  description = "Wazuh Manager VPC CIDR"
+  type        = string
+  default     = "10.1.0.0/16"
+}
