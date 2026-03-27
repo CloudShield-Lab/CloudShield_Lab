@@ -17,6 +17,17 @@ CLAUDE.md
 AGENTS.md
 prompt.txt
 
+# 개발 노트 / 임시 파일
+step.md
+LOG_FORMAT_SPEC.txt
+AWS_secure_guide.pdf
+*.png
+발표용정리.md
+wazuh/
+
+# 빌드 산출물
+sentinel-share-frontend/out/
+
 # Private keys
 *.pem
 

@@ -104,13 +104,16 @@ PGPASSWORD="localpassword" psql -h 127.0.0.1 -p 5432 -U sentinelshare_user -d se
 
 ```
 공격 실행 완료
+    → 취약/보안 서버에서 공격 시간대 raw HTTP 액세스 로그 수집 (/api/logs?from=&to=)
     → S3 자동 저장 (analysis-sessions/{mode}/{scenario}/{sessionId}.json)
     → /manual/analysis 또는 /auto/analysis 접속
     → 세션 선택 → "AI 분석 시작"
     → Bedrock Claude 3.5 Haiku 스트리밍 분석 (한/영 토글)
 ```
 
-**분석 섹션:** 공격 개요 / 취약 환경 영향 / 보안 환경 방어 효과 / 핵심 인사이트
+**분석 섹션:** 공격 개요 / 취약 환경 영향 / 보안 환경 방어 효과 / Raw 로그 기반 공격 재구성 / 환경별 결론
+
+> Wazuh 없이도 동작 — HTTP 액세스 로그만으로 AI 분석 수행.
 
 **ECS 배포 시 필요한 IAM 권한** (`cloudshield-dashboard-task-role` 인라인 정책):
 - `bedrock:InvokeModelWithResponseStream` (us-east-1, Claude 3.5 Haiku)
@@ -208,6 +211,7 @@ terraform-secure.yml     workflow_dispatch(apply|destroy)
 | DELETE | `/api/files/:id` | JWT | soft delete + S3 삭제 |
 | POST | `/api/files/:id/share` | JWT | 공유 링크 생성 |
 | GET | `/api/shared/:token/download` | — | 공유 토큰으로 presigned URL 발급 |
+| GET | `/api/logs` | — | raw HTTP 액세스 로그 조회 (`?from=ISO&to=ISO`), AI 분석용 |
 | GET | `/health` | — | 헬스체크 |
 
 ---
@@ -230,7 +234,7 @@ shared_links  id(uuid), file_id, token(64자hex), expires_at, created_by, create
 |---|---|---|
 | 1단계 | Attack Dashboard + ECS 배포 | ✅ 완료 |
 | 2단계 | EC2 Docker + S3 + CloudFront | ✅ 완료 |
-| 3단계 | Wazuh Agent Terraform 통합 | 🔄 진행 중 (Terraform 완료, Wazuh 매니저 서버 구성 대기) |
+| 3단계 | Wazuh Agent Terraform 통합 | 🔄 진행 중 (Terraform 완료, Wazuh 매니저 서버 구성 대기 — AI 분석은 Wazuh 없이 HTTP 로그 기반으로 운영 중) |
 | 4단계 | Terraform 인프라 자동화 | ✅ 완료 |
 | 4.5단계 | AI 사후 분석 탭 (Amazon Bedrock) | ✅ 완료 |
 | 5단계 | Prometheus + Grafana + Loki | 📋 계획 |
