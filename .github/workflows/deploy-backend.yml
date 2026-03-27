@@ -2,7 +2,7 @@ name: Deploy Backend to EC2
 
 on:
   push:
-    branches: [master, dev]
+    branches: [dev]
     paths:
       - 'sentinel-share-backend/**'
       - '.github/workflows/deploy-backend.yml'

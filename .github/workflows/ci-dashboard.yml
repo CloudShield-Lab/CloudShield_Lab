@@ -4,7 +4,7 @@ on:
   # PR이 생성되거나 업데이트될 때 대시보드 관련 변경만 검사한다.
   pull_request:
     types: [opened, synchronize, reopened]
-    branches: [master, dev]
+    branches: [main, dev]
     paths:
       - 'attack-dashboard/**'
       - '.github/ignore/**'

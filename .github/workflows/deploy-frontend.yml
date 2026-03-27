@@ -2,7 +2,7 @@ name: Deploy Frontend to S3
 
 on:
   push:
-    branches: [master, dev]
+    branches: [dev]
     paths:
       - 'sentinel-share-frontend/**'
       - '.github/workflows/deploy-frontend.yml'

@@ -2,7 +2,7 @@ name: Deploy Attack Dashboard to ECS
 
 on:
   push:
-    branches: [master, dev]
+    branches: [dev]
     paths:
       - 'attack-dashboard/**'
       - '.github/workflows/deploy-dashboard.yml'

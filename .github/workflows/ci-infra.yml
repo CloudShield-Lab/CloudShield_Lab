@@ -3,7 +3,7 @@ name: PR CI Infra
 on:
   pull_request:
     types: [opened, synchronize, reopened]
-    branches: [master, dev]
+    branches: [main, dev]
     paths:
       - 'infra/**'
       - '.github/ignore/**'
