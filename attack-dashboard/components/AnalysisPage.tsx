@@ -116,11 +116,12 @@ export function AnalysisPage({ mode }: Props) {
                         </span>
                       </>
                     )}
-                    {session.wazuhAlerts && session.wazuhAlerts.length > 0 && (
+                    {session.wazuhAlerts &&
+                    (session.wazuhAlerts.vulnerable.length + session.wazuhAlerts.secure.length > 0) && (
                       <>
                         <span>·</span>
                         <span className="rounded-full border border-orange-200 bg-orange-50 px-2 py-0.5 font-mono text-[10px] text-orange-600">
-                          Wazuh {session.wazuhAlerts.length}건
+                          Wazuh {session.wazuhAlerts.vulnerable.length + session.wazuhAlerts.secure.length}건
                         </span>
                       </>
                     )}
@@ -207,13 +208,14 @@ export function AnalysisPage({ mode }: Props) {
               >
                 <div className="flex items-center gap-2">
                   <span>Wazuh HIDS/NIDS 탐지 알림</span>
-                  {!session.wazuhAlerts || session.wazuhAlerts.length === 0 ? (
+                  {!session.wazuhAlerts ||
+                  (session.wazuhAlerts.vulnerable.length + session.wazuhAlerts.secure.length === 0) ? (
                     <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[9px] text-slate-400">
                       데이터 없음
                     </span>
                   ) : (
                     <span className="rounded-full border border-orange-200 bg-orange-50 px-2 py-0.5 text-[9px] font-medium text-orange-600">
-                      {session.wazuhAlerts.length}건
+                      {session.wazuhAlerts.vulnerable.length + session.wazuhAlerts.secure.length}건
                     </span>
                   )}
                 </div>
@@ -222,45 +224,65 @@ export function AnalysisPage({ mode }: Props) {
 
               {showWazuhAlerts && (
                 <div className="border-t border-slate-200 p-4">
-                  {!session.wazuhAlerts || session.wazuhAlerts.length === 0 ? (
+                  {!session.wazuhAlerts ||
+                  (session.wazuhAlerts.vulnerable.length + session.wazuhAlerts.secure.length === 0) ? (
                     <p className="py-4 text-center text-xs text-slate-400">
                       Wazuh가 구성되지 않았거나 탐지된 알림이 없습니다.
                     </p>
                   ) : (
-                    <div className="flex max-h-96 flex-col gap-2 overflow-y-auto">
-                      {session.wazuhAlerts.map((alert) => (
-                        <div
-                          key={alert.id}
-                          className={`rounded border p-2 text-[10px] leading-5 ${
-                            alert.rule.level >= 12
-                              ? 'border-red-200 bg-red-50'
-                              : alert.rule.level >= 7
-                              ? 'border-orange-200 bg-orange-50'
-                              : 'border-slate-200 bg-slate-50'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2 font-medium">
-                            <span className={`rounded px-1.5 py-0.5 font-mono text-[9px] ${
-                              alert.rule.level >= 12
-                                ? 'bg-red-100 text-red-700'
-                                : alert.rule.level >= 7
-                                ? 'bg-orange-100 text-orange-700'
-                                : 'bg-slate-100 text-slate-600'
-                            }`}>
-                              lv.{alert.rule.level}
-                            </span>
-                            <span className="text-slate-500 font-mono">rule {alert.rule.id}</span>
-                            <span className="text-slate-400">agent: {alert.agent.name}</span>
-                            <span className="ml-auto text-slate-400">{new Date(alert.timestamp).toLocaleTimeString('ko-KR')}</span>
+                    <div className="grid grid-cols-2 gap-4">
+                      {(['vulnerable', 'secure'] as const).map((env) => {
+                        const alerts = session.wazuhAlerts![env];
+                        const label = env === 'vulnerable' ? '취약 환경' : '보안 환경';
+                        const headerCls = env === 'vulnerable'
+                          ? 'text-red-600 bg-red-50 border-red-200'
+                          : 'text-blue-600 bg-blue-50 border-blue-200';
+                        return (
+                          <div key={env}>
+                            <div className={`mb-2 rounded border px-2 py-1 text-[10px] font-medium ${headerCls}`}>
+                              {label} — {alerts.length}건
+                            </div>
+                            {alerts.length === 0 ? (
+                              <p className="py-2 text-center text-[10px] text-slate-400">탐지 없음</p>
+                            ) : (
+                              <div className="flex max-h-80 flex-col gap-1.5 overflow-y-auto">
+                                {alerts.map((alert) => (
+                                  <div
+                                    key={alert.id}
+                                    className={`rounded border p-2 text-[10px] leading-5 ${
+                                      alert.rule.level >= 12
+                                        ? 'border-red-200 bg-red-50'
+                                        : alert.rule.level >= 7
+                                        ? 'border-orange-200 bg-orange-50'
+                                        : 'border-slate-200 bg-slate-50'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2 font-medium">
+                                      <span className={`rounded px-1.5 py-0.5 font-mono text-[9px] ${
+                                        alert.rule.level >= 12
+                                          ? 'bg-red-100 text-red-700'
+                                          : alert.rule.level >= 7
+                                          ? 'bg-orange-100 text-orange-700'
+                                          : 'bg-slate-100 text-slate-600'
+                                      }`}>
+                                        lv.{alert.rule.level}
+                                      </span>
+                                      <span className="text-slate-500 font-mono">rule {alert.rule.id}</span>
+                                      <span className="ml-auto text-slate-400">{new Date(alert.timestamp).toLocaleTimeString('ko-KR')}</span>
+                                    </div>
+                                    <div className="mt-1 text-slate-700">{alert.rule.description}</div>
+                                    {alert.full_log && (
+                                      <pre className="mt-1 overflow-x-auto whitespace-pre-wrap font-mono text-[9px] text-slate-500">
+                                        {alert.full_log.slice(0, 300)}
+                                      </pre>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
-                          <div className="mt-1 text-slate-700">{alert.rule.description}</div>
-                          {alert.full_log && (
-                            <pre className="mt-1 overflow-x-auto whitespace-pre-wrap font-mono text-[9px] text-slate-500">
-                              {alert.full_log.slice(0, 300)}
-                            </pre>
-                          )}
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>

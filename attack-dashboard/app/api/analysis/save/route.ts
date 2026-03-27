@@ -55,17 +55,20 @@ export async function POST(request: NextRequest) {
     const fromTime = new Date(new Date(session.startTime).getTime() - 10_000).toISOString();
     const wazuhEnabled = !!process.env.WAZUH_API_URL;
 
-    const [vulnLogs, secureLogs, wazuhAlerts] = await Promise.all([
+    const [vulnLogs, secureLogs, vulnWazuhAlerts, secureWazuhAlerts] = await Promise.all([
       vulnUrl ? fetchRawLogs(vulnUrl, fromTime, toTime) : Promise.resolve([]),
       secureUrl ? fetchRawLogs(secureUrl, fromTime, toTime) : Promise.resolve([]),
       wazuhEnabled
-        ? fetchWazuhAlerts({ from: fromTime, to: toTime })
+        ? fetchWazuhAlerts({ from: fromTime, to: toTime, envFilter: 'vulnerable' })
+        : Promise.resolve([]),
+      wazuhEnabled
+        ? fetchWazuhAlerts({ from: fromTime, to: toTime, envFilter: 'secure' })
         : Promise.resolve([]),
     ]);
 
     session.rawLogs = { vulnerable: vulnLogs, secure: secureLogs };
-    if (wazuhAlerts.length > 0) {
-      session.wazuhAlerts = wazuhAlerts;
+    if (wazuhEnabled && (vulnWazuhAlerts.length > 0 || secureWazuhAlerts.length > 0)) {
+      session.wazuhAlerts = { vulnerable: vulnWazuhAlerts, secure: secureWazuhAlerts };
     }
   }
 
